@@ -52,7 +52,6 @@ Install with [`cargo-php`](https://github.com/davidcole1340/ext-php-rs):
 
 ```bash
 # Install cargo-php if you haven't already
-tools version
 # (ensures you have the latest cargo-php installer)
 cargo install cargo-php --locked
 
