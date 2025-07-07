@@ -1,0 +1,18 @@
+[package]
+name = "php-hardened"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+ext-php-rs = { git = "https://github.com/davidcole1340/ext-php-rs.git", branch = "master", features = ["anyhow"] }
+url = "2.5.4"
+
+[features]
+
+[dev-dependencies]
+criterion = "0.6.0"
+
+[[bench]]
+name = "benchmark"
+harness = false
