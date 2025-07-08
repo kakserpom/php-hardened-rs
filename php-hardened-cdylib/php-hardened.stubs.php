@@ -272,7 +272,7 @@ namespace Hardened {
          * Overwrites the set of allowed tags.
          *
          * # Parameters
-         * - `tags`: A `Zval` array of allowed tag names.
+         * - `tags`: An array of allowed tag names.
          *
          * # Exceptions
          * - PhpException if the sanitizer is not in a valid state.
@@ -281,10 +281,51 @@ namespace Hardened {
         public function tags(mixed $tags): mixed {}
 
         /**
+         * Sets the tags whose contents will be completely removed from the output.
+         *
+         * # Parameters
+         * - `tags`: An array of allowed tag names.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
+         * - Exception if `tags` is not an array.
+         * - Adding tags which are whitelisted in tags or tag_attributes will cause a panic.
+         */
+        public function cleanContentTags(mixed $tags): mixed {}
+
+        /**
+         * Add additional blacklisted clean-content tags without overwriting old ones.
+         *
+         * Does nothing if the tag is already there.
+         *
+         * # Parameters
+         * - `tags`: An array of tag names to add.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
+         * - Exception if `tags` is not an array.
+         */
+        public function addCleanContentTags(mixed $tags): mixed {}
+
+        /**
+         * Remove already-blacklisted clean-content tags.
+         *
+         * Does nothing if the tags aren’t blacklisted.
+         *
+         * # Parameters
+         * - `tags`: An array of tag names to add.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
+         * - Exception if `tags` is not an array.
+         */
+        public function rmCleanContentTags(mixed $tags): mixed {}
+
+        /**
          * Adds additional allowed tags to the existing whitelist.
          *
          * # Parameters
-         * - `tags`: A `Zval` array of tag names to add.
+         * - `tags`: An array of tag names to add.
          *
          * # Exceptions
          * - PhpException if the sanitizer is not in a valid state.
@@ -296,7 +337,7 @@ namespace Hardened {
          * Removes tags from the whitelist.
          *
          * # Parameters
-         * - `tags`: A `Zval` array of tag names to remove.
+         * - `tags`: An array of tag names to remove.
          *
          * # Exceptions
          * - PhpException if the sanitizer is not in a valid state.
@@ -307,8 +348,8 @@ namespace Hardened {
          * Adds allowed CSS classes for a specific tag.
          *
          * # Parameters
-         * - `tag`: A `Zval` string tag name.
-         * - `classes`: A `Zval` array of CSS class names.
+         * - `tag`: A string tag name.
+         * - `classes`: An array of CSS class names.
          *
          * # Exceptions
          * - PhpException if the sanitizer is not in a valid state.
@@ -319,8 +360,8 @@ namespace Hardened {
          * Removes allowed CSS classes from a specific tag.
          *
          * # Parameters
-         * - `tag`: A `Zval` string tag name.
-         * - `classes`: A `Zval` array of CSS class names to remove.
+         * - `tag`: A string tag name.
+         * - `classes`: An array of CSS class names to remove.
          *
          * # Exceptions
          * - PhpException if the sanitizer is not in a valid state.
@@ -331,8 +372,8 @@ namespace Hardened {
          * Adds allowed attributes to a specific tag.
          *
          * # Parameters
-         * - `tag`: A `Zval` string tag name.
-         * - `attributes`: A `Zval` array of attribute names.
+         * - `tag`: A string tag name.
+         * - `attributes`: An array of attribute names.
          *
          * # Exceptions
          * - PhpException if the sanitizer is not in a valid state.
@@ -343,8 +384,8 @@ namespace Hardened {
          * Removes attributes from a specific tag.
          *
          * # Parameters
-         * - `tag`: A `Zval` string tag name.
-         * - `classes`: A `Zval` array of attribute names to remove.
+         * - `tag`: A string tag name.
+         * - `classes`: An array of attribute names to remove.
          *
          * # Exceptions
          * - PhpException if the sanitizer is not in a valid state.
@@ -355,7 +396,7 @@ namespace Hardened {
          * Adds generic attributes to all tags.
          *
          * # Parameters
-         * - `attributes`: A `Zval` array of attribute names to allow.
+         * - `attributes`: An array of attribute names to allow.
          *
          * # Exceptions
          * - `PhpException` if the sanitizer is not in a valid state.
@@ -367,7 +408,7 @@ namespace Hardened {
          * Removes generic attributes from all tags.
          *
          * # Parameters
-         * - `attributes`: A `Zval` array of attribute names to remove.
+         * - `attributes`: An array of attribute names to remove.
          *
          * # Exceptions
          * - `PhpException` if the sanitizer is not in a valid state.
@@ -378,7 +419,7 @@ namespace Hardened {
          * Adds prefixes for generic attributes.
          *
          * # Parameters
-         * - `prefixes`: A `Zval` array of prefixes to allow.
+         * - `prefixes`: An array of prefixes to allow.
          *
          * # Exceptions
          * - `PhpException` if the sanitizer is not in a valid state.
@@ -389,7 +430,7 @@ namespace Hardened {
          * Removes prefixes for generic attributes.
          *
          * # Parameters
-         * - `prefixes`: A `Zval` array of prefixes to remove.
+         * - `prefixes`: An array of prefixes to remove.
          *
          * # Exceptions
          * - `PhpException` if the sanitizer is not in a valid state.
@@ -414,7 +455,7 @@ namespace Hardened {
          * Whitelists URL schemes (e.g., "http", "https").
          *
          * # Parameters
-         * - `schemes`: A `Zval` array of scheme strings to allow.
+         * - `schemes`: An array of scheme strings to allow.
          *
          * # Exceptions
          * - `PhpException` if the sanitizer is not in a valid state.
@@ -458,7 +499,7 @@ namespace Hardened {
          * Filters CSS style properties allowed in `style` attributes.
          *
          * # Parameters
-         * - `props`: A `Zval` array of CSS property names to allow.
+         * - `props`: An array of CSS property names to allow.
          *
          * # Exceptions
          * - `PhpException` if the sanitizer is not in a valid state.
@@ -469,8 +510,8 @@ namespace Hardened {
          * Sets a single tag attribute value.
          *
          * # Parameters
-         * - `tag`: The tag name as a `Zval` string.
-         * - `attribute`: The attribute name as a `Zval` string.
+         * - `tag`: The tag name as A string.
+         * - `attribute`: The attribute name as A string.
          * - `value`: The value to set.
          *
          * # Exceptions
@@ -504,7 +545,7 @@ namespace Hardened {
          * Bulk overwrites generic attributes.
          *
          * # Parameters
-         * - `attrs`: A `Zval` array of attribute names.
+         * - `attrs`: An array of attribute names.
          *
          * # Exceptions
          * - `PhpException` if the sanitizer is not in a valid state.
@@ -515,7 +556,7 @@ namespace Hardened {
          * Bulk overwrites generic attribute prefixes.
          *
          * # Parameters
-         * - `prefixes`: A `Zval` array of prefixes.
+         * - `prefixes`: An array of prefixes.
          *
          * # Exceptions
          * - `PhpException` if the sanitizer is not in a valid state.
@@ -526,9 +567,9 @@ namespace Hardened {
          * Adds tag attribute values.
          *
          * # Parameters
-         * - `tag`: A `Zval` string tag name.
-         * - `attr`: A `Zval` string attribute name.
-         * - `values`: A `Zval` array of values to allow.
+         * - `tag`: A string tag name.
+         * - `attr`: A string attribute name.
+         * - `values`: An array of values to allow.
          *
          * # Exceptions
          * - `PhpException` if the sanitizer is not in a valid state.
@@ -539,9 +580,9 @@ namespace Hardened {
          * Removes tag attribute values.
          *
          * # Parameters
-         * - `tag`: A `Zval` string tag name.
-         * - `attr`: A `Zval` string attribute name.
-         * - `values`: A `Zval` array of values to remove.
+         * - `tag`: A string tag name.
+         * - `attr`: A string attribute name.
+         * - `values`: An array of values to remove.
          *
          * # Exceptions
          * - `PhpException` if the sanitizer is not in a valid state.
@@ -552,8 +593,8 @@ namespace Hardened {
          * Gets a single tag attribute value setting.
          *
          * # Parameters
-         * - `tag`: The tag name as a `Zval` string.
-         * - `attr`: The attribute name as a `Zval` string.
+         * - `tag`: The tag name as A string.
+         * - `attr`: The attribute name as A string.
          *
          * # Returns
          * - `Option<String>` The configured value or `None` if unset.

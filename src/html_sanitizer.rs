@@ -119,7 +119,7 @@ impl HtmlSanitizer {
     /// Overwrites the set of allowed tags.
     ///
     /// # Parameters
-    /// - `tags`: A `Zval` array of allowed tag names.
+    /// - `tags`: An array of allowed tag names.
     ///
     /// # Exceptions
     /// - PhpException if the sanitizer is not in a valid state.
@@ -134,10 +134,69 @@ impl HtmlSanitizer {
         Ok(())
     }
 
+    /// Sets the tags whose contents will be completely removed from the output.
+    ///
+    /// # Parameters
+    /// - `tags`: An array of allowed tag names.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
+    /// - Exception if `tags` is not an array.
+    /// - Adding tags which are whitelisted in tags or tag_attributes will cause a panic.
+    pub fn clean_content_tags(&mut self, tags: &Zval) -> PhpResult<()> {
+        let Some(x) = self.inner.as_mut() else {
+            return Err(PhpException::from("You cannot do this now"));
+        };
+        x.clean_content_tags(arg_into_hashset(
+            tags.array().ok_or_else(|| anyhow!("tags must be array"))?,
+        ));
+        Ok(())
+    }
+
+    /// Add additional blacklisted clean-content tags without overwriting old ones.
+    ///
+    /// Does nothing if the tag is already there.
+    ///
+    /// # Parameters
+    /// - `tags`: An array of tag names to add.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
+    /// - Exception if `tags` is not an array.
+    pub fn add_clean_content_tags(&mut self, tags: &Zval) -> PhpResult<()> {
+        let Some(x) = self.inner.as_mut() else {
+            return Err(PhpException::from("You cannot do this now"));
+        };
+        x.add_clean_content_tags(arg_into_hashset(
+            tags.array().ok_or_else(|| anyhow!("tags must be array"))?,
+        ));
+        Ok(())
+    }
+
+    /// Remove already-blacklisted clean-content tags.
+    ///
+    /// Does nothing if the tags aren’t blacklisted.
+    ///
+    /// # Parameters
+    /// - `tags`: An array of tag names to add.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
+    /// - Exception if `tags` is not an array.
+    pub fn rm_clean_content_tags(&mut self, tags: &Zval) -> PhpResult<()> {
+        let Some(x) = self.inner.as_mut() else {
+            return Err(PhpException::from("You cannot do this now"));
+        };
+        x.add_clean_content_tags(arg_into_hashset(
+            tags.array().ok_or_else(|| anyhow!("tags must be array"))?,
+        ));
+        Ok(())
+    }
+
     /// Adds additional allowed tags to the existing whitelist.
     ///
     /// # Parameters
-    /// - `tags`: A `Zval` array of tag names to add.
+    /// - `tags`: An array of tag names to add.
     ///
     /// # Exceptions
     /// - PhpException if the sanitizer is not in a valid state.
@@ -155,7 +214,7 @@ impl HtmlSanitizer {
     /// Removes tags from the whitelist.
     ///
     /// # Parameters
-    /// - `tags`: A `Zval` array of tag names to remove.
+    /// - `tags`: An array of tag names to remove.
     ///
     /// # Exceptions
     /// - PhpException if the sanitizer is not in a valid state.
@@ -172,8 +231,8 @@ impl HtmlSanitizer {
     /// Adds allowed CSS classes for a specific tag.
     ///
     /// # Parameters
-    /// - `tag`: A `Zval` string tag name.
-    /// - `classes`: A `Zval` array of CSS class names.
+    /// - `tag`: A string tag name.
+    /// - `classes`: An array of CSS class names.
     ///
     /// # Exceptions
     /// - PhpException if the sanitizer is not in a valid state.
@@ -198,8 +257,8 @@ impl HtmlSanitizer {
     /// Removes allowed CSS classes from a specific tag.
     ///
     /// # Parameters
-    /// - `tag`: A `Zval` string tag name.
-    /// - `classes`: A `Zval` array of CSS class names to remove.
+    /// - `tag`: A string tag name.
+    /// - `classes`: An array of CSS class names to remove.
     ///
     /// # Exceptions
     /// - PhpException if the sanitizer is not in a valid state.
@@ -224,8 +283,8 @@ impl HtmlSanitizer {
     /// Adds allowed attributes to a specific tag.
     ///
     /// # Parameters
-    /// - `tag`: A `Zval` string tag name.
-    /// - `attributes`: A `Zval` array of attribute names.
+    /// - `tag`: A string tag name.
+    /// - `attributes`: An array of attribute names.
     ///
     /// # Exceptions
     /// - PhpException if the sanitizer is not in a valid state.
@@ -250,8 +309,8 @@ impl HtmlSanitizer {
     /// Removes attributes from a specific tag.
     ///
     /// # Parameters
-    /// - `tag`: A `Zval` string tag name.
-    /// - `classes`: A `Zval` array of attribute names to remove.
+    /// - `tag`: A string tag name.
+    /// - `classes`: An array of attribute names to remove.
     ///
     /// # Exceptions
     /// - PhpException if the sanitizer is not in a valid state.
@@ -276,7 +335,7 @@ impl HtmlSanitizer {
     /// Adds generic attributes to all tags.
     ///
     /// # Parameters
-    /// - `attributes`: A `Zval` array of attribute names to allow.
+    /// - `attributes`: An array of attribute names to allow.
     ///
     /// # Exceptions
     /// - `PhpException` if the sanitizer is not in a valid state.
@@ -296,7 +355,7 @@ impl HtmlSanitizer {
     /// Removes generic attributes from all tags.
     ///
     /// # Parameters
-    /// - `attributes`: A `Zval` array of attribute names to remove.
+    /// - `attributes`: An array of attribute names to remove.
     ///
     /// # Exceptions
     /// - `PhpException` if the sanitizer is not in a valid state.
@@ -315,7 +374,7 @@ impl HtmlSanitizer {
     /// Adds prefixes for generic attributes.
     ///
     /// # Parameters
-    /// - `prefixes`: A `Zval` array of prefixes to allow.
+    /// - `prefixes`: An array of prefixes to allow.
     ///
     /// # Exceptions
     /// - `PhpException` if the sanitizer is not in a valid state.
@@ -334,7 +393,7 @@ impl HtmlSanitizer {
     /// Removes prefixes for generic attributes.
     ///
     /// # Parameters
-    /// - `prefixes`: A `Zval` array of prefixes to remove.
+    /// - `prefixes`: An array of prefixes to remove.
     ///
     /// # Exceptions
     /// - `PhpException` if the sanitizer is not in a valid state.
@@ -416,7 +475,7 @@ impl HtmlSanitizer {
     /// Whitelists URL schemes (e.g., "http", "https").
     ///
     /// # Parameters
-    /// - `schemes`: A `Zval` array of scheme strings to allow.
+    /// - `schemes`: An array of scheme strings to allow.
     ///
     /// # Exceptions
     /// - `PhpException` if the sanitizer is not in a valid state.
@@ -480,7 +539,7 @@ impl HtmlSanitizer {
     /// Filters CSS style properties allowed in `style` attributes.
     ///
     /// # Parameters
-    /// - `props`: A `Zval` array of CSS property names to allow.
+    /// - `props`: An array of CSS property names to allow.
     ///
     /// # Exceptions
     /// - `PhpException` if the sanitizer is not in a valid state.
@@ -499,8 +558,8 @@ impl HtmlSanitizer {
     /// Sets a single tag attribute value.
     ///
     /// # Parameters
-    /// - `tag`: The tag name as a `Zval` string.
-    /// - `attribute`: The attribute name as a `Zval` string.
+    /// - `tag`: The tag name as A string.
+    /// - `attribute`: The attribute name as A string.
     /// - `value`: The value to set.
     ///
     /// # Exceptions
@@ -563,7 +622,7 @@ impl HtmlSanitizer {
     /// Bulk overwrites generic attributes.
     ///
     /// # Parameters
-    /// - `attrs`: A `Zval` array of attribute names.
+    /// - `attrs`: An array of attribute names.
     ///
     /// # Exceptions
     /// - `PhpException` if the sanitizer is not in a valid state.
@@ -582,7 +641,7 @@ impl HtmlSanitizer {
     /// Bulk overwrites generic attribute prefixes.
     ///
     /// # Parameters
-    /// - `prefixes`: A `Zval` array of prefixes.
+    /// - `prefixes`: An array of prefixes.
     ///
     /// # Exceptions
     /// - `PhpException` if the sanitizer is not in a valid state.
@@ -601,9 +660,9 @@ impl HtmlSanitizer {
     /// Adds tag attribute values.
     ///
     /// # Parameters
-    /// - `tag`: A `Zval` string tag name.
-    /// - `attr`: A `Zval` string attribute name.
-    /// - `values`: A `Zval` array of values to allow.
+    /// - `tag`: A string tag name.
+    /// - `attr`: A string attribute name.
+    /// - `values`: An array of values to allow.
     ///
     /// # Exceptions
     /// - `PhpException` if the sanitizer is not in a valid state.
@@ -637,9 +696,9 @@ impl HtmlSanitizer {
     /// Removes tag attribute values.
     ///
     /// # Parameters
-    /// - `tag`: A `Zval` string tag name.
-    /// - `attr`: A `Zval` string attribute name.
-    /// - `values`: A `Zval` array of values to remove.
+    /// - `tag`: A string tag name.
+    /// - `attr`: A string attribute name.
+    /// - `values`: An array of values to remove.
     ///
     /// # Exceptions
     /// - `PhpException` if the sanitizer is not in a valid state.
@@ -673,8 +732,8 @@ impl HtmlSanitizer {
     /// Gets a single tag attribute value setting.
     ///
     /// # Parameters
-    /// - `tag`: The tag name as a `Zval` string.
-    /// - `attr`: The attribute name as a `Zval` string.
+    /// - `tag`: The tag name as A string.
+    /// - `attr`: The attribute name as A string.
     ///
     /// # Returns
     /// - `Option<String>` The configured value or `None` if unset.
