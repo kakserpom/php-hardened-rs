@@ -182,43 +182,46 @@ var_dump($sanitizer->clean("<a href='https://github.com/' style=\"font-size: 12p
 
 ### Class `Hardened\HtmlSanitizer`
 
-| Method                                                                    | Signature | Description                                                               |
-|---------------------------------------------------------------------------|-----------|---------------------------------------------------------------------------|
-| `default(): HtmlSanitizer`                                                | static    | Construct with default configuration.                                     |
-| `urlRelativeDeny(): void`                                                 | instance  | Deny all relative URLs. Throws PhpException if invalid state.             |
-| `urlRelativePassthrough(): void`                                          | instance  | Pass through relative URLs. Throws PhpException if invalid state.         |
-| `urlRelativeRewriteWithBase(string $url): void`                           | instance  | Rewrite with base URL. Throws PhpException or Exception on parse errors.  |
-| `urlRelativeRewriteWithRoot(string $root, string $path): void`            | instance  | Rewrite with root and prefix. Throws PhpException or Exception on errors. |
-| `linkRel(?string $value): void`                                           | instance  | Set `<a>` rel attribute. Throws PhpException if invalid state.            |
-| `tags(mixed $tags): void`                                                 | instance  | Overwrite allowed tags. Throws PhpException or Exception if not array.    |
-| `addTags(mixed $tags): void`                                              | instance  | Add to allowed tags. Throws PhpException or Exception if not array.       |
-| `rmTags(mixed $tags): void`                                               | instance  | Remove from allowed tags. Throws PhpException.                            |
-| `addAllowedClasses(mixed $tag, mixed $classes): void`                     | instance  | Add CSS classes. Throws PhpException or Exception if invalid types.       |
-| `rmAllowedClasses(mixed $tag, mixed $classes): void`                      | instance  | Remove CSS classes. Throws PhpException or Exception if invalid types.    |
-| `addTagAttributes(mixed $tag, mixed $attributes): void`                   | instance  | Add tag attributes. Throws PhpException or Exception if invalid types.    |
-| `rmTagAttributes(mixed $tag, mixed $attributes): void`                    | instance  | Remove tag attributes. Throws PhpException or Exception if invalid types. |
-| `addGenericAttributes(mixed $attributes): void`                           | instance  | Add generic attributes. Throws PhpException or Exception if not array.    |
-| `rmGenericAttributes(mixed $attributes): void`                            | instance  | Remove generic attributes. Throws PhpException.                           |
-| `addGenericAttributePrefixes(mixed $prefixes): void`                      | instance  | Add generic prefixes. Throws PhpException or Exception.                   |
-| `rmGenericAttributePrefixes(mixed $prefixes): void`                       | instance  | Remove generic prefixes. Throws PhpException or Exception.                |
-| `clean(string $html): string`                                             | instance  | Sanitize HTML. Applies optional attribute filter.                         |
-| `urlSchemes(mixed $schemes): void`                                        | instance  | Whitelist URL schemes. Throws PhpException or Exception if not array.     |
-| `stripComments(bool $strip): void`                                        | instance  | Enable/disable comment stripping. Throws PhpException.                    |
-| `willStripComments(): bool`                                               | instance  | Returns comment stripping policy. Throws PhpException.                    |
-| `idPrefix(?string $prefix): void`                                         | instance  | Prefix `id` attributes. Throws PhpException.                              |
-| `filterStyleProperties(mixed $props): void`                               | instance  | Filter CSS properties. Throws PhpException or Exception if not array.     |
-| `setTagAttributeValue(mixed $tag, mixed $attribute, string $value): void` | instance  | Set attribute value. Throws PhpException or Exception if invalid types.   |
-| `cloneTags(): array`                                                      | instance  | Get configured tags. Throws PhpException.                                 |
-| `cloneCleanContentTags(): array`                                          | instance  | Get clean-content tags. Throws PhpException.                              |
-| `genericAttributes(mixed $attrs): void`                                   | instance  | Overwrite generic attributes. Throws PhpException or Exception.           |
-| `genericAttributePrefixes(mixed $prefixes): void`                         | instance  | Overwrite generic prefixes. Throws PhpException or Exception.             |
-| `addTagAttributeValues(mixed $tag, mixed $attr, mixed $values): void`     | instance  | Add attribute values. Throws PhpException or Exception.                   |
-| `rmTagAttributeValues(mixed $tag, mixed $attr, mixed $values): void`      | instance  | Remove attribute values. Throws PhpException or Exception.                |
-| `getSetTagAttributeValue(mixed $tag, mixed $attr): ?string`               | instance  | Get single attribute value. Throws PhpException.                          |
-| `isUrlRelativeDeny(): bool`                                               | instance  | Check Deny policy. Throws PhpException.                                   |
-| `isUrlRelativePassThrough(): bool`                                        | instance  | Check PassThrough policy. Throws PhpException.                            |
-| `isUrlRelativeCustom(): bool`                                             | instance  | Check custom rewrite policy. Throws PhpException.                         |
-| `attributeFilter(mixed $callable): void`                                  | instance  | Set attribute filter callback.                                            |
+| Method                                                                      | Signature | Description                                                                                            |
+|-----------------------------------------------------------------------------|-----------|--------------------------------------------------------------------------------------------------------|
+| `default(): HtmlSanitizer`                                                  | static    | Construct a sanitizer with default configuration.                                                      |
+| `urlRelativeDeny(): void`                                                   | Instance  | Deny all relative URLs in attributes.                                                                  |
+| `urlRelativePassthrough(): void`                                            | Instance  | Pass through relative URLs unchanged.                                                                  |
+| `urlRelativeRewriteWithBase(string $base_url): void`                        | Instance  | Rewrite relative URLs using the given base URL.                                                        |
+| `urlRelativeRewriteWithRoot(string $root, string $path): void`              | Instance  | Rewrite relative URLs using a root URL and path prefix.                                                |
+| `linkRel(?string $value): void`                                             | Instance  | Set the `rel` attribute for generated `<a>` tags.                                                      |
+| `tags(array $tags): void`                                                   | Instance  | Overwrite the set of allowed tags.                                                                     |
+| `addTags(array $tags): void`                                                | Instance  | Add additional allowed tags to the existing whitelist.                                                 |
+| `rmTags(array $tags): void`                                                 | Instance  | Remove tags from the whitelist.                                                                        |
+| `addAllowedClasses(string $tag, array $classes): void`                      | Instance  | Add allowed CSS classes for a specific tag.                                                            |
+| `rmAllowedClasses(string $tag, array $classes): void`                       | Instance  | Remove allowed CSS classes from a specific tag.                                                        |
+| `addTagAttributes(string $tag, array $attributes): void`                    | Instance  | Add allowed attributes to a specific tag.                                                              |
+| `rmTagAttributes(string $tag, array $attributes): void`                     | Instance  | Remove attributes from a specific tag.                                                                 |
+| `addGenericAttributes(array $attributes): void`                             | Instance  | Add generic attributes to all tags.                                                                    |
+| `rmGenericAttributes(array $attributes): void`                              | Instance  | Remove generic attributes from all tags.                                                               |
+| `addGenericAttributePrefixes(array $prefixes): void`                        | Instance  | Add prefixes for generic attributes.                                                                   |
+| `rmGenericAttributePrefixes(array $prefixes): void`                         | Instance  | Remove prefixes for generic attributes.                                                                |
+| `clean(string $html): string`                                               | Instance  | Sanitize the given HTML string.                                                                        |
+| `urlSchemes(array $schemes): void`                                          | Instance  | Whitelist URL schemes (e.g., "http", "https").                                                         |
+| `stripComments(bool $strip): void`                                          | Instance  | Enable or disable HTML comment stripping.                                                              |
+| `willStripComments(): bool`                                                 | Instance  | Return whether HTML comments will be stripped.                                                         |
+| `idPrefix(?string $prefix): void`                                           | Instance  | Prefix all `id` attributes with the given string.                                                      |
+| `filterStyleProperties(array $props): void`                                 | Instance  | Filter CSS style properties allowed in `style` attributes.                                             |
+| `setTagAttributeValue(string $tag, string $attribute, string $value): void` | Instance  | Set single tag attribute value.                                                                        |
+| `cloneTags(): array`                                                        | Instance  | Return configured tags as a vector of strings.                                                         |
+| `cloneCleanContentTags(): array`                                            | Instance  | Get all configured clean-content tags.                                                                 |
+| `genericAttributes(array $attrs): void`                                     | Instance  | Bulk overwrite generic attributes.                                                                     |
+| `genericAttributePrefixes(array $prefixes): void`                           | Instance  | Bulk overwrite generic attribute prefixes.                                                             |
+| `addTagAttributeValues(string $tag, string $attr, array $values): void`     | Instance  | Add tag attribute values.                                                                              |
+| `rmTagAttributeValues(string $tag, string $attr, array $values): void`      | Instance  | Remove tag attribute values.                                                                           |
+| `getSetTagAttributeValue(string $tag, string $attr): ?string`               | Instance  | Get a single set_tag_attribute_value.                                                                  |
+| `isUrlRelativeDeny(): bool`                                                 | Instance  | Check URL relative policy: Deny.                                                                       |
+| `isUrlRelativePassThrough(): bool`                                          | Instance  | Check URL relative policy: PassThrough.                                                                |
+| `isUrlRelativeCustom(): bool`                                               | Instance  | Check URL relative policy: custom (Rewrite).                                                           |
+| `attributeFilter(callable $fn): void`                                       | Instance  | Set attribute filter callback: `(string $element, string $attribute, string $value) -> string \|null`. |
+| **`cleanContentTags(array $tags): void`**                                   | Instance  | Sets the tags whose contents will be completely removed from the output.                               |
+| **`addCleanContentTags(array $tags): void`**                                | Instance  | Add additional blacklisted clean-content tags without overwriting old ones.                            |
+| **`rmCleanContentTags(array $tags): void`**                                 | Instance  | Remove already-blacklisted clean-content tags.                                                         |
 
 ---
 

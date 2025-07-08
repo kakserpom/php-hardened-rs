@@ -38,7 +38,7 @@ impl HtmlSanitizer {
     /// Denies all relative URLs in attributes.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     pub fn url_relative_deny(&mut self) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -50,7 +50,7 @@ impl HtmlSanitizer {
     /// Passes through relative URLs unchanged.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     pub fn url_relative_passthrough(&mut self) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -65,7 +65,7 @@ impl HtmlSanitizer {
     /// - `base_url`: The base URL to resolve relative URLs against.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `base_url` is not a valid URL.
     pub fn url_relative_rewrite_with_base(&mut self, base_url: &str) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
@@ -84,7 +84,7 @@ impl HtmlSanitizer {
     /// - `path`: The URL path prefix.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `root` is not a valid URL.
     pub fn url_relative_rewrite_with_root(&mut self, root: &str, path: String) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
@@ -103,7 +103,7 @@ impl HtmlSanitizer {
     /// - `value`: Optional `rel` attribute value; `None` clears it.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     pub fn link_rel(&mut self, value: Option<String>) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -122,7 +122,7 @@ impl HtmlSanitizer {
     /// - `tags`: An array of allowed tag names.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
     pub fn tags(&mut self, tags: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
@@ -140,7 +140,7 @@ impl HtmlSanitizer {
     /// - `tags`: An array of allowed tag names.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
     /// - Adding tags which are whitelisted in tags or tag_attributes will cause a panic.
     pub fn clean_content_tags(&mut self, tags: &Zval) -> PhpResult<()> {
@@ -161,7 +161,7 @@ impl HtmlSanitizer {
     /// - `tags`: An array of tag names to add.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
     pub fn add_clean_content_tags(&mut self, tags: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
@@ -181,7 +181,7 @@ impl HtmlSanitizer {
     /// - `tags`: An array of tag names to add.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
     pub fn rm_clean_content_tags(&mut self, tags: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
@@ -199,7 +199,7 @@ impl HtmlSanitizer {
     /// - `tags`: An array of tag names to add.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
     pub fn add_tags(&mut self, tags: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
@@ -217,7 +217,7 @@ impl HtmlSanitizer {
     /// - `tags`: An array of tag names to remove.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     pub fn rm_tags(&mut self, tags: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -235,7 +235,7 @@ impl HtmlSanitizer {
     /// - `classes`: An array of CSS class names.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     pub fn add_allowed_classes(&mut self, tag: &Zval, classes: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -261,7 +261,7 @@ impl HtmlSanitizer {
     /// - `classes`: An array of CSS class names to remove.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     pub fn rm_allowed_classes(&mut self, tag: &Zval, classes: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -287,7 +287,7 @@ impl HtmlSanitizer {
     /// - `attributes`: An array of attribute names.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     pub fn add_tag_attributes(&mut self, tag: &Zval, attributes: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -313,7 +313,7 @@ impl HtmlSanitizer {
     /// - `classes`: An array of attribute names to remove.
     ///
     /// # Exceptions
-    /// - PhpException if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     pub fn rm_tag_attributes(&mut self, tag: &Zval, classes: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));

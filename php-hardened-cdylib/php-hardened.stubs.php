@@ -220,7 +220,7 @@ namespace Hardened {
          * Denies all relative URLs in attributes.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          */
         public function urlRelativeDeny(): mixed {}
 
@@ -228,7 +228,7 @@ namespace Hardened {
          * Passes through relative URLs unchanged.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          */
         public function urlRelativePassthrough(): mixed {}
 
@@ -239,7 +239,7 @@ namespace Hardened {
          * - `base_url`: The base URL to resolve relative URLs against.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          * - Exception if `base_url` is not a valid URL.
          */
         public function urlRelativeRewriteWithBase(string $base_url): mixed {}
@@ -252,7 +252,7 @@ namespace Hardened {
          * - `path`: The URL path prefix.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          * - Exception if `root` is not a valid URL.
          */
         public function urlRelativeRewriteWithRoot(string $root, string $path): mixed {}
@@ -264,7 +264,7 @@ namespace Hardened {
          * - `value`: Optional `rel` attribute value; `None` clears it.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          */
         public function linkRel(?string $value): mixed {}
 
@@ -275,7 +275,7 @@ namespace Hardened {
          * - `tags`: An array of allowed tag names.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          * - Exception if `tags` is not an array.
          */
         public function tags(mixed $tags): mixed {}
@@ -287,7 +287,7 @@ namespace Hardened {
          * - `tags`: An array of allowed tag names.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          * - Exception if `tags` is not an array.
          * - Adding tags which are whitelisted in tags or tag_attributes will cause a panic.
          */
@@ -302,7 +302,7 @@ namespace Hardened {
          * - `tags`: An array of tag names to add.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          * - Exception if `tags` is not an array.
          */
         public function addCleanContentTags(mixed $tags): mixed {}
@@ -316,7 +316,7 @@ namespace Hardened {
          * - `tags`: An array of tag names to add.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          * - Exception if `tags` is not an array.
          */
         public function rmCleanContentTags(mixed $tags): mixed {}
@@ -328,7 +328,7 @@ namespace Hardened {
          * - `tags`: An array of tag names to add.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          * - Exception if `tags` is not an array.
          */
         public function addTags(mixed $tags): mixed {}
@@ -340,7 +340,7 @@ namespace Hardened {
          * - `tags`: An array of tag names to remove.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          */
         public function rmTags(mixed $tags): mixed {}
 
@@ -352,7 +352,7 @@ namespace Hardened {
          * - `classes`: An array of CSS class names.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          */
         public function addAllowedClasses(mixed $tag, mixed $classes): mixed {}
 
@@ -364,7 +364,7 @@ namespace Hardened {
          * - `classes`: An array of CSS class names to remove.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          */
         public function rmAllowedClasses(mixed $tag, mixed $classes): mixed {}
 
@@ -376,7 +376,7 @@ namespace Hardened {
          * - `attributes`: An array of attribute names.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          */
         public function addTagAttributes(mixed $tag, mixed $attributes): mixed {}
 
@@ -388,7 +388,7 @@ namespace Hardened {
          * - `classes`: An array of attribute names to remove.
          *
          * # Exceptions
-         * - PhpException if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          */
         public function rmTagAttributes(mixed $tag, mixed $classes): mixed {}
 
