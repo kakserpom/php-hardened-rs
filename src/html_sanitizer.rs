@@ -47,6 +47,32 @@ impl HtmlSanitizer {
         Ok(())
     }
 
+    /// Checks whether a URL is valid according to the sanitizer’s configured
+    /// URL scheme whitelist and relative-URL policy.
+    ///
+    /// # Parameters
+    /// - `url`: The URL string to validate.
+    ///
+    /// # Returns
+    /// - `bool`: `true` if the URL’s scheme is whitelisted, or if it is a relative URL
+    ///   and relative URLs are permitted; `false` otherwise.
+    ///
+    /// # Exceptions
+    /// - Throws `Exception` if the sanitizer is not in a valid state.
+    pub fn is_valid_url(&self, url: &str) -> PhpResult<bool> {
+        let Some(x) = self.inner.as_ref() else {
+            return Err(PhpException::from("You cannot do this now"));
+        };
+        let url = Url::parse(&url);
+        Ok(if let Ok(url) = url {
+            x.clone_url_schemes().contains(url.scheme())
+        } else if url == Err(url::ParseError::RelativeUrlWithoutBase) {
+            !x.is_url_relative_deny()
+        } else {
+            false
+        })
+    }
+
     /// Passes through relative URLs unchanged.
     ///
     /// # Exceptions
@@ -509,10 +535,10 @@ impl HtmlSanitizer {
     /// Returns whether HTML comments will be stripped.
     ///
     /// # Returns
-    /// - `bool` `true` if comments will be stripped; `false` otherwise.
+    /// - `bool`: `true` if comments will be stripped; `false` otherwise.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     pub fn will_strip_comments(&self) -> PhpResult<bool> {
         let Some(x) = self.inner.as_ref() else {
             return Err(PhpException::from("You cannot do this now"));
