@@ -141,7 +141,9 @@ $sanitizer->filterStyleProperties(["color", "font-size"]);
 var_dump($sanitizer->clean("<a href='../evil'>Click</a>"));
 // string(38) "<a rel="noopener noreferrer">Click</a>"
 
-var_dump($sanitizer->clean("<a href='https://github.com/' style=\"font-size: 12px; color: red; font-weight: bold;\">Click</a>"));
+var_dump($sanitizer->clean(
+  "<a href='https://github.com/' style=\"font-size: 12px; color: red; font-weight: bold;\">Click</a>"
+));
 // string(98) "<a href="https://github.com/" style="font-size:12px;color:red" rel="noopener noreferrer">Click</a>"
 
 var_dump($sanitizer->isValidUrl("https://github.com"));
