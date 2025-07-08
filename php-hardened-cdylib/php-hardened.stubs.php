@@ -225,6 +225,22 @@ namespace Hardened {
         public function urlRelativeDeny(): mixed {}
 
         /**
+         * Checks whether a URL is valid according to the sanitizer’s configured
+         * URL scheme whitelist and relative-URL policy.
+         *
+         * # Parameters
+         * - `url`: The URL string to validate.
+         *
+         * # Returns
+         * - `bool`: `true` if the URL’s scheme is whitelisted, or if it is a relative URL
+         *   and relative URLs are permitted; `false` otherwise.
+         *
+         * # Exceptions
+         * - Throws `Exception` if the sanitizer is not in a valid state.
+         */
+        public function isValidUrl(string $url): bool {}
+
+        /**
          * Passes through relative URLs unchanged.
          *
          * # Exceptions
@@ -477,10 +493,10 @@ namespace Hardened {
          * Returns whether HTML comments will be stripped.
          *
          * # Returns
-         * - `bool` `true` if comments will be stripped; `false` otherwise.
+         * - `bool`: `true` if comments will be stripped; `false` otherwise.
          *
          * # Exceptions
-         * - `PhpException` if the sanitizer is not in a valid state.
+         * - `Exception` if the sanitizer is not in a valid state.
          */
         public function willStripComments(): bool {}
 

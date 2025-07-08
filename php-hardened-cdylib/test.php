@@ -6,10 +6,19 @@ $sanitizer->urlRelativeDeny();
 $sanitizer->tags(["a", "p"]);
 $sanitizer->addTagAttributes("a", ["style"]);
 $sanitizer->filterStyleProperties(["color", "font-size"]);
-var_dump($sanitizer->clean("<a href='../evil'>Click</a>"));
+var_dump($sanitizer->clean("<a href='../evil'>Click</a><p>"));
 var_dump($sanitizer->clean("<a href='https://github.com/' \
-style=\"font-size: 12px; color: red; font-weight: bold;\">Click</a>"));
+style='font-size: 12px; color: red; font-weight: bold;'>Click</a>"));
+var_dump($sanitizer->isValidUrl("https://github.com"));
+// bool(true)
+var_dump($sanitizer->isValidUrl("javascript:alert(1)"));
+// bool(false)
+var_dump($sanitizer->isValidUrl("foo"));
+// bool(false)
+
 return;
+
+
 use Hardened\Hostname;
 
 var_dump(Hostname::fromUrl("https://example.com/php")->equals("eXaMple.com.")); // bool(true)
