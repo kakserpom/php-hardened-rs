@@ -1,11 +1,15 @@
 <?php
-$htmlSanitizer = Hardened\HtmlSanitizer::default();
-//$htmlSanitizer->urlRelative();
-$htmlSanitizer->attributeFilter(function($element, $attribute, $value) {
-});
-var_dump($htmlSanitizer->clean("<a href='a/../a'>aa</a>"));
-return;
+use Hardened\HtmlSanitizer;
 
+$sanitizer = HtmlSanitizer::default();
+$sanitizer->urlRelativeDeny();
+$sanitizer->tags(["a", "p"]);
+$sanitizer->addTagAttributes("a", ["style"]);
+$sanitizer->filterStyleProperties(["color", "font-size"]);
+var_dump($sanitizer->clean("<a href='../evil'>Click</a>"));
+var_dump($sanitizer->clean("<a href='https://github.com/' \
+style=\"font-size: 12px; color: red; font-weight: bold;\">Click</a>"));
+return;
 use Hardened\Hostname;
 
 var_dump(Hostname::fromUrl("https://example.com/php")->equals("eXaMple.com.")); // bool(true)

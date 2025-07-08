@@ -121,7 +121,7 @@ var_dump($path->join("../zzz")->startsWith($path));
 // bool(false)
 
 try {
-    var_dump($path->joinWithin("../zzz")); // nope
+    var_dump($path->joinWithin("../zzz")); // throws
 } catch (Throwable $e) {
     echo ";-)" . PHP_EOL;
 }
@@ -138,6 +138,9 @@ $sanitizer->urlRelativeDeny();
 $sanitizer->tags(["a", "p"]);
 $sanitizer->filterStyleProperties(["color", "font-size"]);
 var_dump($sanitizer->clean("<a href='../evil'>Click</a>"));
+// string(38) "<a rel="noopener noreferrer">Click</a>"
+var_dump($sanitizer->clean("<a href='https://github.com/' style=\"font-size: 12px; color: red; font-weight: bold;\">Click</a>"));
+// string(98) "<a href="https://github.com/" style="font-size:12px;color:red" rel="noopener noreferrer">Click</a>"
 ```
 
 ---
