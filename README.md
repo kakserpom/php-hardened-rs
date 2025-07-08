@@ -164,13 +164,18 @@ var_dump($sanitizer->clean("<a href='../evil'>Click</a>"));
 
 ### Class `Hardened\Path`
 
-| Method                                    | Signature | Description                                           |
-|-------------------------------------------|-----------|-------------------------------------------------------|
-| `from(mixed $path): Path`                 | `static`  | Parse or wrap string/Zval/Path.                       |
-| `startsWith(mixed $prefix): bool`         | Instance  | Check prefix against string or Path.                  |
-| `join(mixed $segment): Path`              | Instance  | Append string or Path, then canonicalize.             |
-| `joinWithin(mixed $segment): Path`        | Instance  | Append, canonicalize, enforce within-base constraint. |
-| `path(): string` / `__toString(): string` | Instance  | Convert to string.                                    |
+| Method                                 | Signature | Description                                                 |
+|----------------------------------------|-----------|-------------------------------------------------------------|
+| `from(mixed $path): Path`              | static    | Parse or wrap a string/Zval/Path and canonicalize it.       |
+| `__construct(mixed $path)`             | Instance  | Alias for `from()`.                                         |
+| `startsWith(mixed $prefix): bool`      | Instance  | Check if this path begins with the given prefix.            |
+| `join(mixed $segment): Path`           | Instance  | Append a segment (string/Zval/Path), then canonicalize.     |
+| `joinWithin(mixed $segment): Path`     | Instance  | Append a segment and enforce that result stays within base. |
+| `setFileName(mixed $file_name): Path`  | Instance  | Replace the file name component.                            |
+| `setExtension(mixed $extension): Path` | Instance  | Replace the file extension (without leading dot).           |
+| `fileName(): ?string`                  | Instance  | Get the final path component, or `null` if none.            |
+| `path(): string`                       | Instance  | Get the full canonicalized path as a string.                |
+| `__toString(): string`                 | Instance  | Alias for `path()`.                                         |
 
 ### Class `Hardened\HtmlSanitizer`
 
