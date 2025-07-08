@@ -1,4 +1,11 @@
 <?php
+$htmlSanitizer = Hardened\HtmlSanitizer::default();
+//$htmlSanitizer->urlRelative();
+$htmlSanitizer->attributeFilter(function($element, $attribute, $value) {
+});
+var_dump($htmlSanitizer->clean("<a href='a/../a'>aa</a>"));
+return;
+
 use Hardened\Hostname;
 
 var_dump(Hostname::fromUrl("https://example.com/php")->equals("eXaMple.com.")); // bool(true)

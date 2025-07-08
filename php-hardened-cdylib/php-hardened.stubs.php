@@ -178,6 +178,12 @@ namespace Hardened {
          */
         public function joinWithin(mixed $path): \Hardened\Path {}
 
+        public function setFileName(mixed $file_name): \Hardened\Path {}
+
+        public function setExtension(mixed $file_name): \Hardened\Path {}
+
+        public function fileName(): ?string {}
+
         /**
          * Converts the path to its string representation.
          *
@@ -192,5 +198,188 @@ namespace Hardened {
         public function path(): string {}
 
         public function __construct(mixed $path) {}
+    }
+
+    /**
+     * PHP class wrapping Ammonia's HTML sanitizer builder.
+     * Allows customized sanitization through PHP method calls.
+     */
+    class HtmlSanitizer {
+        /**
+         * Construct a sanitizer with default configuration.
+         */
+        public static function default(): \Hardened\HtmlSanitizer {}
+
+        /**
+         * Deny all relative URLs in attributes.
+         */
+        public function urlRelativeDeny(): mixed {}
+
+        /**
+         * Pass through relative URLs unchanged.
+         */
+        public function urlRelativePassthrough(): mixed {}
+
+        /**
+         * Rewrite relative URLs using the given base URL.
+         */
+        public function urlRelativeRewriteWithBase(string $base_url): mixed {}
+
+        /**
+         * Rewrite relative URLs using a root URL and path prefix.
+         */
+        public function urlRelativeRewriteWithRoot(string $root, string $path): mixed {}
+
+        /**
+         * Set the `rel` attribute for generated `<a>` tags.
+         */
+        public function linkRel(?string $value): mixed {}
+
+        /**
+         * Overwrite the set of allowed tags.
+         */
+        public function tags(mixed $tags): mixed {}
+
+        /**
+         * Add additional allowed tags to the existing whitelist.
+         */
+        public function addTags(mixed $tags): mixed {}
+
+        /**
+         * Remove tags from the whitelist.
+         */
+        public function rmTags(mixed $tags): mixed {}
+
+        /**
+         * Add allowed CSS classes for a specific tag.
+         */
+        public function addAllowedClasses(mixed $tag, mixed $classes): mixed {}
+
+        /**
+         * Remove allowed CSS classes from a specific tag.
+         */
+        public function rmAllowedClasses(mixed $tag, mixed $classes): mixed {}
+
+        /**
+         * Add allowed attributes to a specific tag.
+         */
+        public function addTagAttributes(mixed $tag, mixed $attributes): mixed {}
+
+        /**
+         * Remove attributes from a specific tag.
+         */
+        public function rmTagAttributes(mixed $tag, mixed $classes): mixed {}
+
+        /**
+         * Add generic attributes to all tags.
+         */
+        public function addGenericAttributes(mixed $attributes): mixed {}
+
+        /**
+         * Remove generic attributes from all tags.
+         */
+        public function rmGenericAttributes(mixed $attributes): mixed {}
+
+        /**
+         * Add prefixes for generic attributes.
+         */
+        public function addGenericAttributePrefixes(mixed $prefixes): mixed {}
+
+        /**
+         * Remove prefixes for generic attributes.
+         */
+        public function rmGenericAttributePrefixes(mixed $prefixes): mixed {}
+
+        /**
+         * Sanitize the given HTML string.
+         */
+        public function clean(string $html): string {}
+
+        /**
+         * Whitelist URL schemes (e.g., "http", "https").
+         */
+        public function urlSchemes(mixed $schemes): mixed {}
+
+        /**
+         * Enable or disable HTML comment stripping.
+         */
+        public function stripComments(bool $strip): mixed {}
+
+        /**
+         * Return whether HTML comments will be stripped.
+         */
+        public function willStripComments(): bool {}
+
+        /**
+         * Prefix all `id` attributes with the given string.
+         */
+        public function idPrefix(?string $prefix): mixed {}
+
+        /**
+         * Filter CSS style properties allowed in `style` attributes.
+         */
+        public function filterStyleProperties(mixed $props): mixed {}
+
+        /**
+         * Set single tag attribute value
+         */
+        public function setTagAttributeValue(mixed $tag, mixed $attribute, string $value): mixed {}
+
+        /**
+         * Return configured tags as a vector of strings.
+         */
+        public function cloneTags(): array {}
+
+        /**
+         * Get all configured clean-content tags
+         */
+        public function cloneCleanContentTags(): array {}
+
+        /**
+         * Bulk overwrite generic attributes
+         */
+        public function genericAttributes(mixed $attrs): mixed {}
+
+        /**
+         * Bulk overwrite generic attribute prefixes
+         */
+        public function genericAttributePrefixes(mixed $prefixes): mixed {}
+
+        /**
+         * Add tag attribute values
+         */
+        public function addTagAttributeValues(mixed $tag, mixed $attr, mixed $values): mixed {}
+
+        /**
+         * Remove tag attribute values
+         */
+        public function rmTagAttributeValues(mixed $tag, mixed $attr, mixed $values): mixed {}
+
+        /**
+         * Get a single set_tag_attribute_value
+         */
+        public function getSetTagAttributeValue(mixed $tag, mixed $attr): ?string {}
+
+        /**
+         * Check URL relative policy: Deny
+         */
+        public function isUrlRelativeDeny(): bool {}
+
+        /**
+         * Check URL relative policy: PassThrough
+         */
+        public function isUrlRelativePassThrough(): bool {}
+
+        /**
+         * Check URL relative policy: custom (Rewrite)
+         */
+        public function isUrlRelativeCustom(): bool {}
+
+        /**
+         * Set attribute filter map using a PHP callback
+         */
+        public function attributeFilter(mixed $callable): mixed {}
+
+        public function __construct() {}
     }
 }

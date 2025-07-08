@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+#ammonia = "4.1.0"
+ammonia = {path = "ammonia"}
 anyhow = "1.0.98"
 ext-php-rs = { git = "https://github.com/davidcole1340/ext-php-rs.git", branch = "master", features = ["anyhow"] }
 url = "2.5.4"

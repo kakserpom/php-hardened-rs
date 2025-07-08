@@ -2,6 +2,7 @@ use crate::to_str;
 use ext_php_rs::prelude::{PhpException, PhpResult};
 use ext_php_rs::types::Zval;
 use ext_php_rs::{php_class, php_impl};
+use std::ffi::OsStr;
 use std::path::Component;
 use std::path::{Path, PathBuf};
 
@@ -82,6 +83,25 @@ impl PathObj {
         } else {
             Err(PhpException::from("Not a sub path"))
         }
+    }
+
+    pub fn set_file_name(&mut self, file_name: &Zval) -> PhpResult<Self> {
+        let mut inner = self.inner.clone();
+        inner.set_file_name(to_str(file_name)?);
+        Ok(Self { inner })
+    }
+
+    pub fn set_extension(&mut self, file_name: &Zval) -> PhpResult<Self> {
+        let mut inner = self.inner.clone();
+        inner.set_extension(to_str(file_name)?);
+        Ok(Self { inner })
+    }
+
+    pub fn file_name(&self) -> Option<String> {
+        self.inner
+            .file_name()
+            .and_then(OsStr::to_str)
+            .map(str::to_string)
     }
 
     /// Converts the path to its string representation.
