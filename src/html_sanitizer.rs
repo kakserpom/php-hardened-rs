@@ -21,7 +21,13 @@ pub struct HtmlSanitizer {
 #[php_impl]
 impl HtmlSanitizer {
     #[inline]
-    /// Construct a sanitizer with default configuration.
+    /// Constructs a sanitizer with default configuration.
+    ///
+    /// # Returns
+    /// - HtmlSanitizer A new sanitizer instance.
+    ///
+    /// # Notes
+    /// - No exceptions are thrown.
     pub fn default() -> Self {
         Self {
             attribute_filter: None,
@@ -29,7 +35,10 @@ impl HtmlSanitizer {
         }
     }
 
-    /// Deny all relative URLs in attributes.
+    /// Denies all relative URLs in attributes.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
     pub fn url_relative_deny(&mut self) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -38,7 +47,10 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Pass through relative URLs unchanged.
+    /// Passes through relative URLs unchanged.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
     pub fn url_relative_passthrough(&mut self) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -47,7 +59,14 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Rewrite relative URLs using the given base URL.
+    /// Rewrites relative URLs using the given base URL.
+    ///
+    /// # Parameters
+    /// - `base_url`: The base URL to resolve relative URLs against.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
+    /// - Exception if `base_url` is not a valid URL.
     pub fn url_relative_rewrite_with_base(&mut self, base_url: &str) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -58,7 +77,15 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Rewrite relative URLs using a root URL and path prefix.
+    /// Rewrites relative URLs using a root URL and path prefix.
+    ///
+    /// # Parameters
+    /// - `root`: The root URL string.
+    /// - `path`: The URL path prefix.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
+    /// - Exception if `root` is not a valid URL.
     pub fn url_relative_rewrite_with_root(&mut self, root: &str, path: String) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -70,7 +97,13 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Set the `rel` attribute for generated `<a>` tags.
+    /// Sets the `rel` attribute for generated `<a>` tags.
+    ///
+    /// # Parameters
+    /// - `value`: Optional `rel` attribute value; `None` clears it.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
     pub fn link_rel(&mut self, value: Option<String>) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -83,7 +116,14 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Overwrite the set of allowed tags.
+    /// Overwrites the set of allowed tags.
+    ///
+    /// # Parameters
+    /// - `tags`: A `Zval` array of allowed tag names.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
+    /// - Exception if `tags` is not an array.
     pub fn tags(&mut self, tags: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -94,7 +134,14 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Add additional allowed tags to the existing whitelist.
+    /// Adds additional allowed tags to the existing whitelist.
+    ///
+    /// # Parameters
+    /// - `tags`: A `Zval` array of tag names to add.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
+    /// - Exception if `tags` is not an array.
     pub fn add_tags(&mut self, tags: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -105,7 +152,13 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Remove tags from the whitelist.
+    /// Removes tags from the whitelist.
+    ///
+    /// # Parameters
+    /// - `tags`: A `Zval` array of tag names to remove.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
     pub fn rm_tags(&mut self, tags: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -116,7 +169,14 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Add allowed CSS classes for a specific tag.
+    /// Adds allowed CSS classes for a specific tag.
+    ///
+    /// # Parameters
+    /// - `tag`: A `Zval` string tag name.
+    /// - `classes`: A `Zval` array of CSS class names.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
     pub fn add_allowed_classes(&mut self, tag: &Zval, classes: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -135,7 +195,14 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Remove allowed CSS classes from a specific tag.
+    /// Removes allowed CSS classes from a specific tag.
+    ///
+    /// # Parameters
+    /// - `tag`: A `Zval` string tag name.
+    /// - `classes`: A `Zval` array of CSS class names to remove.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
     pub fn rm_allowed_classes(&mut self, tag: &Zval, classes: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -154,7 +221,14 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Add allowed attributes to a specific tag.
+    /// Adds allowed attributes to a specific tag.
+    ///
+    /// # Parameters
+    /// - `tag`: A `Zval` string tag name.
+    /// - `attributes`: A `Zval` array of attribute names.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
     pub fn add_tag_attributes(&mut self, tag: &Zval, attributes: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -173,7 +247,14 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Remove attributes from a specific tag.
+    /// Removes attributes from a specific tag.
+    ///
+    /// # Parameters
+    /// - `tag`: A `Zval` string tag name.
+    /// - `classes`: A `Zval` array of attribute names to remove.
+    ///
+    /// # Exceptions
+    /// - PhpException if the sanitizer is not in a valid state.
     pub fn rm_tag_attributes(&mut self, tag: &Zval, classes: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -192,7 +273,14 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Add generic attributes to all tags.
+    /// Adds generic attributes to all tags.
+    ///
+    /// # Parameters
+    /// - `attributes`: A `Zval` array of attribute names to allow.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
+    /// - `Exception` if `attributes` is not an array.
     pub fn add_generic_attributes(&mut self, attributes: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -205,7 +293,13 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Remove generic attributes from all tags.
+    /// Removes generic attributes from all tags.
+    ///
+    /// # Parameters
+    /// - `attributes`: A `Zval` array of attribute names to remove.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn rm_generic_attributes(&mut self, attributes: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -218,7 +312,13 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Add prefixes for generic attributes.
+    /// Adds prefixes for generic attributes.
+    ///
+    /// # Parameters
+    /// - `prefixes`: A `Zval` array of prefixes to allow.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn add_generic_attribute_prefixes(&mut self, prefixes: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -231,7 +331,13 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Remove prefixes for generic attributes.
+    /// Removes prefixes for generic attributes.
+    ///
+    /// # Parameters
+    /// - `prefixes`: A `Zval` array of prefixes to remove.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn rm_generic_attribute_prefixes(&mut self, prefixes: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -244,7 +350,16 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Sanitize the given HTML string.
+    /// Sanitizes the given HTML string, applying any configured attribute filter.
+    ///
+    /// # Parameters
+    /// - `html`: The HTML content to sanitize.
+    ///
+    /// # Returns
+    /// - `String` The sanitized HTML.
+    ///
+    /// # Notes
+    /// - If an attribute filter is set, it will be invoked for each attribute.
     pub fn clean(&mut self, html: String) -> String {
         if let Some(filter) = self.attribute_filter.as_ref() {
             let (req_tx, req_rx) = mpsc::channel::<Option<FilterRequest>>();
@@ -255,20 +370,18 @@ impl HtmlSanitizer {
             let mut inner = self.inner.take().unwrap();
             let handle = thread::spawn(move || {
                 inner.attribute_filter(move |element, attribute, value| {
-                    // Отправляем запрос
                     let _ = req_tx.send(Some(FilterRequest {
                         element: element.to_string(),
                         attribute: attribute.to_string(),
                         value: value.to_string(),
                     }));
 
-                    // Ждём ответ
                     let resp = resp_rx_clone
                         .lock()
                         .unwrap()
                         .recv()
                         .unwrap_or(FilterResponse { filtered: None });
-                    // Преобразуем в Cow<str>
+
                     resp.filtered
                         .map(Cow::Owned)
                         .or_else(|| Some(Cow::Borrowed(value)))
@@ -300,7 +413,13 @@ impl HtmlSanitizer {
         }
     }
 
-    /// Whitelist URL schemes (e.g., "http", "https").
+    /// Whitelists URL schemes (e.g., "http", "https").
+    ///
+    /// # Parameters
+    /// - `schemes`: A `Zval` array of scheme strings to allow.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn url_schemes(&mut self, schemes: &Zval) -> PhpResult<()> {
         let arr = schemes
             .array()
@@ -313,7 +432,13 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Enable or disable HTML comment stripping.
+    /// Enables or disables HTML comment stripping.
+    ///
+    /// # Parameters
+    /// - `strip`: `true` to strip comments; `false` to preserve them.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn strip_comments(&mut self, strip: bool) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -322,7 +447,13 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Return whether HTML comments will be stripped.
+    /// Returns whether HTML comments will be stripped.
+    ///
+    /// # Returns
+    /// - `bool` `true` if comments will be stripped; `false` otherwise.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn will_strip_comments(&self) -> PhpResult<bool> {
         let Some(x) = self.inner.as_ref() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -330,7 +461,13 @@ impl HtmlSanitizer {
         Ok(x.will_strip_comments())
     }
 
-    /// Prefix all `id` attributes with the given string.
+    /// Prefixes all `id` attributes with the given string.
+    ///
+    /// # Parameters
+    /// - `prefix`: Optional string prefix to apply.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn id_prefix(&mut self, prefix: Option<String>) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -340,7 +477,13 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Filter CSS style properties allowed in `style` attributes.
+    /// Filters CSS style properties allowed in `style` attributes.
+    ///
+    /// # Parameters
+    /// - `props`: A `Zval` array of CSS property names to allow.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn filter_style_properties(&mut self, props: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -353,7 +496,15 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Set single tag attribute value
+    /// Sets a single tag attribute value.
+    ///
+    /// # Parameters
+    /// - `tag`: The tag name as a `Zval` string.
+    /// - `attribute`: The attribute name as a `Zval` string.
+    /// - `value`: The value to set.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn set_tag_attribute_value(
         &mut self,
         tag: &Zval,
@@ -378,7 +529,13 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Return configured tags as a vector of strings.
+    /// Returns the configured tags as a vector of strings.
+    ///
+    /// # Returns
+    /// - `Vec<String>` The list of allowed tag names.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn clone_tags(&self) -> PhpResult<Vec<String>> {
         let Some(x) = self.inner.as_ref() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -386,7 +543,13 @@ impl HtmlSanitizer {
         Ok(x.clone_tags().iter().map(|s| s.to_string()).collect())
     }
 
-    /// Get all configured clean-content tags
+    /// Gets all configured clean-content tags.
+    ///
+    /// # Returns
+    /// - `Vec<String>` The list of tags whose content is preserved.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn clone_clean_content_tags(&self) -> PhpResult<Vec<String>> {
         let Some(x) = self.inner.as_ref() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -397,7 +560,13 @@ impl HtmlSanitizer {
             .collect())
     }
 
-    /// Bulk overwrite generic attributes
+    /// Bulk overwrites generic attributes.
+    ///
+    /// # Parameters
+    /// - `attrs`: A `Zval` array of attribute names.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn generic_attributes(&mut self, attrs: &Zval) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -410,7 +579,13 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Bulk overwrite generic attribute prefixes
+    /// Bulk overwrites generic attribute prefixes.
+    ///
+    /// # Parameters
+    /// - `prefixes`: A `Zval` array of prefixes.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn generic_attribute_prefixes(&mut self, prefixes: &Zval) -> PhpResult<()> {
         let arr = prefixes
             .array()
@@ -423,7 +598,15 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Add tag attribute values
+    /// Adds tag attribute values.
+    ///
+    /// # Parameters
+    /// - `tag`: A `Zval` string tag name.
+    /// - `attr`: A `Zval` string attribute name.
+    /// - `values`: A `Zval` array of values to allow.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn add_tag_attribute_values(
         &mut self,
         tag: &Zval,
@@ -451,7 +634,15 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Remove tag attribute values
+    /// Removes tag attribute values.
+    ///
+    /// # Parameters
+    /// - `tag`: A `Zval` string tag name.
+    /// - `attr`: A `Zval` string attribute name.
+    /// - `values`: A `Zval` array of values to remove.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn rm_tag_attribute_values(
         &mut self,
         tag: &Zval,
@@ -479,7 +670,17 @@ impl HtmlSanitizer {
         Ok(())
     }
 
-    /// Get a single set_tag_attribute_value
+    /// Gets a single tag attribute value setting.
+    ///
+    /// # Parameters
+    /// - `tag`: The tag name as a `Zval` string.
+    /// - `attr`: The attribute name as a `Zval` string.
+    ///
+    /// # Returns
+    /// - `Option<String>` The configured value or `None` if unset.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn get_set_tag_attribute_value(
         &self,
         tag: &Zval,
@@ -501,7 +702,13 @@ impl HtmlSanitizer {
         .map(|s| s.to_string()))
     }
 
-    /// Check URL relative policy: Deny
+    /// Checks if URL relative policy is Deny.
+    ///
+    /// # Returns
+    /// - `bool` `true` if the policy is Deny.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn is_url_relative_deny(&self) -> PhpResult<bool> {
         let Some(x) = self.inner.as_ref() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -509,7 +716,13 @@ impl HtmlSanitizer {
         Ok(x.is_url_relative_deny())
     }
 
-    /// Check URL relative policy: PassThrough
+    /// Checks if URL relative policy is PassThrough.
+    ///
+    /// # Returns
+    /// - `bool` `true` if the policy is PassThrough.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn is_url_relative_pass_through(&self) -> PhpResult<bool> {
         let Some(x) = self.inner.as_ref() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -517,7 +730,13 @@ impl HtmlSanitizer {
         Ok(x.is_url_relative_pass_through())
     }
 
-    /// Check URL relative policy: custom (Rewrite)
+    /// Checks if URL relative policy is custom (Rewrite).
+    ///
+    /// # Returns
+    /// - `bool` `true` if a custom rewrite policy is set.
+    ///
+    /// # Exceptions
+    /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn is_url_relative_custom(&self) -> PhpResult<bool> {
         let Some(x) = self.inner.as_ref() else {
             return Err(PhpException::from("You cannot do this now"));
@@ -525,7 +744,13 @@ impl HtmlSanitizer {
         Ok(x.is_url_relative_custom())
     }
 
-    /// Set attribute filter map using a PHP callback
+    /// Sets the attribute filter callback.
+    ///
+    /// # Parameters
+    /// - `callable`: A PHP callable of signature `(string, string, string) -> string|null`.
+    ///
+    /// # Exceptions
+    /// - None.
     pub fn attribute_filter(&mut self, callable: &Zval) -> PhpResult<()> {
         self.attribute_filter = Some(callable.shallow_clone());
         Ok(())

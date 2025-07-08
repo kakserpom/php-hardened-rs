@@ -206,177 +206,404 @@ namespace Hardened {
      */
     class HtmlSanitizer {
         /**
-         * Construct a sanitizer with default configuration.
+         * Constructs a sanitizer with default configuration.
+         *
+         * # Returns
+         * - HtmlSanitizer A new sanitizer instance.
+         *
+         * # Notes
+         * - No exceptions are thrown.
          */
         public static function default(): \Hardened\HtmlSanitizer {}
 
         /**
-         * Deny all relative URLs in attributes.
+         * Denies all relative URLs in attributes.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
          */
         public function urlRelativeDeny(): mixed {}
 
         /**
-         * Pass through relative URLs unchanged.
+         * Passes through relative URLs unchanged.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
          */
         public function urlRelativePassthrough(): mixed {}
 
         /**
-         * Rewrite relative URLs using the given base URL.
+         * Rewrites relative URLs using the given base URL.
+         *
+         * # Parameters
+         * - `base_url`: The base URL to resolve relative URLs against.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
+         * - Exception if `base_url` is not a valid URL.
          */
         public function urlRelativeRewriteWithBase(string $base_url): mixed {}
 
         /**
-         * Rewrite relative URLs using a root URL and path prefix.
+         * Rewrites relative URLs using a root URL and path prefix.
+         *
+         * # Parameters
+         * - `root`: The root URL string.
+         * - `path`: The URL path prefix.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
+         * - Exception if `root` is not a valid URL.
          */
         public function urlRelativeRewriteWithRoot(string $root, string $path): mixed {}
 
         /**
-         * Set the `rel` attribute for generated `<a>` tags.
+         * Sets the `rel` attribute for generated `<a>` tags.
+         *
+         * # Parameters
+         * - `value`: Optional `rel` attribute value; `None` clears it.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
          */
         public function linkRel(?string $value): mixed {}
 
         /**
-         * Overwrite the set of allowed tags.
+         * Overwrites the set of allowed tags.
+         *
+         * # Parameters
+         * - `tags`: A `Zval` array of allowed tag names.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
+         * - Exception if `tags` is not an array.
          */
         public function tags(mixed $tags): mixed {}
 
         /**
-         * Add additional allowed tags to the existing whitelist.
+         * Adds additional allowed tags to the existing whitelist.
+         *
+         * # Parameters
+         * - `tags`: A `Zval` array of tag names to add.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
+         * - Exception if `tags` is not an array.
          */
         public function addTags(mixed $tags): mixed {}
 
         /**
-         * Remove tags from the whitelist.
+         * Removes tags from the whitelist.
+         *
+         * # Parameters
+         * - `tags`: A `Zval` array of tag names to remove.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
          */
         public function rmTags(mixed $tags): mixed {}
 
         /**
-         * Add allowed CSS classes for a specific tag.
+         * Adds allowed CSS classes for a specific tag.
+         *
+         * # Parameters
+         * - `tag`: A `Zval` string tag name.
+         * - `classes`: A `Zval` array of CSS class names.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
          */
         public function addAllowedClasses(mixed $tag, mixed $classes): mixed {}
 
         /**
-         * Remove allowed CSS classes from a specific tag.
+         * Removes allowed CSS classes from a specific tag.
+         *
+         * # Parameters
+         * - `tag`: A `Zval` string tag name.
+         * - `classes`: A `Zval` array of CSS class names to remove.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
          */
         public function rmAllowedClasses(mixed $tag, mixed $classes): mixed {}
 
         /**
-         * Add allowed attributes to a specific tag.
+         * Adds allowed attributes to a specific tag.
+         *
+         * # Parameters
+         * - `tag`: A `Zval` string tag name.
+         * - `attributes`: A `Zval` array of attribute names.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
          */
         public function addTagAttributes(mixed $tag, mixed $attributes): mixed {}
 
         /**
-         * Remove attributes from a specific tag.
+         * Removes attributes from a specific tag.
+         *
+         * # Parameters
+         * - `tag`: A `Zval` string tag name.
+         * - `classes`: A `Zval` array of attribute names to remove.
+         *
+         * # Exceptions
+         * - PhpException if the sanitizer is not in a valid state.
          */
         public function rmTagAttributes(mixed $tag, mixed $classes): mixed {}
 
         /**
-         * Add generic attributes to all tags.
+         * Adds generic attributes to all tags.
+         *
+         * # Parameters
+         * - `attributes`: A `Zval` array of attribute names to allow.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
+         * - `Exception` if `attributes` is not an array.
          */
         public function addGenericAttributes(mixed $attributes): mixed {}
 
         /**
-         * Remove generic attributes from all tags.
+         * Removes generic attributes from all tags.
+         *
+         * # Parameters
+         * - `attributes`: A `Zval` array of attribute names to remove.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function rmGenericAttributes(mixed $attributes): mixed {}
 
         /**
-         * Add prefixes for generic attributes.
+         * Adds prefixes for generic attributes.
+         *
+         * # Parameters
+         * - `prefixes`: A `Zval` array of prefixes to allow.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function addGenericAttributePrefixes(mixed $prefixes): mixed {}
 
         /**
-         * Remove prefixes for generic attributes.
+         * Removes prefixes for generic attributes.
+         *
+         * # Parameters
+         * - `prefixes`: A `Zval` array of prefixes to remove.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function rmGenericAttributePrefixes(mixed $prefixes): mixed {}
 
         /**
-         * Sanitize the given HTML string.
+         * Sanitizes the given HTML string, applying any configured attribute filter.
+         *
+         * # Parameters
+         * - `html`: The HTML content to sanitize.
+         *
+         * # Returns
+         * - `String` The sanitized HTML.
+         *
+         * # Notes
+         * - If an attribute filter is set, it will be invoked for each attribute.
          */
         public function clean(string $html): string {}
 
         /**
-         * Whitelist URL schemes (e.g., "http", "https").
+         * Whitelists URL schemes (e.g., "http", "https").
+         *
+         * # Parameters
+         * - `schemes`: A `Zval` array of scheme strings to allow.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function urlSchemes(mixed $schemes): mixed {}
 
         /**
-         * Enable or disable HTML comment stripping.
+         * Enables or disables HTML comment stripping.
+         *
+         * # Parameters
+         * - `strip`: `true` to strip comments; `false` to preserve them.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function stripComments(bool $strip): mixed {}
 
         /**
-         * Return whether HTML comments will be stripped.
+         * Returns whether HTML comments will be stripped.
+         *
+         * # Returns
+         * - `bool` `true` if comments will be stripped; `false` otherwise.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function willStripComments(): bool {}
 
         /**
-         * Prefix all `id` attributes with the given string.
+         * Prefixes all `id` attributes with the given string.
+         *
+         * # Parameters
+         * - `prefix`: Optional string prefix to apply.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function idPrefix(?string $prefix): mixed {}
 
         /**
-         * Filter CSS style properties allowed in `style` attributes.
+         * Filters CSS style properties allowed in `style` attributes.
+         *
+         * # Parameters
+         * - `props`: A `Zval` array of CSS property names to allow.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function filterStyleProperties(mixed $props): mixed {}
 
         /**
-         * Set single tag attribute value
+         * Sets a single tag attribute value.
+         *
+         * # Parameters
+         * - `tag`: The tag name as a `Zval` string.
+         * - `attribute`: The attribute name as a `Zval` string.
+         * - `value`: The value to set.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function setTagAttributeValue(mixed $tag, mixed $attribute, string $value): mixed {}
 
         /**
-         * Return configured tags as a vector of strings.
+         * Returns the configured tags as a vector of strings.
+         *
+         * # Returns
+         * - `Vec<String>` The list of allowed tag names.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function cloneTags(): array {}
 
         /**
-         * Get all configured clean-content tags
+         * Gets all configured clean-content tags.
+         *
+         * # Returns
+         * - `Vec<String>` The list of tags whose content is preserved.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function cloneCleanContentTags(): array {}
 
         /**
-         * Bulk overwrite generic attributes
+         * Bulk overwrites generic attributes.
+         *
+         * # Parameters
+         * - `attrs`: A `Zval` array of attribute names.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function genericAttributes(mixed $attrs): mixed {}
 
         /**
-         * Bulk overwrite generic attribute prefixes
+         * Bulk overwrites generic attribute prefixes.
+         *
+         * # Parameters
+         * - `prefixes`: A `Zval` array of prefixes.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function genericAttributePrefixes(mixed $prefixes): mixed {}
 
         /**
-         * Add tag attribute values
+         * Adds tag attribute values.
+         *
+         * # Parameters
+         * - `tag`: A `Zval` string tag name.
+         * - `attr`: A `Zval` string attribute name.
+         * - `values`: A `Zval` array of values to allow.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function addTagAttributeValues(mixed $tag, mixed $attr, mixed $values): mixed {}
 
         /**
-         * Remove tag attribute values
+         * Removes tag attribute values.
+         *
+         * # Parameters
+         * - `tag`: A `Zval` string tag name.
+         * - `attr`: A `Zval` string attribute name.
+         * - `values`: A `Zval` array of values to remove.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function rmTagAttributeValues(mixed $tag, mixed $attr, mixed $values): mixed {}
 
         /**
-         * Get a single set_tag_attribute_value
+         * Gets a single tag attribute value setting.
+         *
+         * # Parameters
+         * - `tag`: The tag name as a `Zval` string.
+         * - `attr`: The attribute name as a `Zval` string.
+         *
+         * # Returns
+         * - `Option<String>` The configured value or `None` if unset.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function getSetTagAttributeValue(mixed $tag, mixed $attr): ?string {}
 
         /**
-         * Check URL relative policy: Deny
+         * Checks if URL relative policy is Deny.
+         *
+         * # Returns
+         * - `bool` `true` if the policy is Deny.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function isUrlRelativeDeny(): bool {}
 
         /**
-         * Check URL relative policy: PassThrough
+         * Checks if URL relative policy is PassThrough.
+         *
+         * # Returns
+         * - `bool` `true` if the policy is PassThrough.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function isUrlRelativePassThrough(): bool {}
 
         /**
-         * Check URL relative policy: custom (Rewrite)
+         * Checks if URL relative policy is custom (Rewrite).
+         *
+         * # Returns
+         * - `bool` `true` if a custom rewrite policy is set.
+         *
+         * # Exceptions
+         * - `PhpException` if the sanitizer is not in a valid state.
          */
         public function isUrlRelativeCustom(): bool {}
 
         /**
-         * Set attribute filter map using a PHP callback
+         * Sets the attribute filter callback.
+         *
+         * # Parameters
+         * - `callable`: A PHP callable of signature `(string, string, string) -> string|null`.
+         *
+         * # Exceptions
+         * - None.
          */
         public function attributeFilter(mixed $callable): mixed {}
 

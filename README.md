@@ -1,10 +1,11 @@
 # php-hardened-rs
 
 A PHP extension powered by **Rust** 🦀 and [ext-php-rs](https://github.com/davidcole1340/ext-php-rs), delivering
-essential security utilities for PHP applications. It provides two core classes:
+essential security utilities for PHP applications. It provides three core classes:
 
 1. **Hardened\Hostname** — secure hostname parsing, normalization, and comparison.
 2. **Hardened\Path** — safe, purely lexical filesystem path handling to prevent directory traversal.
+3. **Hardened\HtmlSanitizer** — configurable HTML sanitization via [Ammonia](https://github.com/rust-ammonia/ammonia).
 
 **Supported Platforms:** Linux, macOS, Windows (where `ext-php-rs` is available)
 
@@ -37,12 +38,18 @@ essential security utilities for PHP applications. It provides two core classes:
 - Lexical canonicalization: remove `.` and `..`, collapse separators.
 - No filesystem I/O or symlink resolution.
 - Validate that a path stays within a given base.
-- AP​I Highlights:
+- API Highlights:
     - `Path::from(mixed $path): Path` — parse Zval, string, or Path.
     - `$path->startsWith(mixed $prefix): bool` — prefix string or Path.
     - `$path->join(mixed $segment): Path` — append string or Path.
     - `$path->joinWithin(mixed $segment): Path` — append, canonicalize, and enforce subpath constraint.
     - `(string)$path` — string representation.
+
+### Hardened\HtmlSanitizer
+
+- Wraps Ammonia `Builder` for fine-grained HTML sanitization.
+- Configuration methods for URL policies, tags, attributes, and filters.
+- Thread-safe attribute filter callback support.
 
 ---
 
@@ -120,6 +127,19 @@ try {
 }
 ```
 
+### Hardened\HtmlSanitizer
+
+```php
+<?php
+use Hardened\HtmlSanitizer;
+
+$sanitizer = HtmlSanitizer::default();
+$sanitizer->urlRelativeDeny();
+$sanitizer->tags(["a", "p"]);
+$sanitizer->filterStyleProperties(["color", "font-size"]);
+var_dump($sanitizer->clean("<a href='../evil'>Click</a>"));
+```
+
 ---
 
 ## API Reference
@@ -152,6 +172,46 @@ try {
 | `joinWithin(mixed $segment): Path`        | Instance  | Append, canonicalize, enforce within-base constraint. |
 | `path(): string` / `__toString(): string` | Instance  | Convert to string.                                    |
 
+### Class `Hardened\HtmlSanitizer`
+
+| Method                                                                    | Signature | Description                                                               |
+|---------------------------------------------------------------------------|-----------|---------------------------------------------------------------------------|
+| `default(): HtmlSanitizer`                                                | static    | Construct with default configuration.                                     |
+| `urlRelativeDeny(): void`                                                 | instance  | Deny all relative URLs. Throws PhpException if invalid state.             |
+| `urlRelativePassthrough(): void`                                          | instance  | Pass through relative URLs. Throws PhpException if invalid state.         |
+| `urlRelativeRewriteWithBase(string $url): void`                           | instance  | Rewrite with base URL. Throws PhpException or Exception on parse errors.  |
+| `urlRelativeRewriteWithRoot(string $root, string $path): void`            | instance  | Rewrite with root and prefix. Throws PhpException or Exception on errors. |
+| `linkRel(?string $value): void`                                           | instance  | Set `<a>` rel attribute. Throws PhpException if invalid state.            |
+| `tags(mixed $tags): void`                                                 | instance  | Overwrite allowed tags. Throws PhpException or Exception if not array.    |
+| `addTags(mixed $tags): void`                                              | instance  | Add to allowed tags. Throws PhpException or Exception if not array.       |
+| `rmTags(mixed $tags): void`                                               | instance  | Remove from allowed tags. Throws PhpException.                            |
+| `addAllowedClasses(mixed $tag, mixed $classes): void`                     | instance  | Add CSS classes. Throws PhpException or Exception if invalid types.       |
+| `rmAllowedClasses(mixed $tag, mixed $classes): void`                      | instance  | Remove CSS classes. Throws PhpException or Exception if invalid types.    |
+| `addTagAttributes(mixed $tag, mixed $attributes): void`                   | instance  | Add tag attributes. Throws PhpException or Exception if invalid types.    |
+| `rmTagAttributes(mixed $tag, mixed $attributes): void`                    | instance  | Remove tag attributes. Throws PhpException or Exception if invalid types. |
+| `addGenericAttributes(mixed $attributes): void`                           | instance  | Add generic attributes. Throws PhpException or Exception if not array.    |
+| `rmGenericAttributes(mixed $attributes): void`                            | instance  | Remove generic attributes. Throws PhpException.                           |
+| `addGenericAttributePrefixes(mixed $prefixes): void`                      | instance  | Add generic prefixes. Throws PhpException or Exception.                   |
+| `rmGenericAttributePrefixes(mixed $prefixes): void`                       | instance  | Remove generic prefixes. Throws PhpException or Exception.                |
+| `clean(string $html): string`                                             | instance  | Sanitize HTML. Applies optional attribute filter.                         |
+| `urlSchemes(mixed $schemes): void`                                        | instance  | Whitelist URL schemes. Throws PhpException or Exception if not array.     |
+| `stripComments(bool $strip): void`                                        | instance  | Enable/disable comment stripping. Throws PhpException.                    |
+| `willStripComments(): bool`                                               | instance  | Returns comment stripping policy. Throws PhpException.                    |
+| `idPrefix(?string $prefix): void`                                         | instance  | Prefix `id` attributes. Throws PhpException.                              |
+| `filterStyleProperties(mixed $props): void`                               | instance  | Filter CSS properties. Throws PhpException or Exception if not array.     |
+| `setTagAttributeValue(mixed $tag, mixed $attribute, string $value): void` | instance  | Set attribute value. Throws PhpException or Exception if invalid types.   |
+| `cloneTags(): array`                                                      | instance  | Get configured tags. Throws PhpException.                                 |
+| `cloneCleanContentTags(): array`                                          | instance  | Get clean-content tags. Throws PhpException.                              |
+| `genericAttributes(mixed $attrs): void`                                   | instance  | Overwrite generic attributes. Throws PhpException or Exception.           |
+| `genericAttributePrefixes(mixed $prefixes): void`                         | instance  | Overwrite generic prefixes. Throws PhpException or Exception.             |
+| `addTagAttributeValues(mixed $tag, mixed $attr, mixed $values): void`     | instance  | Add attribute values. Throws PhpException or Exception.                   |
+| `rmTagAttributeValues(mixed $tag, mixed $attr, mixed $values): void`      | instance  | Remove attribute values. Throws PhpException or Exception.                |
+| `getSetTagAttributeValue(mixed $tag, mixed $attr): ?string`               | instance  | Get single attribute value. Throws PhpException.                          |
+| `isUrlRelativeDeny(): bool`                                               | instance  | Check Deny policy. Throws PhpException.                                   |
+| `isUrlRelativePassThrough(): bool`                                        | instance  | Check PassThrough policy. Throws PhpException.                            |
+| `isUrlRelativeCustom(): bool`                                             | instance  | Check custom rewrite policy. Throws PhpException.                         |
+| `attributeFilter(mixed $callable): void`                                  | instance  | Set attribute filter callback.                                            |
+
 ---
 
 ## Running Tests
@@ -165,4 +225,5 @@ cargo test
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.
+
 
