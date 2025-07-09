@@ -3,10 +3,14 @@ use Hardened\HtmlSanitizer;
 
 $sanitizer = HtmlSanitizer::default();
 $sanitizer->urlRelativeDeny();
+$sanitizer->attributeFilter(function($string, $element, $value) {
+    var_dump([$string, $element, $value]);
+    return $value;
+});
 $sanitizer->tags(["a", "p"]);
 $sanitizer->addTagAttributes("a", ["style"]);
 $sanitizer->filterStyleProperties(["color", "font-size"]);
-var_dump($sanitizer->clean("<a href='../evil'>Click</a><p>"));
+var_dump($sanitizer->clean("<a href='../evil'>Click</a><p>1"));
 var_dump($sanitizer->clean("<a href='https://github.com/' \
 style='font-size: 12px; color: red; font-weight: bold;'>Click</a>"));
 var_dump($sanitizer->isValidUrl("https://github.com"));

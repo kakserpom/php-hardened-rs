@@ -3,8 +3,8 @@ use anyhow::anyhow;
 use ext_php_rs::prelude::{PhpException, PhpResult, ZendCallable};
 use ext_php_rs::types::{ZendHashTable, Zval};
 use ext_php_rs::{php_class, php_impl};
-use std::borrow::Cow;
 use std::collections::HashSet;
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use url::Url;
@@ -14,8 +14,11 @@ use url::Url;
 /// PHP class wrapping Ammonia's HTML sanitizer builder.
 /// Allows customized sanitization through PHP method calls.
 pub struct HtmlSanitizer {
-    inner: Option<Builder<'static>>,
+    inner: Option<Builder>,
     attribute_filter: Option<Zval>,
+    req_rx: Option<Receiver<Option<FilterRequest>>>,
+    resp_tx: Option<Sender<FilterResponse>>,
+    req_tx: Option<Sender<Option<FilterRequest>>>,
 }
 
 #[php_impl]
@@ -31,7 +34,10 @@ impl HtmlSanitizer {
     pub fn default() -> Self {
         Self {
             attribute_filter: None,
+            req_rx: None,
             inner: Some(Builder::default()),
+            resp_tx: None,
+            req_tx: None,
         }
     }
 
@@ -134,11 +140,7 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        if let Some(rel) = value {
-            x.link_rel(Some(Box::leak(Box::new(rel)).as_str()));
-        } else {
-            x.link_rel(None);
-        }
+        x.link_rel(value);
         Ok(())
     }
 
@@ -154,9 +156,9 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        x.tags(arg_into_hashset(
+        x.tags(arg_into_vec(
             tags.array().ok_or_else(|| anyhow!("tags must be array"))?,
-        ));
+        )?);
         Ok(())
     }
 
@@ -173,9 +175,9 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        x.clean_content_tags(arg_into_hashset(
+        x.clean_content_tags(arg_into_vec(
             tags.array().ok_or_else(|| anyhow!("tags must be array"))?,
-        ));
+        )?);
         Ok(())
     }
 
@@ -193,9 +195,9 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        x.add_clean_content_tags(arg_into_hashset(
+        x.add_clean_content_tags(arg_into_vec(
             tags.array().ok_or_else(|| anyhow!("tags must be array"))?,
-        ));
+        )?);
         Ok(())
     }
 
@@ -213,9 +215,9 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        x.add_clean_content_tags(arg_into_hashset(
+        x.add_clean_content_tags(arg_into_vec(
             tags.array().ok_or_else(|| anyhow!("tags must be array"))?,
-        ));
+        )?);
         Ok(())
     }
 
@@ -231,9 +233,9 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        x.tags(arg_into_hashset(
+        x.tags(arg_into_vec(
             tags.array().ok_or_else(|| anyhow!("tags must be array"))?,
-        ));
+        )?);
         Ok(())
     }
 
@@ -248,9 +250,9 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        x.rm_tags(arg_into_hashset(
+        x.rm_tags(arg_into_vec(
             tags.array().ok_or_else(|| anyhow!("tags must be array"))?,
-        ));
+        )?);
         Ok(())
     }
 
@@ -267,15 +269,13 @@ impl HtmlSanitizer {
             return Err(PhpException::from("You cannot do this now"));
         };
         x.add_allowed_classes(
-            Box::leak(Box::new(tag.string()))
-                .as_ref()
-                .map(|x| x.as_str())
+            tag.string()
                 .ok_or_else(|| anyhow!("tag must be a string"))?,
-            arg_into_hashset(
+            arg_into_vec(
                 classes
                     .array()
                     .ok_or_else(|| anyhow!("classes must be array"))?,
-            ),
+            )?,
         );
         Ok(())
     }
@@ -297,11 +297,11 @@ impl HtmlSanitizer {
                 .as_ref()
                 .map(|x| x.as_str())
                 .ok_or_else(|| anyhow!("tag must be a string"))?,
-            arg_into_hashset(
+            arg_into_vec(
                 classes
                     .array()
                     .ok_or_else(|| anyhow!("classes must be array"))?,
-            ),
+            )?,
         );
         Ok(())
     }
@@ -319,15 +319,13 @@ impl HtmlSanitizer {
             return Err(PhpException::from("You cannot do this now"));
         };
         x.add_tag_attributes(
-            Box::leak(Box::new(tag.string()))
-                .as_ref()
-                .map(|x| x.as_str())
+            tag.string()
                 .ok_or_else(|| anyhow!("tag must be a string"))?,
-            arg_into_hashset(
+            arg_into_vec(
                 attributes
                     .array()
                     .ok_or_else(|| anyhow!("classes must be array"))?,
-            ),
+            )?,
         );
         Ok(())
     }
@@ -345,15 +343,15 @@ impl HtmlSanitizer {
             return Err(PhpException::from("You cannot do this now"));
         };
         x.rm_tag_attributes(
-            Box::leak(Box::new(tag.string()))
+            tag.string()
                 .as_ref()
                 .map(|x| x.as_str())
                 .ok_or_else(|| anyhow!("tag must be a string"))?,
-            arg_into_hashset(
+            arg_into_vec(
                 classes
                     .array()
                     .ok_or_else(|| anyhow!("classes must be array"))?,
-            ),
+            )?,
         );
         Ok(())
     }
@@ -370,11 +368,11 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        x.add_generic_attributes(arg_into_hashset(
+        x.add_generic_attributes(arg_into_vec(
             attributes
                 .array()
                 .ok_or_else(|| anyhow!("attributes must be array"))?,
-        ));
+        )?);
         Ok(())
     }
 
@@ -389,11 +387,11 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        x.rm_generic_attributes(arg_into_hashset(
+        x.rm_generic_attributes(arg_into_vec(
             attributes
                 .array()
                 .ok_or_else(|| anyhow!("attributes must be array"))?,
-        ));
+        )?);
         Ok(())
     }
 
@@ -408,11 +406,11 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        x.add_generic_attribute_prefixes(arg_into_hashset(
+        x.add_generic_attribute_prefixes(arg_into_vec(
             prefixes
                 .array()
                 .ok_or_else(|| anyhow!("prefixes must be array"))?,
-        ));
+        )?);
         Ok(())
     }
 
@@ -427,14 +425,48 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        x.rm_generic_attribute_prefixes(arg_into_hashset(
+        x.rm_generic_attribute_prefixes(arg_into_vec(
             prefixes
                 .array()
                 .ok_or_else(|| anyhow!("prefixes must be array"))?,
-        ));
+        )?);
         Ok(())
     }
 
+    /// Sets the attribute filter callback.
+    ///
+    /// # Parameters
+    /// - `callable`: A PHP callable of signature `(string Element, string Attribute, string Value) -> string|null`.
+    ///
+    /// # Exceptions
+    /// - None.
+    pub fn attribute_filter(&mut self, callable: &Zval) -> PhpResult<()> {
+        self.attribute_filter = Some(callable.shallow_clone());
+
+        let (req_tx, req_rx) = mpsc::channel::<Option<FilterRequest>>();
+        let (resp_tx, resp_rx) = mpsc::channel::<FilterResponse>();
+        let resp_rx = Arc::new(Mutex::new(resp_rx));
+        self.req_tx = Some(req_tx.clone());
+        self.req_rx = Some(req_rx);
+        self.resp_tx = Some(resp_tx);
+        let inner = self.inner.as_mut().unwrap();
+        inner.attribute_filter(move |element, attribute, value| {
+            let _ = req_tx.send(Some(FilterRequest {
+                element: element.to_string(),
+                attribute: attribute.to_string(),
+                value: value.to_string(),
+            }));
+
+            let resp = resp_rx
+                .lock()
+                .unwrap()
+                .recv()
+                .unwrap_or(FilterResponse { filtered: None });
+
+            resp.filtered
+        });
+        Ok(())
+    }
     /// Sanitizes the given HTML string, applying any configured attribute filter.
     ///
     /// # Parameters
@@ -447,37 +479,15 @@ impl HtmlSanitizer {
     /// - If an attribute filter is set, it will be invoked for each attribute.
     pub fn clean(&mut self, html: String) -> String {
         if let Some(filter) = self.attribute_filter.as_ref() {
-            let (req_tx, req_rx) = mpsc::channel::<Option<FilterRequest>>();
-            let (resp_tx, resp_rx) = mpsc::channel::<FilterResponse>();
-            let resp_rx = Arc::new(Mutex::new(resp_rx));
-            let req_tx_clone = req_tx.clone();
-            let resp_rx_clone = resp_rx.clone();
-            let mut inner = self.inner.take().unwrap();
+            let inner = self.inner.take().unwrap();
+            let req_tx_clone = self.req_tx.as_ref().cloned().unwrap();
             let handle = thread::spawn(move || {
-                inner.attribute_filter(move |element, attribute, value| {
-                    let _ = req_tx.send(Some(FilterRequest {
-                        element: element.to_string(),
-                        attribute: attribute.to_string(),
-                        value: value.to_string(),
-                    }));
-
-                    let resp = resp_rx_clone
-                        .lock()
-                        .unwrap()
-                        .recv()
-                        .unwrap_or(FilterResponse { filtered: None });
-
-                    resp.filtered
-                        .map(Cow::Owned)
-                        .or_else(|| Some(Cow::Borrowed(value)))
-                });
                 let result = inner.clean(&html).to_string();
                 req_tx_clone.send(None).unwrap();
                 (inner, result)
             });
-
             let callable = ZendCallable::new(filter).unwrap();
-            for req in req_rx {
+            for req in self.req_rx.as_ref().unwrap() {
                 let Some(req) = req else {
                     break;
                 };
@@ -485,7 +495,11 @@ impl HtmlSanitizer {
                     .try_call(vec![&req.element, &req.attribute, &req.value])
                     .ok()
                     .and_then(|z| z.string());
-                let _ = resp_tx.send(FilterResponse { filtered: result });
+                let _ = self
+                    .resp_tx
+                    .as_ref()
+                    .unwrap()
+                    .send(FilterResponse { filtered: result });
             }
             let (inner, result) = handle.join().unwrap();
             let _ = self.inner.insert(inner);
@@ -509,11 +523,11 @@ impl HtmlSanitizer {
         let arr = schemes
             .array()
             .ok_or_else(|| anyhow!("url_schemes must be array"))?;
-        let set = arg_into_hashset(arr);
+        let set = arg_into_hashset(arr)?;
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        x.url_schemes(set);
+        x.url_schemes(set.into());
         Ok(())
     }
 
@@ -557,8 +571,7 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        let prefix_ref = prefix.map(|s| Box::leak(Box::new(s)).as_str());
-        x.id_prefix(prefix_ref);
+        x.id_prefix(prefix);
         Ok(())
     }
 
@@ -573,11 +586,11 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        let arr = props
-            .array()
-            .ok_or_else(|| anyhow!("filter_style_properties must be array"))?;
-        let set = arg_into_hashset(arr);
-        x.filter_style_properties(set);
+        x.filter_style_properties(arg_into_vec(
+            props
+                .array()
+                .ok_or_else(|| anyhow!("filter_style_properties must be array"))?,
+        )?);
         Ok(())
     }
 
@@ -625,7 +638,7 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_ref() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        Ok(x.clone_tags().iter().map(|s| s.to_string()).collect())
+        Ok(x.clone_tags().into_iter().collect())
     }
 
     /// Gets all configured clean-content tags.
@@ -656,11 +669,11 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        let arr = attrs
-            .array()
-            .ok_or_else(|| anyhow!("generic_attributes must be array"))?;
-        let set = arg_into_hashset(arr);
-        x.generic_attributes(set);
+        x.generic_attributes(arg_into_vec(
+            attrs
+                .array()
+                .ok_or_else(|| anyhow!("generic_attributes must be array"))?,
+        )?);
         Ok(())
     }
 
@@ -678,8 +691,7 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        let set = arg_into_hashset(arr);
-        x.generic_attribute_prefixes(set);
+        x.generic_attribute_prefixes(arg_into_vec(arr)?);
         Ok(())
     }
 
@@ -694,27 +706,21 @@ impl HtmlSanitizer {
     /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn add_tag_attribute_values(
         &mut self,
-        tag: &Zval,
-        attr: &Zval,
+        tag: String,
+        attr: String,
         values: &Zval,
     ) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
         x.add_tag_attribute_values(
-            Box::leak(Box::new(tag.string()))
-                .as_ref()
-                .map(|x| x.as_str())
-                .ok_or_else(|| anyhow!("tag must be a string"))?,
-            Box::leak(Box::new(attr.string()))
-                .as_ref()
-                .map(|x| x.as_str())
-                .ok_or_else(|| anyhow!("attr must be a string"))?,
-            arg_into_hashset(
+            tag,
+            attr,
+            arg_into_vec(
                 values
                     .array()
                     .ok_or_else(|| anyhow!("values must be array"))?,
-            ),
+            )?,
         );
         Ok(())
     }
@@ -730,27 +736,21 @@ impl HtmlSanitizer {
     /// - `PhpException` if the sanitizer is not in a valid state.
     pub fn rm_tag_attribute_values(
         &mut self,
-        tag: &Zval,
-        attr: &Zval,
+        tag: &str,
+        attr: &str,
         values: &Zval,
     ) -> PhpResult<()> {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
         x.rm_tag_attribute_values(
-            Box::leak(Box::new(tag.string()))
-                .as_ref()
-                .map(|x| x.as_str())
-                .ok_or_else(|| anyhow!("tag must be a string"))?,
-            Box::leak(Box::new(attr.string()))
-                .as_ref()
-                .map(|x| x.as_str())
-                .ok_or_else(|| anyhow!("attr must be a string"))?,
-            arg_into_hashset(
+            tag,
+            attr,
+            arg_into_vec(
                 values
                     .array()
                     .ok_or_else(|| anyhow!("values must be array"))?,
-            ),
+            )?,
         );
         Ok(())
     }
@@ -828,18 +828,6 @@ impl HtmlSanitizer {
         };
         Ok(x.is_url_relative_custom())
     }
-
-    /// Sets the attribute filter callback.
-    ///
-    /// # Parameters
-    /// - `callable`: A PHP callable of signature `(string, string, string) -> string|null`.
-    ///
-    /// # Exceptions
-    /// - None.
-    pub fn attribute_filter(&mut self, callable: &Zval) -> PhpResult<()> {
-        self.attribute_filter = Some(callable.shallow_clone());
-        Ok(())
-    }
 }
 
 #[derive(Debug)]
@@ -852,11 +840,23 @@ struct FilterRequest {
 struct FilterResponse {
     filtered: Option<String>,
 }
-fn arg_into_hashset(arg: &ZendHashTable) -> HashSet<&'static str> {
-    Box::leak(Box::<HashSet<String>>::new(HashSet::from_iter(
-        arg.values().filter_map(|x| x.string()),
-    )))
-    .iter()
-    .map(|x| x.as_str())
-    .collect::<HashSet<_>>()
+
+fn arg_into_vec(arg: &ZendHashTable) -> PhpResult<Vec<&str>> {
+    arg.values().try_fold(
+        Vec::with_capacity(arg.len()),
+        |mut vec, x| -> PhpResult<_> {
+            vec.push(x.str().ok_or_else(|| anyhow!("not a string"))?);
+            Ok(vec)
+        },
+    )
+}
+
+fn arg_into_hashset(arg: &ZendHashTable) -> PhpResult<HashSet<String>> {
+    arg.values().try_fold(
+        HashSet::with_capacity(arg.len()),
+        |mut set, x| -> PhpResult<_> {
+            set.insert(x.string().ok_or_else(|| anyhow!("not a string"))?);
+            Ok(set)
+        },
+    )
 }

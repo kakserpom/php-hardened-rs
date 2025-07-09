@@ -4,11 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-#ammonia = "4.1.0"
-ammonia = {path = "ammonia"}
+ammonia = { git = "https://github.com/kakserpom/ammonia.git", branch = "owned", features = ["anyhow"] }
+#ammonia = {path = "ammonia"}
 anyhow = "1.0.98"
 ext-php-rs = { git = "https://github.com/davidcole1340/ext-php-rs.git", branch = "master", features = ["anyhow"] }
 url = "2.5.4"
+rand = "0.9"
+strum = { version = "0.27.1", features = ["derive", "strum_macros"] }
+strum_macros = "0.27.1"
 
 [features]
 

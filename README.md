@@ -141,7 +141,6 @@ $sanitizer->filterStyleProperties(["color", "font-size"]);
 var_dump($sanitizer->clean("<a href='../evil'>Click</a><p>"));
 // "<a rel="noopener noreferrer">Click</a><p></p>"
 
-
 var_dump($sanitizer->clean(
   "<a href='https://github.com/' style='font-size: 12px; color: red; font-weight: bold;'>Click</a>"
 ));

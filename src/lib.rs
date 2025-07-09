@@ -1,10 +1,12 @@
-mod html_sanitizer;
+mod csp;
 #[warn(clippy::pedantic)]
 mod hostname;
+mod html_sanitizer;
 mod path;
 
-use crate::html_sanitizer::HtmlSanitizer;
+use crate::csp::ContentSecurityPolicy;
 pub use crate::hostname::Hostname;
+use crate::html_sanitizer::HtmlSanitizer;
 use crate::path::PathObj;
 use anyhow::Error;
 use ext_php_rs::prelude::*;
@@ -16,6 +18,7 @@ pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
         .class::<Hostname>()
         .class::<PathObj>()
         .class::<HtmlSanitizer>()
+        .class::<ContentSecurityPolicy>()
 }
 
 fn to_str(path: &Zval) -> Result<String, Error> {

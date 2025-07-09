@@ -590,7 +590,7 @@ namespace Hardened {
          * # Exceptions
          * - `PhpException` if the sanitizer is not in a valid state.
          */
-        public function addTagAttributeValues(mixed $tag, mixed $attr, mixed $values): mixed {}
+        public function addTagAttributeValues(string $tag, string $attr, mixed $values): mixed {}
 
         /**
          * Removes tag attribute values.
@@ -603,7 +603,7 @@ namespace Hardened {
          * # Exceptions
          * - `PhpException` if the sanitizer is not in a valid state.
          */
-        public function rmTagAttributeValues(mixed $tag, mixed $attr, mixed $values): mixed {}
+        public function rmTagAttributeValues(string $tag, string $attr, mixed $values): mixed {}
 
         /**
          * Gets a single tag attribute value setting.
@@ -657,12 +657,53 @@ namespace Hardened {
          * Sets the attribute filter callback.
          *
          * # Parameters
-         * - `callable`: A PHP callable of signature `(string, string, string) -> string|null`.
+         * - `callable`: A PHP callable of signature `(string Element, string Attribute, string Value) -> string|null`.
          *
          * # Exceptions
          * - None.
          */
         public function attributeFilter(mixed $callable): mixed {}
+
+        public function __construct() {}
+    }
+
+    /**
+     * Your application’s CSP config.
+     */
+    class ContentSecurityPolicy {
+        /**
+         * Sets or replaces a CSP directive with the given special sources and host sources.
+         *
+         * # Parameters
+         * - `rule`: The directive name (e.g. `"default-src"`, `"script-src"`).
+         * - `special_sources`: A `ZendHashTable` of keyword tokens (e.g. `'self'`, `'nonce-...'`).
+         * - `sources`: Optional vector of host strings (e.g. `"example.com"`).
+         *
+         * # Exceptions
+         * - Throws `Exception` if any array item in `special_sources` is not a string.
+         * - Throws `Exception` if `rule` is not a valid CSP directive.
+         */
+        public function setRule(string $rule, array $special_sources, ?array $sources): mixed {}
+
+        /**
+         * Builds the `Content-Security-Policy` header value from the configured directives.
+         *
+         * # Returns
+         * - `String` The full header value, for example:
+         *   `"default-src 'self'; script-src 'self' 'nonce-ABCD1234' example.com; …"`.
+         *
+         * # Exceptions
+         * - Throws `Exception` if formatting the header string fails.
+         */
+        public function build(): string {}
+
+        /**
+         * Returns the most recently generated nonce, if any.
+         *
+         * # Returns
+         * - `Option<&str>` The raw nonce string (without the `'nonce-'` prefix), or `None` if `build()` has not yet generated one.
+         */
+        public function getNonce(): ?string {}
 
         public function __construct() {}
     }
