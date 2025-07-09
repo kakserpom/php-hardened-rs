@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ammonia = { git = "https://github.com/kakserpom/ammonia.git", branch = "owned", features = ["anyhow"] }
+ammonia = { git = "https://github.com/kakserpom/ammonia.git", branch = "owned" }
 #ammonia = {path = "ammonia"}
 anyhow = "1.0.98"
 ext-php-rs = { git = "https://github.com/davidcole1340/ext-php-rs.git", branch = "master", features = ["anyhow"] }

@@ -30,7 +30,8 @@ pub enum Rule {
 #[derive(Clone, EnumString, strum_macros::Display)]
 #[strum(serialize_all = "kebab-case")]
 pub enum SpecialSource {
-    SelfSrc,
+    #[strum(serialize = "self")]
+    _Self,
     UnsafeInline,
     UnsafeEval,
     UnsafeHashes,

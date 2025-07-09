@@ -31,6 +31,7 @@ dependencies = [
 [[package]]
 name = "ammonia"
 version = "4.1.1"
+source = "git+https://github.com/kakserpom/ammonia.git?branch=owned#dcc3526c50862b21e0c7dcb765d75ef5c7b45632"
 dependencies = [
  "cssparser",
  "html5ever",
