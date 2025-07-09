@@ -220,7 +220,7 @@ $policy->setRule(
 // frame-ancestors 'none'
 $policy->setRule(
     ContentSecurityPolicy::FRAME_ANCESTORS,
-    [],        // no special keywords
+    [],        // no keywords
     []         // empty list => effectively 'none'
 );
 
@@ -330,14 +330,14 @@ var_dump(Hardened\Rng::customUnicodeGraphemes(4, "🙈🙉🙊"));
 
 ### Class `Hardened\ContentSecurityPolicy`
 
-| Method                                                                  | Signature | Description                                                                                                     |
-|-------------------------------------------------------------------------|-----------|-----------------------------------------------------------------------------------------------------------------|
-| `__construct()`                                                         | Instance  | Alias for `new()`, initializes an empty CSP builder.                                                            |
-| `new(): ContentSecurityPolicy`                                          | static    | Construct a new CSP builder with no directives set.                                                             |
-| `setRule(string $rule, array $special_sources, ?array $sources): mixed` | Instance  | Set or replace a CSP directive with the given keyword tokens (`'self'`, `'nonce-…'`, etc.) and host sources.    |
-| `build(): string`                                                       | Instance  | Build the `Content-Security-Policy` header value from the configured directives.                                |
-| `send(): mixed`                                                         | Instance  | Send the constructed CSP header to the client (via PHP SAPI).                                                   |
-| `getNonce(): ?string`                                                   | Instance  | Return the most recently generated nonce (without the `'nonce-'` prefix), or `null` if none has been generated. |
+| Method                                                           | Signature | Description                                                                                                     |
+|------------------------------------------------------------------|-----------|-----------------------------------------------------------------------------------------------------------------|
+| `__construct()`                                                  | Instance  | Alias for `new()`, initializes an empty CSP builder.                                                            |
+| `new(): ContentSecurityPolicy`                                   | static    | Construct a new CSP builder with no directives set.                                                             |
+| `setRule(string $rule, array $keywords, ?array $sources): mixed` | Instance  | Set or replace a CSP directive with the given keywords (`'self'`, `'nonce'`, etc.) and host sources.            |
+| `build(): string`                                                | Instance  | Build the `Content-Security-Policy` header value from the configured directives.                                |
+| `send(): mixed`                                                  | Instance  | Send the constructed CSP header to the client (via PHP SAPI).                                                   |
+| `getNonce(): ?string`                                            | Instance  | Return the most recently generated nonce (without the `'nonce-'` prefix), or `null` if none has been generated. |
 
 ### Class `Hardened\Rng`
 
