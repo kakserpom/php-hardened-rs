@@ -24,6 +24,34 @@ pub enum Rule {
     FrameAncestors,
     ConnectSrc,
     FontSrc,
+
+    ChildSrc,
+    ManifestSrc,
+    MediaSrc,
+    ObjectSrc,
+    PrefetchSrc,
+    ScriptSrcElem,
+    ScriptSrcAttr,
+    StyleSrcElem,
+    StyleSrcAttr,
+    WorkerSrc,
+
+    // **Document directives**:
+    BaseUri,
+    FormAction,
+    Sandbox,
+    PluginTypes,
+    BlockAllMixedContent,
+    UpgradeInsecureRequests,
+
+    // **Reporting directives**:
+    ReportUri,
+    ReportTo,
+
+    // **Integrity & trust directives**:
+    RequireSriFor,
+    TrustedTypes,
+    RequireTrustedTypesFor,
 }
 /// Everything that can go after a directive:
 /// - a keyword like 'self'
@@ -31,7 +59,7 @@ pub enum Rule {
 /// - a domain string
 #[derive(Clone, EnumString, strum_macros::Display)]
 #[strum(serialize_all = "kebab-case")]
-pub enum SpecialSource {
+pub enum Keyword {
     #[strum(serialize = "self")]
     _Self,
     UnsafeInline,
@@ -39,9 +67,31 @@ pub enum SpecialSource {
     UnsafeHashes,
     StrictDynamic,
     Nonce,
+
+    // Resource‐type tokens for require-sri-for & require-trusted-types-for
+    Script,
+    Style,
+
+    // Sandbox flags (for the sandbox directive)
+    AllowForms,
+    AllowModals,
+    AllowOrientationLock,
+    AllowPointerLock,
+    AllowPresentation,
+    AllowPopups,
+    AllowPopupsToEscapeSandbox,
+    AllowSameOrigin,
+    AllowScripts,
+    AllowStorageAccessByUserActivation,
+    AllowTopNavigationByUserActivation,
+
+    AllowDuplicates,
+    WasmUnsafeEval,
+    InlineSpeculationRules,
+    ReportSample,
 }
 pub type Source = String;
-pub type CspSettings = (Vec<SpecialSource>, Vec<Source>);
+pub type CspSettings = (Vec<Keyword>, Vec<Source>);
 
 /// Your application’s CSP config.
 #[php_class]
@@ -52,44 +102,115 @@ pub struct ContentSecurityPolicy {
 }
 #[php_impl]
 impl ContentSecurityPolicy {
+    // CSP directive constants
     #[php_const]
     const DEFAULT_SRC: &'static str = "default-src";
-
     #[php_const]
     const SCRIPT_SRC: &'static str = "script-src";
-
     #[php_const]
     const STYLE_SRC: &'static str = "style-src";
-
     #[php_const]
     const IMG_SRC: &'static str = "img-src";
-
     #[php_const]
     const FRAME_ANCESTORS: &'static str = "frame-ancestors";
-
     #[php_const]
     const FONT_SRC: &'static str = "font-src";
-
     #[php_const]
     const CONNECT_SRC: &'static str = "connect-src";
+    #[php_const]
+    const CHILD_SRC: &'static str = "child-src";
+    #[php_const]
+    const MANIFEST_SRC: &'static str = "manifest-src";
+    #[php_const]
+    const MEDIA_SRC: &'static str = "media-src";
+    #[php_const]
+    const OBJECT_SRC: &'static str = "object-src";
+    #[php_const]
+    const PREFETCH_SRC: &'static str = "prefetch-src";
+    #[php_const]
+    const SCRIPT_SRC_ELEM: &'static str = "script-src-elem";
+    #[php_const]
+    const SCRIPT_SRC_ATTR: &'static str = "script-src-attr";
+    #[php_const]
+    const STYLE_SRC_ELEM: &'static str = "style-src-elem";
+    #[php_const]
+    const STYLE_SRC_ATTR: &'static str = "style-src-attr";
+    #[php_const]
+    const WORKER_SRC: &'static str = "worker-src";
+    #[php_const]
+    const BASE_URI: &'static str = "base-uri";
+    #[php_const]
+    const FORM_ACTION: &'static str = "form-action";
+    #[php_const]
+    const SANDBOX: &'static str = "sandbox";
+    #[php_const]
+    const PLUGIN_TYPES: &'static str = "plugin-types";
+    #[php_const]
+    const BLOCK_ALL_MIXED_CONTENT: &'static str = "block-all-mixed-content";
+    #[php_const]
+    const UPGRADE_INSECURE_REQUESTS: &'static str = "upgrade-insecure-requests";
+    #[php_const]
+    const REPORT_URI: &'static str = "report-uri";
+    #[php_const]
+    const REPORT_TO: &'static str = "report-to";
+    #[php_const]
+    const REQUIRE_SRI_FOR: &'static str = "require-sri-for";
+    #[php_const]
+    const TRUSTED_TYPES: &'static str = "trusted-types";
+    #[php_const]
+    const REQUIRE_TRUSTED_TYPES_FOR: &'static str = "require-trusted-types-for";
 
+    // Keywords constants
     #[php_const]
     const SELF: &'static str = "self";
-
+    #[php_const]
+    const NONE: &'static str = "none";
     #[php_const]
     const UNSAFE_INLINE: &'static str = "unsafe-inline";
-
     #[php_const]
     const UNSAFE_EVAL: &'static str = "unsafe-eval";
-
     #[php_const]
     const UNSAFE_HASHES: &'static str = "unsafe-hashes";
-
     #[php_const]
     const STRICT_DYNAMIC: &'static str = "strict-dynamic";
-
     #[php_const]
     const NONCE: &'static str = "nonce";
+    #[php_const]
+    const SCRIPT: &'static str = "script";
+    #[php_const]
+    const STYLE: &'static str = "style";
+    #[php_const]
+    const ALLOW_FORMS: &'static str = "allow-forms";
+    #[php_const]
+    const ALLOW_MODALS: &'static str = "allow-modals";
+    #[php_const]
+    const ALLOW_ORIENTATION_LOCK: &'static str = "allow-orientation-lock";
+    #[php_const]
+    const ALLOW_POINTER_LOCK: &'static str = "allow-pointer-lock";
+    #[php_const]
+    const ALLOW_PRESENTATION: &'static str = "allow-presentation";
+    #[php_const]
+    const ALLOW_POPUPS: &'static str = "allow-popups";
+    #[php_const]
+    const ALLOW_POPUPS_TO_ESCAPE_SANDBOX: &'static str = "allow-popups-to-escape-sandbox";
+    #[php_const]
+    const ALLOW_SAME_ORIGIN: &'static str = "allow-same-origin";
+    #[php_const]
+    const ALLOW_SCRIPTS: &'static str = "allow-scripts";
+    #[php_const]
+    const ALLOW_STORAGE_ACCESS_BY_USER_ACTIVATION: &'static str =
+        "allow-storage-access-by-user-activation";
+    #[php_const]
+    const ALLOW_TOP_NAVIGATION_BY_USER_ACTIVATION: &'static str =
+        "allow-top-navigation-by-user-activation";
+    #[php_const]
+    const ALLOW_DUPLICATES: &'static str = "allow-duplicates";
+    #[php_const]
+    const INLINE_SPECULATION_RULES: &'static str = "inline-speculation-rules";
+    #[php_const]
+    const REPORT_SAMPLE: &'static str = "report-sample";
+    #[php_const]
+    const WASM_UNSAFE_EVAL: &'static str = "wasm-unsafe-eval";
 
     /// Constructs a new `ContentSecurityPolicy` builder with no directives set.
     ///
@@ -106,30 +227,30 @@ impl ContentSecurityPolicy {
         }
     }
 
-    /// Sets or replaces a CSP directive with the given special sources and host sources.
+    /// Sets or replaces a CSP directive with the given keywords and host sources.
     ///
     /// # Parameters
     /// - `rule`: The directive name (e.g. `"default-src"`, `"script-src"`).
-    /// - `special_sources`: A `ZendHashTable` of keyword tokens (e.g. `'self'`, `'nonce-...'`).
+    /// - `keywords`: A `ZendHashTable` of keyword tokens (e.g. `'self'`, `'nonce-...'`).
     /// - `sources`: Optional vector of host strings (e.g. `"example.com"`).
     ///
     /// # Exceptions
-    /// - Throws `Exception` if any array item in `special_sources` is not a string.
+    /// - Throws `Exception` if any array item in `keywords` is not a string.
     /// - Throws `Exception` if `rule` is not a valid CSP directive.
     pub fn set_rule(
         &mut self,
         rule: &str,
-        special_sources: &ZendHashTable,
+        keywords: &ZendHashTable,
         mut sources: Option<Vec<String>>,
     ) -> PhpResult<()> {
-        let mut special_sources_vec = Vec::with_capacity(special_sources.len());
-        for item in special_sources.values() {
-            let s = item.str().ok_or_else(|| {
-                PhpException::from("Array item of special_sources is not a string")
-            })?;
-            let special_source = SpecialSource::from_str(s)
-                .map_err(|e| PhpException::from(format!("Invalid special source `{s}`: {e}")))?;
-            special_sources_vec.push(special_source);
+        let mut keywords_vec = Vec::with_capacity(keywords.len());
+        for item in keywords.values() {
+            let s = item
+                .str()
+                .ok_or_else(|| PhpException::from("Array item of keywords is not a string"))?;
+            let keyword = Keyword::from_str(s)
+                .map_err(|e| PhpException::from(format!("Invalid keyword `{s}`: {e}")))?;
+            keywords_vec.push(keyword);
         }
         if let Some(vec_sources) = sources.as_mut() {
             for source in vec_sources {
@@ -144,7 +265,7 @@ impl ContentSecurityPolicy {
         self.src_map.insert(
             Rule::from_str(&rule)
                 .map_err(|_| PhpException::from(format!("Invalid rule name: {rule}")))?,
-            (special_sources_vec, sources.unwrap_or_default()),
+            (keywords_vec, sources.unwrap_or_default()),
         );
         Ok(())
     }
@@ -161,14 +282,14 @@ impl ContentSecurityPolicy {
         let mut header = String::new();
 
         let mut it = self.src_map.iter().peekable();
-        while let Some((src, (special_sources, sources))) = it.next() {
+        while let Some((src, (keywords, sources))) = it.next() {
             header.push_str(src.to_string().as_str());
-            if special_sources.is_empty() && sources.is_empty() {
+            if keywords.is_empty() && sources.is_empty() {
                 header.push_str(" 'none'");
             } else {
-                for special_source in special_sources {
-                    match special_source {
-                        SpecialSource::Nonce => {
+                for keyword in keywords {
+                    match keyword {
+                        Keyword::Nonce => {
                             let nonce = if let Some(x) = self.nonce.as_ref() {
                                 x
                             } else {
@@ -183,8 +304,7 @@ impl ContentSecurityPolicy {
                             write!(header, " 'nonce-{nonce}'").map_err(|err| anyhow!("{err}"))?;
                         }
                         _ => {
-                            write!(header, " '{special_source}'")
-                                .map_err(|err| anyhow!("{err}"))?;
+                            write!(header, " '{keyword}'").map_err(|err| anyhow!("{err}"))?;
                         }
                     }
                 }
