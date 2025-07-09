@@ -1312,6 +1312,8 @@ dependencies = [
  "rand 0.9.1",
  "strum",
  "strum_macros",
+ "trim-in-place",
+ "unicode-segmentation",
  "url",
 ]
 
@@ -1875,6 +1877,12 @@ dependencies = [
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "trim-in-place"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "343e926fc669bc8cde4fa3129ab681c63671bae288b1f1081ceee6d9d37904fc"
 
 [[package]]
 name = "typenum"

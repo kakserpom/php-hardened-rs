@@ -1,11 +1,16 @@
 # php-hardened-rs
 
 A PHP extension powered by **Rust** 🦀 and [ext-php-rs](https://github.com/davidcole1340/ext-php-rs), delivering
-essential security utilities for PHP applications. It provides three core classes:
+essential security utilities for PHP applications. It provides five core classes:
 
 1. **Hardened\Hostname** — secure hostname parsing, normalization, and comparison.
-2. **Hardened\Path** — safe, purely lexical filesystem path handling to prevent directory traversal.
-3. **Hardened\HtmlSanitizer** — configurable HTML sanitization via [Ammonia](https://github.com/rust-ammonia/ammonia).
+2. **Hardened\Path** — safe, purely-lexical filesystem path handling to prevent directory traversal.
+3. **Hardened\HtmlSanitizer** — configurable HTML sanitization via [Ammonia](https://github.com/rust-ammonia/ammonia),
+   with fine-grained tag, attribute, and URL policy controls.
+4. **Hardened\ContentSecurityPolicy** — builder for HTTP Content-Security-Policy headers; configure directives, keyword
+   sources, hosts, and automatic nonce generation.
+5. **Hardened\Rng** — stateless random-data generator: alphanumeric, alphabetic, byte sequences, integer ranges, and
+   custom Unicode or ASCII sampling.
 
 **Supported Platforms:** Linux, macOS, Windows (where `ext-php-rs` is available)
 
@@ -50,6 +55,22 @@ essential security utilities for PHP applications. It provides three core classe
 - Wraps Ammonia `Builder` for fine-grained HTML sanitization.
 - Configuration methods for URL policies, tags, attributes, and filters.
 - Thread-safe attribute filter callback support.
+
+### Hardened\ContentSecurityPolicy
+
+- Builder for HTTP Content-Security-Policy headers.
+- Configure directives (`default-src`, `script-src`, etc.) with keyword tokens and host sources via `setRule()`.
+- Automatically generates nonces for `'nonce-…'` directives.
+- Produces a valid header string with `build()`, and convenience method `send()` to emit it.
+- Retrieve the last-generated nonce with `getNonce()`.
+
+### Hardened\Rng
+
+- Stateless random-data generator.
+- Static methods to create random alphanumeric or alphabetic strings (`alphanumeric()`, `alphabetic()`).
+- Byte sequences (`bytes()`), integer arrays (`ints()`), and single integers (`int()`) with inclusive ranges.
+- Custom sampling from arbitrary Unicode code points (`customUnicodeChars()`), grapheme clusters (
+  `customUnicodeGraphemes()`), or ASCII sets (`customAscii()`).
 
 ---
 
@@ -156,6 +177,80 @@ var_dump($sanitizer->isValidUrl("foo"));
 // bool(false)
 ```
 
+### Hardened\ContentSecurityPolicy
+
+```shell
+<?php
+use Hardened\ContentSecurityPolicy;
+
+// Create a new CSP builder
+$policy = new ContentSecurityPolicy();
+
+// default-src 'self' *.site.tld blob:
+$policy->setRule(
+    ContentSecurityPolicy::DEFAULT_SRC,
+    [ContentSecurityPolicy::SELF],
+    ['*.site.tld', 'blob:']
+);
+
+// script-src 'self' 'nonce-…' https://cdn.site.tld/js
+$policy->setRule(
+    ContentSecurityPolicy::SCRIPT_SRC,
+    [ContentSecurityPolicy::SELF, ContentSecurityPolicy::NONCE],
+    ['https://cdn.site.tld/js']
+);
+
+// style-src 'self' 'nonce-…' https://fonts.googleapis.com
+$policy->setRule(
+    ContentSecurityPolicy::STYLE_SRC,
+    [ContentSecurityPolicy::SELF, ContentSecurityPolicy::NONCE],
+    ['https://fonts.googleapis.com']
+);
+
+// img-src 'self' data: *.images.site.tld
+$policy->setRule(
+    ContentSecurityPolicy::IMG_SRC,
+    [ContentSecurityPolicy::SELF],
+    ['data:', '*.images.site.tld']
+);
+
+// connect-src 'self' https://api.site.tld
+$policy->setRule(
+    ContentSecurityPolicy::CONNECT_SRC,
+    [ContentSecurityPolicy::SELF],
+    ['https://api.site.tld']
+);
+
+// frame-ancestors 'none'
+$policy->setRule(
+    ContentSecurityPolicy::FRAME_ANCESTORS,
+    [],        // no special keywords
+    []         // empty list => effectively 'none'
+);
+
+// Build and display the value
+var_dump($policy->build());
+
+// Get and display the nonce
+var_dump($policy->getNonce());
+
+// Build and send the header
+$policy->send();
+```
+
+### Hardened\Rng
+
+```
+<?php
+var_dump(Hardened\Rng::alphanumeric(10));
+var_dump(Hardened\Rng::bytes(32));
+var_dump(Hardened\Rng::ints(10, 0, 100));
+var_dump(Hardened\Rng::int(0, 100));
+var_dump(Hardened\Rng::customUnicodeChars(10, "Абвгд"));
+var_dump(Hardened\Rng::customAscii(10, "AbcDef"));
+var_dump(Hardened\Rng::customUnicodeGraphemes(4, "🙈🙉🙊"));
+```
+
 ---
 
 ## API Reference
@@ -236,6 +331,30 @@ var_dump($sanitizer->isValidUrl("foo"));
 | **`addCleanContentTags(array $tags): void`**                                | Instance  | Add additional blacklisted clean-content tags without overwriting old ones.                                           |
 | **`rmCleanContentTags(array $tags): void`**                                 | Instance  | Remove already-blacklisted clean-content tags.                                                                        |
 | `isValidUrl(string $url): bool`                                             | Instance  | Checks whether a URL is allowed by the configured scheme whitelist or, for relative URLs, by the relative-URL policy. |
+
+### Class `Hardened\ContentSecurityPolicy`
+
+| Method                                                                  | Signature | Description                                                                                                     |
+|-------------------------------------------------------------------------|-----------|-----------------------------------------------------------------------------------------------------------------|
+| `__construct()`                                                         | Instance  | Alias for `new()`, initializes an empty CSP builder.                                                            |
+| `new(): ContentSecurityPolicy`                                          | static    | Construct a new CSP builder with no directives set.                                                             |
+| `setRule(string $rule, array $special_sources, ?array $sources): mixed` | Instance  | Set or replace a CSP directive with the given keyword tokens (`'self'`, `'nonce-…'`, etc.) and host sources.    |
+| `build(): string`                                                       | Instance  | Build the `Content-Security-Policy` header value from the configured directives.                                |
+| `send(): mixed`                                                         | Instance  | Send the constructed CSP header to the client (via PHP SAPI).                                                   |
+| `getNonce(): ?string`                                                   | Instance  | Return the most recently generated nonce (without the `'nonce-'` prefix), or `null` if none has been generated. |
+
+### Class `Hardened\Rng`
+
+| Method                                                    | Signature | Description                                                                                               |
+|-----------------------------------------------------------|-----------|-----------------------------------------------------------------------------------------------------------|
+| `alphanumeric(int $len): string`                          | static    | Generate a random ASCII alphanumeric string of length `$len`.                                             |
+| `alphabetic(int $len): string`                            | static    | Generate a random ASCII alphabetic string of length `$len`.                                               |
+| `bytes(int $len): string`                                 | static    | Generate `$len` random bytes and return them as a binary string.                                          |
+| `ints(int $len, int $low, int $high): array`              | static    | Generate an array of `$len` random integers in the inclusive range `[$low, $high]`.                       |
+| `int(int $low, int $high): int`                           | static    | Generate a single random integer in the inclusive range `[$low, $high]`.                                  |
+| `customUnicodeChars(int $len, string $chars): string`     | static    | Generate a string of `$len` random Unicode **code points** sampled from the characters in `$chars`.       |
+| `customUnicodeGraphemes(int $len, string $chars): string` | static    | Generate a string of `$len` random Unicode **grapheme clusters** sampled from the substrings in `$chars`. |
+| `customAscii(int $len, string $chars): string`            | static    | Generate a string of `$len` random ASCII characters sampled from the bytes in `$chars`.                   |
 
 ---
 

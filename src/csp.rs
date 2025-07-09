@@ -2,17 +2,19 @@ use anyhow::anyhow;
 use ext_php_rs::exception::PhpResult;
 use ext_php_rs::prelude::PhpException;
 use ext_php_rs::types::ZendHashTable;
-use ext_php_rs::{php_class, php_impl};
+use ext_php_rs::zend::Function;
+use ext_php_rs::{php_class, php_const, php_impl};
 use fmt::Write;
 use rand::distr::Alphanumeric;
 use rand::{Rng, rng};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt;
 use std::str::FromStr;
 use strum::EnumString;
+use trim_in_place::TrimInPlace;
 
 /// All the CSP directives you want to support.
-#[derive(Debug, Eq, PartialEq, Hash, EnumString, strum_macros::Display)]
+#[derive(Debug, Eq, PartialEq, Hash, EnumString, strum_macros::Display, Ord, PartialOrd)]
 #[strum(serialize_all = "kebab-case")]
 pub enum Rule {
     DefaultSrc,
@@ -45,11 +47,50 @@ pub type CspSettings = (Vec<SpecialSource>, Vec<Source>);
 #[php_class]
 #[php(name = "Hardened\\ContentSecurityPolicy")]
 pub struct ContentSecurityPolicy {
-    pub src_map: HashMap<Rule, CspSettings>,
+    pub src_map: BTreeMap<Rule, CspSettings>,
     pub nonce: Option<String>,
 }
 #[php_impl]
 impl ContentSecurityPolicy {
+    #[php_const]
+    const DEFAULT_SRC: &'static str = "default-src";
+
+    #[php_const]
+    const SCRIPT_SRC: &'static str = "script-src";
+
+    #[php_const]
+    const STYLE_SRC: &'static str = "style-src";
+
+    #[php_const]
+    const IMG_SRC: &'static str = "img-src";
+
+    #[php_const]
+    const FRAME_ANCESTORS: &'static str = "frame-ancestors";
+
+    #[php_const]
+    const FONT_SRC: &'static str = "font-src";
+
+    #[php_const]
+    const CONNECT_SRC: &'static str = "connect-src";
+
+    #[php_const]
+    const SELF: &'static str = "self";
+
+    #[php_const]
+    const UNSAFE_INLINE: &'static str = "unsafe-inline";
+
+    #[php_const]
+    const UNSAFE_EVAL: &'static str = "unsafe-eval";
+
+    #[php_const]
+    const UNSAFE_HASHES: &'static str = "unsafe-hashes";
+
+    #[php_const]
+    const STRICT_DYNAMIC: &'static str = "strict-dynamic";
+
+    #[php_const]
+    const NONCE: &'static str = "nonce";
+
     /// Constructs a new `ContentSecurityPolicy` builder with no directives set.
     ///
     /// # Returns
@@ -79,16 +120,26 @@ impl ContentSecurityPolicy {
         &mut self,
         rule: &str,
         special_sources: &ZendHashTable,
-        sources: Option<Vec<String>>,
+        mut sources: Option<Vec<String>>,
     ) -> PhpResult<()> {
         let mut special_sources_vec = Vec::with_capacity(special_sources.len());
         for item in special_sources.values() {
             let s = item.str().ok_or_else(|| {
                 PhpException::from("Array item of special_sources is not a string")
             })?;
-            let token = SpecialSource::from_str(s)
-                .map_err(|e| PhpException::from(format!("Invalid CSP token `{}`: {}", s, e)))?;
-            special_sources_vec.push(token);
+            let special_source = SpecialSource::from_str(s)
+                .map_err(|e| PhpException::from(format!("Invalid special source `{s}`: {e}")))?;
+            special_sources_vec.push(special_source);
+        }
+        if let Some(vec_sources) = sources.as_mut() {
+            for source in vec_sources {
+                if source.contains(['\'', '"']) {
+                    return Err(PhpException::from(format!(
+                        "source `{source}` may not contain single quotes"
+                    )));
+                }
+                source.trim_in_place();
+            }
         }
         self.src_map.insert(
             Rule::from_str(&rule)
@@ -109,35 +160,52 @@ impl ContentSecurityPolicy {
     pub fn build(&mut self) -> PhpResult<String> {
         let mut header = String::new();
 
-        for (src, (special_sources, sources)) in &self.src_map {
+        let mut it = self.src_map.iter().peekable();
+        while let Some((src, (special_sources, sources))) = it.next() {
             header.push_str(src.to_string().as_str());
-
-            for special_source in special_sources {
-                match special_source {
-                    SpecialSource::Nonce => {
-                        let nonce = self.nonce.insert(
-                            rng()
-                                .sample_iter(Alphanumeric)
-                                .take(16)
-                                .map(char::from)
-                                .collect(),
-                        );
-                        write!(header, " 'nonce-{nonce}'").map_err(|err| anyhow!("{err}"))?;
-                    }
-                    _ => {
-                        write!(header, " '{special_source}'").map_err(|err| anyhow!("{err}"))?;
+            if special_sources.is_empty() && sources.is_empty() {
+                header.push_str(" 'none'");
+            } else {
+                for special_source in special_sources {
+                    match special_source {
+                        SpecialSource::Nonce => {
+                            let nonce = if let Some(x) = self.nonce.as_ref() {
+                                x
+                            } else {
+                                self.nonce.insert(
+                                    rng()
+                                        .sample_iter(Alphanumeric)
+                                        .take(16)
+                                        .map(char::from)
+                                        .collect(),
+                                )
+                            };
+                            write!(header, " 'nonce-{nonce}'").map_err(|err| anyhow!("{err}"))?;
+                        }
+                        _ => {
+                            write!(header, " '{special_source}'")
+                                .map_err(|err| anyhow!("{err}"))?;
+                        }
                     }
                 }
-            }
 
-            for source in sources {
-                write!(header, " {source}").map_err(|err| anyhow!("{err}"))?;
+                for source in sources {
+                    write!(header, " {source}").map_err(|err| anyhow!("{err}"))?;
+                }
             }
-
-            header.push(';');
+            if it.peek().is_some() {
+                header.push(';');
+            }
         }
 
         Ok(header)
+    }
+
+    pub fn send(&mut self) -> PhpResult<()> {
+        let var_dump = Function::try_from_function("header")
+            .ok_or_else(|| anyhow!("Could not call header"))?;
+        let _ = var_dump.try_call(vec![&format!("content-security-policy: {}", self.build()?)]);
+        Ok(())
     }
 
     /// Returns the most recently generated nonce, if any.
@@ -146,5 +214,10 @@ impl ContentSecurityPolicy {
     /// - `Option<&str>` The raw nonce string (without the `'nonce-'` prefix), or `None` if `build()` has not yet generated one.
     pub fn get_nonce(&self) -> Option<&str> {
         self.nonce.as_ref().map(String::as_str)
+    }
+
+    /// Resets nonce. It will not be set until next run of build() or send().
+    pub fn reset_nonce(&mut self) {
+        self.nonce = None;
     }
 }

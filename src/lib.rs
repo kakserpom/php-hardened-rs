@@ -3,11 +3,13 @@ mod csp;
 mod hostname;
 mod html_sanitizer;
 mod path;
+mod rng;
 
 use crate::csp::ContentSecurityPolicy;
 pub use crate::hostname::Hostname;
 use crate::html_sanitizer::HtmlSanitizer;
 use crate::path::PathObj;
+use crate::rng::Rng;
 use anyhow::Error;
 use ext_php_rs::prelude::*;
 use ext_php_rs::types::Zval;
@@ -19,6 +21,7 @@ pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
         .class::<PathObj>()
         .class::<HtmlSanitizer>()
         .class::<ContentSecurityPolicy>()
+        .class::<Rng>()
 }
 
 fn to_str(path: &Zval) -> Result<String, Error> {
