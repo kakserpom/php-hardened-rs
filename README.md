@@ -88,16 +88,12 @@ cd php-hardened-rs-cdylib
 cargo php install --release --yes
 ```
 
-On **macOS**, you may need to set the deployment target and link flags:
+On **macOS**, you may need to set the deployment target and link flags first:
 
 ```bash
 export MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | tr -d '
 ')
 export RUSTFLAGS="-C link-arg=-undefined -C link-arg=dynamic_lookup"
-
-cargo install cargo-php --locked
-cd php-hardened-rs-cdylib
-cargo php install --release --yes
 ```
 
 Enable the extension by adding to your `php.ini`:
@@ -179,7 +175,7 @@ var_dump($sanitizer->isValidUrl("foo"));
 
 ### Hardened\ContentSecurityPolicy
 
-```shell
+```php
 <?php
 use Hardened\ContentSecurityPolicy;
 
@@ -240,7 +236,7 @@ $policy->send();
 
 ### Hardened\Rng
 
-```
+```php
 <?php
 var_dump(Hardened\Rng::alphanumeric(10));
 var_dump(Hardened\Rng::bytes(32));

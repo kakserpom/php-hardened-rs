@@ -454,6 +454,17 @@ namespace Hardened {
         public function rmGenericAttributePrefixes(mixed $prefixes): mixed {}
 
         /**
+         * Sets the attribute filter callback.
+         *
+         * # Parameters
+         * - `callable`: A PHP callable of signature `(string Element, string Attribute, string Value) -> string|null`.
+         *
+         * # Exceptions
+         * - None.
+         */
+        public function attributeFilter(mixed $callable): mixed {}
+
+        /**
          * Sanitizes the given HTML string, applying any configured attribute filter.
          *
          * # Parameters
@@ -653,17 +664,6 @@ namespace Hardened {
          */
         public function isUrlRelativeCustom(): bool {}
 
-        /**
-         * Sets the attribute filter callback.
-         *
-         * # Parameters
-         * - `callable`: A PHP callable of signature `(string Element, string Attribute, string Value) -> string|null`.
-         *
-         * # Exceptions
-         * - None.
-         */
-        public function attributeFilter(mixed $callable): mixed {}
-
         public function __construct() {}
     }
 
@@ -671,6 +671,32 @@ namespace Hardened {
      * Your application’s CSP config.
      */
     class ContentSecurityPolicy {
+        const DEFAULT_SRC = null;
+
+        const SCRIPT_SRC = null;
+
+        const STYLE_SRC = null;
+
+        const IMG_SRC = null;
+
+        const FRAME_ANCESTORS = null;
+
+        const FONT_SRC = null;
+
+        const CONNECT_SRC = null;
+
+        const SELF = null;
+
+        const UNSAFE_INLINE = null;
+
+        const UNSAFE_EVAL = null;
+
+        const UNSAFE_HASHES = null;
+
+        const STRICT_DYNAMIC = null;
+
+        const NONCE = null;
+
         /**
          * Sets or replaces a CSP directive with the given special sources and host sources.
          *
@@ -697,6 +723,8 @@ namespace Hardened {
          */
         public function build(): string {}
 
+        public function send(): mixed {}
+
         /**
          * Returns the most recently generated nonce, if any.
          *
@@ -704,6 +732,121 @@ namespace Hardened {
          * - `Option<&str>` The raw nonce string (without the `'nonce-'` prefix), or `None` if `build()` has not yet generated one.
          */
         public function getNonce(): ?string {}
+
+        /**
+         * Resets nonce. It will not be set until next run of build() or send().
+         */
+        public function resetNonce() {}
+
+        public function __construct() {}
+    }
+
+    class Rng {
+        /**
+         * Generate a random ASCII alphanumeric string of the specified length.
+         *
+         * # Parameters
+         * - `len`: Number of characters to generate.
+         *
+         * # Returns
+         * - `String` containing random ASCII alphanumeric characters.
+         */
+        public static function alphanumeric(int $len): string {}
+
+        /**
+         * Generate a random ASCII alphabetic string of the specified length.
+         *
+         * # Parameters
+         * - `len`: Number of characters to generate.
+         *
+         * # Returns
+         * - `String` containing random ASCII alphabetic characters.
+         */
+        public static function alphabetic(int $len): string {}
+
+        /**
+         * Generate a sequence of random bytes of the specified length.
+         *
+         * # Parameters
+         * - `len`: Number of bytes to generate.
+         *
+         * # Returns
+         * - `Ok(Binary<u8>)` containing `len` random bytes.
+         *
+         * # Errors
+         * - Returns `Err` if the uniform distribution for `u8` cannot be created.
+         */
+        public static function bytes(int $len): string {}
+
+        /**
+         * Generate a vector of random integers in the inclusive range `[low, high]`.
+         *
+         * # Parameters
+         * - `len`: Number of integers to generate.
+         * - `low`: Lower bound (inclusive).
+         * - `high`: Upper bound (inclusive).
+         *
+         * # Returns
+         * - `Ok(Vec<i64>)` of length `len`.
+         *
+         * # Errors
+         * - Returns `Err` if the range is invalid (e.g. `low > high`) or distribution creation fails.
+         */
+        public static function ints(int $len, int $low, int $high): array {}
+
+        /**
+         * Generate a single random integer in the inclusive range `[low, high]`.
+         *
+         * # Parameters
+         * - `low`: Lower bound (inclusive).
+         * - `high`: Upper bound (inclusive).
+         *
+         * # Returns
+         * - `Ok(i64)` random value.
+         *
+         * # Errors
+         * - Returns `Err` if `low > high` or if distribution creation fails.
+         */
+        public static function int(int $low, int $high): int {}
+
+        /**
+         * Sample random Unicode characters (code points) from the given string.
+         *
+         * # Parameters
+         * - `len`: Number of characters to generate.
+         * - `chars`: A string whose `char` elements form the sampling pool.
+         *
+         * # Returns
+         * - `String` of length `len`, or an empty string if `chars` is empty.
+         */
+        public static function customUnicodeChars(int $len, string $chars): string {}
+
+        /**
+         * Sample random Unicode grapheme clusters from the given string.
+         *
+         * # Parameters
+         * - `len`: Number of graphemes to generate.
+         * - `chars`: A string whose grapheme clusters form the sampling pool.
+         *
+         * # Returns
+         * - `Ok(String)` of concatenated grapheme clusters, or an empty string if none are found.
+         *
+         * # Errors
+         * - Returns `Err` if the grapheme index distribution cannot be created.
+         */
+        public static function customUnicodeGraphemes(int $len, string $chars): string {}
+
+        /**
+         * Sample random ASCII characters from the specified character set.
+         *
+         * # Parameters
+         * - `len`: Number of characters to generate.
+         * - `chars`: A string slice whose bytes form the sampling pool.
+         *
+         * # Returns
+         * - `String` of length `len`, or an empty string if `chars` is empty.
+         */
+        public static function customAscii(int $len, string $chars): string {}
 
         public function __construct() {}
     }
