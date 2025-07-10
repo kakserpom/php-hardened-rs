@@ -4,6 +4,7 @@ mod hostname;
 mod html_sanitizer;
 mod path;
 mod rng;
+mod csrf;
 
 use crate::csp::ContentSecurityPolicy;
 pub use crate::hostname::Hostname;
@@ -13,6 +14,7 @@ use crate::rng::Rng;
 use anyhow::Error;
 use ext_php_rs::prelude::*;
 use ext_php_rs::types::Zval;
+use crate::csrf::Csrf;
 
 #[php_module]
 pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
@@ -22,6 +24,7 @@ pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
         .class::<HtmlSanitizer>()
         .class::<ContentSecurityPolicy>()
         .class::<Rng>()
+        .class::<Csrf>()
 }
 
 fn to_str(path: &Zval) -> Result<String, Error> {

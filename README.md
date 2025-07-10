@@ -1,7 +1,7 @@
 # php-hardened-rs
 
 A PHP extension powered by **Rust** 🦀 and [ext-php-rs](https://github.com/davidcole1340/ext-php-rs), delivering
-essential security utilities for PHP applications. It provides five core classes:
+essential security utilities for PHP applications. It provides six core classes:
 
 1. **Hardened\Hostname** — secure hostname parsing, normalization, and comparison.
 2. **Hardened\Path** — safe, purely-lexical filesystem path handling to prevent directory traversal.
@@ -11,6 +11,8 @@ essential security utilities for PHP applications. It provides five core classes
    sources, hosts, and automatic nonce generation.
 5. **Hardened\Rng** — stateless random-data generator: alphanumeric, alphabetic, byte sequences, integer ranges, and
    custom Unicode or ASCII sampling.
+6. **Hardened\CsrfProtection** — synchronized CSRF token–cookie protection using AES-GCM with a friendly API for
+   generation, verification, and cookie management.
 
 **Supported Platforms:** Linux, macOS, Windows (where `ext-php-rs` is available)
 
@@ -71,6 +73,15 @@ essential security utilities for PHP applications. It provides five core classes
 - Byte sequences (`bytes()`), integer arrays (`ints()`), and single integers (`int()`) with inclusive ranges.
 - Custom sampling from arbitrary Unicode code points (`customUnicodeChars()`), grapheme clusters (
   `customUnicodeGraphemes()`), or ASCII sets (`customAscii()`).
+
+### Hardened\CsrfProtection
+
+- Synchronized token–cookie CSRF protection using AES-GCM.
+- Constructor: `__construct($key, $ttl, $previousTokenValue = null)`.
+- Token & cookie getters: `token()`, `cookie()`.
+- Validation: `verifyToken($token, $cookie = null)` (auto-fetches cookie if omitted).
+- Cookie management: `setCookieName()`, `cookieName()`,
+  `setCookie($expires = null, $path = null, $domain = null, $secure = null, $httponly = null)`.
 
 ---
 
@@ -405,6 +416,18 @@ var_dump($multiWeighted);
 | `chooseMultiple(int $amount, array $choices): array`         | static    | Randomly select exactly `$amount` distinct elements from `$choices`; throws if `$amount` exceeds available.      |
 | `chooseWeighted(array $choices): array`                      | static    | Randomly select one `[value, weight]` pair from `$choices` where `weight` is integer; returns `[value, weight]`. |
 | `chooseMultipleWeighted(int $amount, array $choices): array` | static    | Randomly select `$amount` elements from weighted `[value, weight]` pairs (float weight) without replacement.     |
+
+### Class `Hardened\CsrfProtection`
+
+| Method                                                                                                                              | Signature | Description                                                                        |
+|-------------------------------------------------------------------------------------------------------------------------------------|-----------|------------------------------------------------------------------------------------|
+| `__construct(string $key, int $ttl, ?string $previousTokenValue = null): void`                                                      | static    | Initialize a CSRF protection instance.                                             |
+| `verifyToken(string $token, ?string $cookie = null): void`                                                                          | Instance  | Validate the given token & cookie pair.                                            |
+| `cookie(): string`                                                                                                                  | Instance  | Return the Base64URL-encoded CSRF cookie value to send via `Set-Cookie`.           |
+| `token(): string`                                                                                                                   | Instance  | Return the Base64URL-encoded CSRF token value to embed in forms or headers.        |
+| `setCookieName(string $name): void`                                                                                                 | Instance  | Override the name used for the CSRF cookie.                                        |
+| `cookieName(): string`                                                                                                              | Instance  | Get the current CSRF cookie name (default is `csrf`).                              |
+| `setCookie(?int $expires = null, ?string $path = null, ?string $domain = null, ?bool $secure = null, ?bool $httponly = null): void` | Instance  | Send the CSRF cookie via PHP’s `setcookie()` function using native argument order. |
 
 ---
 

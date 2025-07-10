@@ -985,4 +985,76 @@ namespace Hardened {
 
         public function __construct() {}
     }
+
+    /**
+     * CSRF protection for your application.
+     */
+    class CsrfProtection {
+        /**
+         * Verifies a CSRF token & cookie pair from PHP.
+         *
+         * # Parameters
+         * - `token`: `string` Base64URL-encoded CSRF token from client.
+         * - `cookie`: `string` Base64URL-encoded CSRF cookie from client.
+         *
+         * # Returns
+         * - `void` on success.
+         *
+         * # Exceptions
+         * - Throws `Exception` if decoding fails or the token–cookie pair is invalid/expired.
+         */
+        public function verifyToken(string $token, ?string $cookie): mixed {}
+
+        /**
+         * Returns the CSRF cookie string to send in PHP.
+         *
+         * # Returns
+         * - `string` Base64URL-encoded cookie suitable for `Set-Cookie`.
+         */
+        public function cookie(): string {}
+
+        /**
+         * Returns the CSRF token string for PHP forms or headers.
+         *
+         * # Returns
+         * - `string` Base64URL-encoded token.
+         */
+        public function token(): string {}
+
+        /**
+         * Sets the name of the CSRF cookie to use in PHP calls.
+         *
+         * # Parameters
+         * - `cookieName`: `string` the new name for the CSRF cookie.
+         *
+         * # Returns
+         * - `void`
+         */
+        public function setCookieName(string $cookie_name) {}
+
+        /**
+         * Returns the configured CSRF cookie name.
+         *
+         * # Returns
+         * - `string` the name of the CSRF cookie.
+         */
+        public function cookieName(): string {}
+
+        /**
+         * Sends the CSRF cookie to the client via `setcookie()`
+         *
+         * # Parameters
+         * - `expires`: `?int` UNIX timestamp when the cookie expires (defaults to `0`, a session cookie).
+         * - `path`: `?string` Cookie path (defaults to `"/"`).
+         * - `domain`: `?string` Cookie domain (defaults to the current host).
+         * - `secure`: `?bool` Send only over HTTPS (defaults to `false`).
+         * - `httponly`: `?bool` HTTP-only flag (defaults to `true`).
+         *
+         * # Exceptions
+         * - Throws `Exception` if the PHP `setcookie()` function cannot be invoked.
+         */
+        public function setCookie(?int $expires, ?string $path, ?string $domain, ?bool $secure, ?bool $httponly): mixed {}
+
+        public function __construct(string $key, int $ttl, ?string $previous_token_value) {}
+    }
 }
