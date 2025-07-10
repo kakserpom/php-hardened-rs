@@ -425,27 +425,38 @@ impl HtmlSanitizer {
                 return Ok(inner.clean(&html).to_string());
             };
             let inner = self.inner.take().unwrap();
-            let req_tx_clone = self.req_tx.as_ref().cloned()?;
-            let handle = thread::spawn(move || {
+            let req_tx_clone = self
+                .req_tx
+                .as_ref()
+                .cloned()
+                .ok_or_else(|| anyhow!("No tx clone"))?;
+            let handle = thread::spawn(move || -> Result<_> {
                 let result = inner.clean(&html).to_string();
-                req_tx_clone.send(None)?;
-                (inner, result)
+                req_tx_clone.send(None).map_err(|err| anyhow!("{err}"))?;
+                Ok((inner, result))
             });
-            let callable = ZendCallable::new(filter)?;
-            for req in self.req_rx.as_ref()? {
+            let callable = ZendCallable::new(filter).map_err(|err| anyhow!("{err}"))?;
+            for req in self
+                .req_rx
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("no req tx"))?
+            {
                 let Some(req) = req else {
                     break;
                 };
                 let result = callable
                     .try_call(vec![&req.element, &req.attribute, &req.value])
                     .ok()
-                    .and_then(|z| z.string());
+                    .and_then(|zval| zval.string());
                 let _ = self
                     .resp_tx
-                    .as_ref()?
+                    .as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("no resp tx"))?
                     .send(FilterResponse { filtered: result });
             }
-            let (inner, result) = handle.join()?;
+            let (inner, result) = handle
+                .join()
+                .map_err(|err| anyhow!("thread error: {err:?}"))??;
             let _ = self.inner.insert(inner);
             Ok(result)
         }
@@ -733,7 +744,10 @@ impl HtmlSanitizer {
             self.req_tx = Some(req_tx.clone());
             self.req_rx = Some(req_rx);
             self.resp_tx = Some(resp_tx);
-            let inner = self.inner.as_mut()?;
+            let inner = self
+                .inner
+                .as_mut()
+                .ok_or_else(|| anyhow!("You cannot do this now"))?;
             inner.attribute_filter(move |element, attribute, value| {
                 let _ = req_tx.send(Some(FilterRequest {
                     element: element.to_string(),
@@ -742,7 +756,8 @@ impl HtmlSanitizer {
                 }));
 
                 let resp = resp_rx
-                    .lock()?
+                    .lock()
+                    .expect("Mutex error")
                     .recv()
                     .unwrap_or(FilterResponse { filtered: None });
 
