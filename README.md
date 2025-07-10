@@ -176,10 +176,13 @@ $path = Path::from("/foo/bar/data/");
 
 var_dump($path->join("zzz")->startsWith($path));
 // bool(true)
+
 var_dump($path->join("zzz")->path());
 // string(17) "/foo/bar/data/zzz"
+
 var_dump($path->join("../zzz")->path());
 // string(12) "/foo/bar/zzz"
+
 var_dump($path->join("../zzz")->startsWith($path));
 // bool(false)
 
@@ -188,6 +191,28 @@ try {
 } catch (Throwable $e) {
     echo ";-)" . PHP_EOL;
 }
+
+
+// Create a Path instance
+$path = new Path('/var/www/uploads/photo.JPG');
+
+// Check against a custom list
+var_dump(
+    $path->validateExtension(['png','jpg','jpeg']),  // true
+    $path->validateExtension(['gif','bmp'])          // false
+);
+
+// Built-in helpers
+var_dump(
+    $path->validateExtensionImage(),    // true (jpg)
+    $path->validateExtensionVideo(),    // false
+    $path->validateExtensionAudio(),    // false
+    $path->validateExtensionDocument()  // false
+);
+
+// Another example: a document path
+$doc = new Path('/home/user/report.PDF');
+var_dump($doc->validateExtensionDocument()); // true
 ```
 
 ### Hardened\HtmlSanitizer
@@ -488,18 +513,23 @@ $misc->send();;
 
 ### Class `Hardened\Path`
 
-| Method                                 | Signature | Description                                                 |
-|----------------------------------------|-----------|-------------------------------------------------------------|
-| `from(mixed $path): Path`              | static    | Parse or wrap a string/Zval/Path and canonicalize it.       |
-| `__construct(mixed $path)`             | Instance  | Alias for `from()`.                                         |
-| `startsWith(mixed $prefix): bool`      | Instance  | Check if this path begins with the given prefix.            |
-| `join(mixed $segment): Path`           | Instance  | Append a segment (string/Zval/Path), then canonicalize.     |
-| `joinWithin(mixed $segment): Path`     | Instance  | Append a segment and enforce that result stays within base. |
-| `setFileName(mixed $file_name): Path`  | Instance  | Replace the file name component.                            |
-| `setExtension(mixed $extension): Path` | Instance  | Replace the file extension (without leading dot).           |
-| `fileName(): ?string`                  | Instance  | Get the final path component, or `null` if none.            |
-| `path(): string`                       | Instance  | Get the full canonicalized path as a string.                |
-| `__toString(): string`                 | Instance  | Alias for `path()`.                                         |
+| Method                                    | Signature | Description                                                                                  |
+|-------------------------------------------|-----------|----------------------------------------------------------------------------------------------|
+| `from(mixed $path): Path`                 | static    | Parse or wrap a string/Zval/Path and canonicalize it.                                        |
+| `__construct(mixed $path)`                | Instance  | Alias for `from()`.                                                                          |
+| `fileName(): ?string`                     | Instance  | Get the final path component, or `null` if none.                                             |
+| `path(): string`                          | Instance  | Get the full canonicalized path as a string.                                                 |
+| `__toString(): string`                    | Instance  | Alias for `path()`.                                                                          |
+| `startsWith(mixed $prefix): bool`         | Instance  | Check if this path begins with the given prefix.                                             |
+| `join(mixed $segment): Path`              | Instance  | Append a segment (string/Zval/Path), then canonicalize.                                      |
+| `joinWithin(mixed $segment): Path`        | Instance  | Append a segment and enforce that result stays within base.                                  |
+| `setFileName(mixed $file_name): Path`     | Instance  | Replace the file name component.                                                             |
+| `setExtension(mixed $extension): Path`    | Instance  | Replace the file extension (without leading dot).                                            |
+| `validateExtension(array $allowed): bool` | Instance  | Check if the file extension is in a custom allowed list.                                     |
+| `validateExtensionImage(): bool`          | Instance  | Returns `true` if extension is a common image (`png, jpg, jpeg, gif, webp, bmp, tiff, svg`). |
+| `validateExtensionVideo(): bool`          | Instance  | Returns `true` if extension is a common video (`mp4, mov, avi, mkv, webm, flv`).             |
+| `validateExtensionAudio(): bool`          | Instance  | Returns `true` if extension is a common audio (`mp3, wav, ogg, flac, aac`).                  |
+| `validateExtensionDocument(): bool`       | Instance  | Returns `true` if extension is a common document (`pdf, doc, docx, xls, xlsx, ppt, pptx`).   |
 
 ### Class `Hardened\HtmlSanitizer`
 

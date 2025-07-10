@@ -197,6 +197,49 @@ namespace Hardened {
 
         public function path(): string {}
 
+        /**
+         * Check if the path’s extension is in the allowed list.
+         *
+         * # Parameters
+         * - `allowed`: PHP array of allowed extensions (strings, without leading dot), case-insensitive.
+         *
+         * # Returns
+         * - `bool` `true` if the file extension matches one of the allowed values.
+         */
+        public function validateExtension(array $allowed): bool {}
+
+        /**
+         * Check if the path’s extension is a common image type.
+         *
+         * # Returns
+         * - `bool` `true` if extension is one of `["png","jpg","jpeg","gif","webp","bmp","tiff","svg"]`.
+         */
+        public function validateExtensionImage(): bool {}
+
+        /**
+         * Check if the path’s extension is a common video type.
+         *
+         * # Returns
+         * - `bool` `true` if extension is one of `["mp4","mov","avi","mkv","webm","flv"]`.
+         */
+        public function validateExtensionVideo(): bool {}
+
+        /**
+         * Check if the path’s extension is a common audio type.
+         *
+         * # Returns
+         * - `bool` `true` if extension is one of `["mp3","wav","ogg","flac","aac"]`.
+         */
+        public function validateExtensionAudio(): bool {}
+
+        /**
+         * Check if the path’s extension is a common document type.
+         *
+         * # Returns
+         * - `bool` `true` if extension is one of `["pdf","doc","docx","xls","xlsx","ppt","pptx"]`.
+         */
+        public function validateExtensionDocument(): bool {}
+
         public function __construct(mixed $path) {}
     }
 

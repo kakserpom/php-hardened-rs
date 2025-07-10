@@ -126,6 +126,56 @@ impl PathObj {
             .map(str::to_string)
             .ok_or_else(|| anyhow::anyhow!("Could not convert path to string"))?)
     }
+
+    /// Check if the path’s extension is in the allowed list.
+    ///
+    /// # Parameters
+    /// - `allowed`: PHP array of allowed extensions (strings, without leading dot), case-insensitive.
+    ///
+    /// # Returns
+    /// - `bool` `true` if the file extension matches one of the allowed values.
+    fn validate_extension(&self, allowed: Vec<&str>) -> bool {
+        self.inner
+            .extension()
+            .and_then(OsStr::to_str)
+            .map_or(false, |ext| {
+                allowed.iter().any(|a| a.eq_ignore_ascii_case(ext))
+            })
+    }
+
+    /// Check if the path’s extension is a common image type.
+    ///
+    /// # Returns
+    /// - `bool` `true` if extension is one of `["png","jpg","jpeg","gif","webp","bmp","tiff","svg"]`.
+    fn validate_extension_image(&self) -> bool {
+        self.validate_extension(vec![
+            "png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "svg",
+        ])
+    }
+
+    /// Check if the path’s extension is a common video type.
+    ///
+    /// # Returns
+    /// - `bool` `true` if extension is one of `["mp4","mov","avi","mkv","webm","flv"]`.
+    fn validate_extension_video(&self) -> bool {
+        self.validate_extension(vec!["mp4", "mov", "avi", "mkv", "webm", "flv"])
+    }
+
+    /// Check if the path’s extension is a common audio type.
+    ///
+    /// # Returns
+    /// - `bool` `true` if extension is one of `["mp3","wav","ogg","flac","aac"]`.
+    fn validate_extension_audio(&self) -> bool {
+        self.validate_extension(vec!["mp3", "wav", "ogg", "flac", "aac"])
+    }
+
+    /// Check if the path’s extension is a common document type.
+    ///
+    /// # Returns
+    /// - `bool` `true` if extension is one of `["pdf","doc","docx","xls","xlsx","ppt","pptx"]`.
+    fn validate_extension_document(&self) -> bool {
+        self.validate_extension(vec!["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"])
+    }
 }
 
 /// Performs a purely lexical normalization of a path:
