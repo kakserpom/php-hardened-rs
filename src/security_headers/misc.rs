@@ -138,7 +138,7 @@ impl MiscHeaders {
     /// - Throws if `mode` is invalid or `"ALLOW-FROM"` is given without a URI.
     fn set_frame_options(&mut self, mode: &str, uri: Option<&str>) -> PhpResult<()> {
         let opt = FrameOptions::from_str(mode)
-            .map_err(|_| PhpException::from(format!("Invalid Frame-Options: {}", mode)))?;
+            .map_err(|_| PhpException::from(format!("Invalid Frame-Options: {mode}")))?;
         if opt == FrameOptions::AllowFrom && uri.is_none() {
             return Err(PhpException::from("`ALLOW-FROM` requires a URI"));
         }
@@ -156,7 +156,7 @@ impl MiscHeaders {
     /// - Throws if `mode` is invalid or a `report_uri` is provided for 'off' mode.
     fn set_xss_protection(&mut self, mode: &str, report_uri: Option<&str>) -> PhpResult<()> {
         let opt = XssProtection::from_str(mode)
-            .map_err(|_| PhpException::from(format!("Invalid XSS-Protection: {}", mode)))?;
+            .map_err(|_| PhpException::from(format!("Invalid XSS-Protection: {mode}")))?;
         if report_uri.is_some() && opt != XssProtection::On {
             return Err(PhpException::from(
                 "`report_uri` only allowed with mode \"1\"",
@@ -180,7 +180,7 @@ impl MiscHeaders {
     /// - Throws if `mode` is not a valid policy token.
     fn set_permitted_cross_domain_policies(&mut self, mode: &str) -> PhpResult<()> {
         let policy = PermittedCrossDomainPolicies::from_str(mode).map_err(|_| {
-            PhpException::from(format!("Invalid cross-domain policies value: {}", mode))
+            PhpException::from(format!("Invalid cross-domain policies value: {mode}"))
         })?;
         self.permitted_policies = Some(policy);
         Ok(())
@@ -250,7 +250,7 @@ impl MiscHeaders {
                 .string()
                 .ok_or_else(|| PhpException::from("Each blocked_destination must be a string"))?;
             let dest = IntegrityBlockedDestination::from_str(&s)
-                .map_err(|_| PhpException::from(format!("Invalid blocked_destination: {}", s)))?;
+                .map_err(|_| PhpException::from(format!("Invalid blocked_destination: {s}")))?;
             blocked.push(dest);
         }
         if blocked.is_empty() {
@@ -268,7 +268,7 @@ impl MiscHeaders {
                     .string()
                     .ok_or_else(|| PhpException::from("Each source must be a string"))?;
                 let src = IntegritySource::from_str(&s)
-                    .map_err(|_| PhpException::from(format!("Invalid source: {}", s)))?;
+                    .map_err(|_| PhpException::from(format!("Invalid source: {s}")))?;
                 v.push(src);
             }
             v
@@ -313,7 +313,7 @@ impl MiscHeaders {
 
         if let Some((mode, uri)) = &self.frame {
             let value = match (mode, uri) {
-                (FrameOptions::AllowFrom, Some(u)) => format!("ALLOW-FROM {}", u),
+                (FrameOptions::AllowFrom, Some(u)) => format!("ALLOW-FROM {u}"),
                 _ => mode.to_string(),
             };
             headers.insert("X-Frame-Options", value);
@@ -321,7 +321,7 @@ impl MiscHeaders {
 
         if let Some((mode, uri)) = &self.xss {
             let value = if let Some(u) = uri {
-                format!("1; report={}", u)
+                format!("1; report={u}")
             } else {
                 mode.to_string()
             };
@@ -356,7 +356,7 @@ impl MiscHeaders {
         let header_fn = Function::try_from_function("header")
             .ok_or_else(|| PhpException::from("Could not call header()"))?;
         for (name, value) in self.build() {
-            let hdr = format!("{}: {}", name, value);
+            let hdr = format!("{name}: {value}");
             header_fn.try_call(vec![&hdr])?;
         }
         Ok(())

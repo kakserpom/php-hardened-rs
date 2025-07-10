@@ -36,7 +36,7 @@ impl ReferrerPolicy {
     fn __construct(policy: Option<&str>) -> PhpResult<Self> {
         let directive = if let Some(s) = policy {
             ReferrerPolicyDirective::from_str(s)
-                .map_err(|_| PhpException::from(format!("Invalid Referrer-Policy value: {}", s)))?
+                .map_err(|_| PhpException::from(format!("Invalid Referrer-Policy value: {s}")))?
         } else {
             ReferrerPolicyDirective::NoReferrer
         };
@@ -52,7 +52,7 @@ impl ReferrerPolicy {
     /// - Throws `Exception` if an invalid policy token is provided.
     fn set_policy(&mut self, policy: &str) -> PhpResult<()> {
         let parsed = ReferrerPolicyDirective::from_str(policy).map_err(|_| {
-            PhpException::from(format!("Invalid Referrer-Policy value: {}", policy))
+            PhpException::from(format!("Invalid Referrer-Policy value: {policy}"))
         })?;
         self.policy = parsed;
         Ok(())

@@ -263,7 +263,7 @@ impl ContentSecurityPolicy {
             }
         }
         self.src_map.insert(
-            Rule::from_str(&rule)
+            Rule::from_str(rule)
                 .map_err(|_| PhpException::from(format!("Invalid rule name: {rule}")))?,
             (keywords_vec, sources.unwrap_or_default()),
         );

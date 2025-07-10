@@ -69,7 +69,7 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_ref() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        let url = Url::parse(&url);
+        let url = Url::parse(url);
         Ok(if let Ok(url) = url {
             x.clone_url_schemes().contains(url.scheme())
         } else if url == Err(url::ParseError::RelativeUrlWithoutBase) {
@@ -343,9 +343,7 @@ impl HtmlSanitizer {
             return Err(PhpException::from("You cannot do this now"));
         };
         x.rm_tag_attributes(
-            tag.string()
-                .as_ref()
-                .map(|x| x.as_str())
+            tag.string().as_deref()
                 .ok_or_else(|| anyhow!("tag must be a string"))?,
             arg_into_vec(
                 classes
@@ -527,7 +525,7 @@ impl HtmlSanitizer {
         let Some(x) = self.inner.as_mut() else {
             return Err(PhpException::from("You cannot do this now"));
         };
-        x.url_schemes(set.into());
+        x.url_schemes(set);
         Ok(())
     }
 
@@ -850,7 +848,6 @@ fn arg_into_vec(arg: &ZendHashTable) -> PhpResult<Vec<&str>> {
         },
     )
 }
-
 fn arg_into_hashset(arg: &ZendHashTable) -> PhpResult<HashSet<String>> {
     arg.values().try_fold(
         HashSet::with_capacity(arg.len()),

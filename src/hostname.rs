@@ -16,24 +16,42 @@ pub struct Hostname {
 }
 
 impl Hostname {
-    /// Internal constructor from a raw hostname string.
+    /// Construct from a raw hostname string, handling domains and IPs (v4 or v6).
+    ///
+    /// # Parameters
+    /// - `s`: The hostname or IP literal, e.g. `"Example.COM."`, `"127.0.0.1"`, or `"[::1]"`.
+    ///
+    /// # Returns
+    /// - `Ok(Hostname)` on success.
+    ///
+    /// # Errors
+    /// - Returns `Err` if the string is not a valid IPv4 or IPv6 address.
     pub fn _from_str(s: &str) -> Result<Self> {
-        // Try IPv6 (with or without brackets)
-        let s = s.trim_end_matches('.');
-        let host = if s.starts_with('[') && s.ends_with(']') {
-            // strip brackets
-            let inner = &s[1..s.len() - 1];
+        let trimmed = s.trim_end_matches('.');
+        let host = if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            // IPv6 in brackets
+            let inner = &trimmed[1..trimmed.len() - 1];
             Host::Ipv6(inner.parse().map_err(|e| anyhow!("Invalid IPv6: {}", e))?)
-        } else if let Ok(v4) = s.parse() {
+        } else if let Ok(v4) = trimmed.parse() {
+            // IPv4
             Host::Ipv4(v4)
         } else {
-            // domain (to lowercase)
-            Host::Domain(s.to_lowercase())
+            // Domain name, lowercased
+            Host::Domain(trimmed.to_lowercase())
         };
         Ok(Self { inner: host })
     }
 
-    /// Internal constructor from a URL string.
+    /// Construct by parsing the host component of a URL string.
+    ///
+    /// # Parameters
+    /// - `url`: A full URL, e.g. `"https://sub.example.com/path"`.
+    ///
+    /// # Returns
+    /// - `Ok(Hostname)` on success.
+    ///
+    /// # Errors
+    /// - Returns `Err` if the URL cannot be parsed or has no host.
     pub fn _from_url(url: &str) -> Result<Self> {
         let parsed = Url::parse(url).map_err(|e| anyhow!("URL parse error: {}", e))?;
         let host_ref = parsed.host().ok_or_else(|| anyhow!("URL has no host"))?;
@@ -45,14 +63,31 @@ impl Hostname {
         Ok(Self { inner: host })
     }
 
-    /// Compare against a raw hostname string.
+    /// Compare this hostname to a raw string.
+    ///
+    /// # Parameters
+    /// - `other`: The hostname string to compare against.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if equal, `Ok(false)` otherwise.
+    ///
+    /// # Errors
+    /// - Returns `Err` if `other` is not a valid hostname or IP.
     pub fn _equals_str(&self, other: &str) -> Result<bool> {
-        let other = Hostname::_from_str(other)?;
-        println!("other: {other:?}");
-        Ok(self.inner.eq(&other.inner))
+        let other_host = Hostname::_from_str(other)?;
+        Ok(self.inner == other_host.inner)
     }
 
-    /// True if equals any of the provided host strings.
+    /// Check equality against any in a list of raw host strings.
+    ///
+    /// # Parameters
+    /// - `list`: Slice of hostname strings.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if any match, `Ok(false)` otherwise.
+    ///
+    /// # Errors
+    /// - Returns `Err` if any comparison fails due to invalid input.
     pub fn _equals_any_str(&self, list: &[&str]) -> Result<bool> {
         for &h in list {
             if self._equals_str(h)? {
@@ -62,14 +97,31 @@ impl Hostname {
         Ok(false)
     }
 
-    /// Compare against the host of a URL string.
+    /// Compare this hostname to the host component of a URL.
+    ///
+    /// # Parameters
+    /// - `url`: The URL string.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if equal, `Ok(false)` otherwise.
+    ///
+    /// # Errors
+    /// - Returns `Err` if the URL is invalid or has no host.
     pub fn _equals_url(&self, url: &str) -> Result<bool> {
-        let parsed = Url::parse(url).map_err(|e| anyhow!(e.to_string()))?;
-        let host_str = hostname(&parsed);
-        self._equals_str(host_str)
+        let other = Hostname::_from_url(url)?;
+        Ok(self.inner == other.inner)
     }
 
-    /// True if equals any host of the provided URLs.
+    /// Check equality against any host from a list of URLs.
+    ///
+    /// # Parameters
+    /// - `urls`: Slice of URL strings.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if any match, `Ok(false)` otherwise.
+    ///
+    /// # Errors
+    /// - Returns `Err` if any URL is invalid or has no host.
     pub fn _equals_any_url(&self, urls: &[&str]) -> Result<bool> {
         for &u in urls {
             if self._equals_url(u)? {
@@ -79,28 +131,36 @@ impl Hostname {
         Ok(false)
     }
 
-    /// Check if this is a subdomain of the raw hostname.
-    pub fn _subdomain_of(&self, hostname: &str) -> Result<bool> {
-        let this = &self.inner;
-        let mut that = Host::parse(&hostname).map_err(|err| anyhow!("{err}"))?;
-        if let Host::Domain(s) = &mut that {
-            *s = s.trim_end_matches('.').to_lowercase();
+    /// Check if this hostname is a subdomain of a raw hostname.
+    ///
+    /// # Parameters
+    /// - `s`: The parent hostname string to check against.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if equal or a subdomain, `Ok(false)` otherwise.
+    ///
+    /// # Errors
+    /// - Returns `Err` if `s` is not a valid hostname.
+    pub fn _subdomain_of(&self, s: &str) -> Result<bool> {
+        let parent = Hostname::_from_str(s)?;
+        match (&self.inner, &parent.inner) {
+            (Host::Domain(a), Host::Domain(b)) => Ok(a == b || a.ends_with(&format!(".{b}"))),
+            (Host::Ipv4(a), Host::Ipv4(b)) => Ok(a == b),
+            (Host::Ipv6(a), Host::Ipv6(b)) => Ok(a == b),
+            _ => Ok(false),
         }
-        Ok(match (this, that) {
-            (Host::Domain(this), Host::Domain(that)) => {
-                if this.eq(&that) {
-                    true
-                } else {
-                    this.ends_with(&format!(".{that}"))
-                }
-            }
-            (Host::Ipv4(this), Host::Ipv4(that)) => this.eq(&that),
-            (Host::Ipv6(this), Host::Ipv6(that)) => this.eq(&that),
-            _ => false,
-        })
     }
 
-    /// True if subdomain of any provided host strings.
+    /// Check if this hostname is a subdomain of any in a list of raw hostnames.
+    ///
+    /// # Parameters
+    /// - `list`: Slice of parent hostname strings.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if any match or subdomain, `Ok(false)` otherwise.
+    ///
+    /// # Errors
+    /// - Returns `Err` if any parent string is invalid.
     pub fn _subdomain_of_any(&self, list: &[&str]) -> Result<bool> {
         for &h in list {
             if self._subdomain_of(h)? {
@@ -110,14 +170,31 @@ impl Hostname {
         Ok(false)
     }
 
-    /// Check if subdomain of host of a URL string.
+    /// Check if this hostname is a subdomain of the host component of a URL.
+    ///
+    /// # Parameters
+    /// - `url`: The URL string.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if equal or a subdomain, `Ok(false)` otherwise.
+    ///
+    /// # Errors
+    /// - Returns `Err` if the URL is invalid or has no host.
     pub fn _subdomain_of_url(&self, url: &str) -> Result<bool> {
-        let parsed = Url::parse(url).map_err(|e| anyhow!(e.to_string()))?;
-        let host_str = hostname(&parsed);
-        self._subdomain_of(host_str)
+        let other = Hostname::_from_url(url)?;
+        self._subdomain_of(&other.inner.to_string())
     }
 
-    /// True if subdomain of any hosts from provided URLs.
+    /// Check if this hostname is a subdomain of any hosts from a list of URLs.
+    ///
+    /// # Parameters
+    /// - `urls`: Slice of URL strings.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if any match or subdomain, `Ok(false)` otherwise.
+    ///
+    /// # Errors
+    /// - Returns `Err` if any URL is invalid or has no host.
     pub fn _subdomain_of_any_url(&self, urls: &[&str]) -> Result<bool> {
         for &u in urls {
             if self._subdomain_of_url(u)? {

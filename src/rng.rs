@@ -256,8 +256,76 @@ impl Rng {
         )?;
         Ok(vec
             .choose_multiple_weighted(&mut rng, amount, |pair| pair.1)?
-            .into_iter()
             .map(|pair| pair.0.shallow_clone())
             .collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Rng;
+    use unicode_segmentation::UnicodeSegmentation;
+
+    #[test]
+    fn test_alphanumeric() {
+        let s = Rng::alphanumeric(10);
+        assert_eq!(s.len(), 10);
+        assert!(s.chars().all(|c| c.is_ascii_alphanumeric()));
+    }
+
+    #[test]
+    fn test_alphabetic() {
+        let s = Rng::alphabetic(8);
+        assert_eq!(s.len(), 8);
+        assert!(s.chars().all(|c| c.is_ascii_alphabetic()));
+    }
+
+    #[test]
+    fn test_ints() {
+        let v = Rng::ints(5, 0, 10).unwrap();
+        assert_eq!(v.len(), 5);
+        for &i in &v {
+            assert!(0 <= i && i <= 10);
+        }
+    }
+
+    #[test]
+    fn test_int_valid_and_invalid() {
+        let i = Rng::int(1, 3).unwrap();
+        assert!(1 <= i && i <= 3);
+        assert!(Rng::int(5, 0).is_err(), "should error when low > high");
+    }
+
+    #[test]
+    fn test_custom_unicode_chars() {
+        let pool = "абв";
+        let s = Rng::custom_unicode_chars(5, pool);
+        assert_eq!(s.chars().count(), 5);
+        assert!(s.chars().all(|c| pool.contains(c)));
+        let empty = Rng::custom_unicode_chars(5, "");
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn test_custom_unicode_graphemes() {
+        let pool = "🙈🙉🙊";
+        let s = Rng::custom_unicode_graphemes(4, pool).unwrap();
+        // Each grapheme is one of the pool
+        let graphemes: Vec<&str> = pool.graphemes(true).collect();
+        for g in s.graphemes(true) {
+            assert!(graphemes.contains(&g));
+        }
+        let empty = Rng::custom_unicode_graphemes(3, "").unwrap();
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn test_custom_ascii() {
+        let pool = "ABC";
+        let s = Rng::custom_ascii(6, pool);
+        assert_eq!(s.len(), 6);
+        assert!(s.chars().all(|c| pool.contains(c)));
+        let empty = Rng::custom_ascii(4, "");
+        assert!(empty.is_empty());
     }
 }

@@ -1,5 +1,6 @@
-mod csrf;
 #[warn(clippy::pedantic)]
+#[allow(clippy::used_underscore_items)]
+mod csrf;
 mod hostname;
 mod html_sanitizer;
 mod path;

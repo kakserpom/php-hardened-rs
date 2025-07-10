@@ -1,9 +1,12 @@
 use anyhow::{anyhow, bail};
 use csrf::{AesGcmCsrfProtection, CsrfCookie, CsrfProtection, CsrfToken};
-use data_encoding::BASE64URL;
+use data_encoding::{BASE64, BASE64URL};
 use ext_php_rs::exception::PhpResult;
+#[cfg(not(test))]
 use ext_php_rs::types::Zval;
-use ext_php_rs::zend::{Function, ProcessGlobals};
+use ext_php_rs::zend::Function;
+#[cfg(not(test))]
+use ext_php_rs::zend::ProcessGlobals;
 use ext_php_rs::{php_class, php_impl};
 
 /// CSRF protection for your application.
@@ -73,7 +76,11 @@ impl Csrf {
     ///
     /// # Exceptions
     /// - Throws `Exception` if decoding fails or the token–cookie pair is invalid/expired.
-    fn verify_token(&self, token: &str, mut cookie: Option<String>) -> anyhow::Result<()> {
+    fn verify_token(
+        &self,
+        token: &str,
+        #[allow(unused_mut)] mut cookie: Option<String>,
+    ) -> anyhow::Result<()> {
         let token = self
             .inner
             .parse_token(
@@ -84,6 +91,7 @@ impl Csrf {
             )
             .map_err(|err| anyhow!("{}", err))?;
 
+        #[cfg(not(test))]
         if cookie.is_none() {
             cookie = ProcessGlobals::get()
                 .http_cookie_vars()
@@ -98,7 +106,7 @@ impl Csrf {
         let cookie = self
             .inner
             .parse_cookie(
-                BASE64URL
+                BASE64
                     .decode(cookie.unwrap().as_bytes())
                     .map_err(|err| anyhow!("Cookie base64 error: {}", err))?
                     .as_slice(),
@@ -168,7 +176,7 @@ impl Csrf {
         let value = self.cookie.b64_string();
         let expires = expires.unwrap_or(0);
         let path = path.unwrap_or_else(|| "/".to_string());
-        let domain = domain.unwrap_or_else(|| "".to_string());
+        let domain = domain.unwrap_or_default();
         let secure = secure.unwrap_or(false);
         let httponly = httponly.unwrap_or(true);
 
@@ -178,6 +186,84 @@ impl Csrf {
                 &name, &value, &expires, &path, &domain, &secure, &httponly,
             ])?;
 
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Csrf;
+    use anyhow::Result;
+    use data_encoding::BASE64URL;
+
+    /// Helper to generate a Base64URL-encoded 32-byte zero key.
+    fn zero_key_b64() -> String {
+        let key = [0u8; 32];
+        BASE64URL.encode(&key)
+    }
+
+    #[test]
+    fn test_construct_and_token_cookie() -> Result<()> {
+        // Construct with zero key, 60-second TTL, no previous token
+        let key = zero_key_b64();
+        let csrf = Csrf::__construct(&key, 60, None)?;
+
+        // Retrieve token and cookie strings
+
+        let token = csrf.token();
+        let cookie = csrf.cookie();
+
+        println!("cookie = {cookie:#?}");
+
+        assert!(!token.is_empty(), "Token should not be empty");
+        assert!(!cookie.is_empty(), "Cookie should not be empty");
+        // Verify the freshly generated pair
+        csrf.verify_token(&token, Some(cookie.clone()))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_verify_token_fails_with_bad_token() -> Result<()> {
+        let key = zero_key_b64();
+        let csrf = Csrf::__construct(&key, 60, None)?;
+        let bad_token = "invalid.token.value";
+        let good_cookie = csrf.cookie();
+        let err = csrf.verify_token(bad_token, Some(good_cookie)).unwrap_err();
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("Token base64 error") || msg.contains("parse_token"),
+            "Unexpected error: {msg}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_verify_token_fails_with_bad_cookie() -> Result<()> {
+        let key = zero_key_b64();
+        let csrf = Csrf::__construct(&key, 60, None)?;
+        let good_token = csrf.token();
+        let bad_cookie = "invalid_cookie";
+        let err = csrf
+            .verify_token(&good_token, Some(bad_cookie.to_string()))
+            .unwrap_err();
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("Cookie base64 error") || msg.contains("verify_token_pair"),
+            "Unexpected error: {msg}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_cookie_name_get_set() -> Result<()> {
+        let key = zero_key_b64();
+        let mut csrf = Csrf::__construct(&key, 60, None)?;
+        // default cookie name
+        assert_eq!(csrf.cookie_name(), "csrf");
+        // set a new cookie name
+        csrf.set_cookie_name("my_csrf".to_string());
+        assert_eq!(csrf.cookie_name(), "my_csrf");
         Ok(())
     }
 }

@@ -147,19 +147,19 @@ impl PathObj {
     /// # Errors
     /// Throws an exception if the path cannot be converted to a string.
     pub fn __to_string(&self) -> anyhow::Result<String> {
-        Ok(self
+        self
             .inner
             .to_str()
             .map(str::to_string)
-            .ok_or_else(|| anyhow::anyhow!("Could not convert path to string"))?)
+            .ok_or_else(|| anyhow::anyhow!("Could not convert path to string"))
     }
 
     pub fn path(&self) -> anyhow::Result<String> {
-        Ok(self
+        self
             .inner
             .to_str()
             .map(str::to_string)
-            .ok_or_else(|| anyhow::anyhow!("Could not convert path to string"))?)
+            .ok_or_else(|| anyhow::anyhow!("Could not convert path to string"))
     }
 
     /// Check if the path’s extension is in the allowed list.
@@ -173,7 +173,7 @@ impl PathObj {
         self.inner
             .extension()
             .and_then(OsStr::to_str)
-            .map_or(false, |ext| {
+            .is_some_and(|ext| {
                 allowed.iter().any(|a| a.eq_ignore_ascii_case(ext))
             })
     }
