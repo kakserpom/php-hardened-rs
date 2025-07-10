@@ -4,7 +4,8 @@ use data_encoding::BASE64URL;
 use ext_php_rs::exception::PhpResult;
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_impl};
-
+const INPUT_COOKIE: u8 = 2;
+const FILTER_DEFAULT: u16 = 516;
 /// CSRF protection for your application.
 #[php_class]
 #[php(name = "Hardened\\CsrfProtection")]
@@ -85,9 +86,9 @@ impl Csrf {
 
         if cookie.is_none() {
             cookie = Function::try_from_function("filter_input")
-                .ok_or_else(|| anyhow!("Could not call header"))?
-                .try_call(vec![&self.cookie_name])
-                .map_err(|err| anyhow!("{}", err))?
+                .ok_or_else(|| anyhow!("filter_input is not available"))?
+                .try_call(vec![&INPUT_COOKIE, &self.cookie_name, &FILTER_DEFAULT])
+                .map_err(|err| anyhow!("Could not call filter_input: {}", err))?
                 .string();
         }
 
