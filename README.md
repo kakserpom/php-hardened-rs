@@ -1,7 +1,7 @@
 # php-hardened-rs
 
 A PHP extension powered by **Rust** 🦀 and [ext-php-rs](https://github.com/davidcole1340/ext-php-rs), delivering
-essential security utilities for PHP applications. It provides eight core classes:
+essential security utilities for PHP applications. It provides ten core classes:
 
 1. **Hardened\Hostname** — secure hostname parsing, normalization, and comparison.
 2. **Hardened\Path** — safe, purely-lexical filesystem path handling to prevent directory traversal.
@@ -13,10 +13,16 @@ essential security utilities for PHP applications. It provides eight core classe
    `includeSubDomains`, and `preload`, then emit the header.
 6. **Hardened\SecurityHeaders\CorsPolicy** — CORS policy builder; configure origins, methods, headers, credentials,
    exposed headers, and preflight caching, then emit the necessary headers.
-7. **Hardened\Rng** — stateless random-data generator: alphanumeric, alphabetic, byte sequences, integer ranges, and
+7. **Hardened\SecurityHeaders\ReferrerPolicy** — Referrer-Policy header builder; initialize with or set any valid policy
+   token, build the header value, or send it directly.
+8. **Hardened\Rng** — stateless random-data generator: alphanumeric, alphabetic, byte sequences, integer ranges, and
    custom Unicode or ASCII sampling.
-8. **Hardened\CsrfProtection** — synchronized CSRF token–cookie protection using AES-GCM, with PHP-friendly API for
-   generation, verification, and cookie management.
+9. **Hardened\CsrfProtection** — synchronized CSRF token–cookie protection using AES-GCM, with a PHP-friendly API for
+   token/cookie generation, verification, and cookie management.
+10. **Hardened\SecurityHeaders\MiscHeaders** — builder for miscellaneous HTTP security headers (`X-Frame-Options`,
+    `X-XSS-Protection`, `X-Content-Type-Options`, `X-Permitted-Cross-Domain-Policies`, `Report-To`, `Integrity-Policy`,
+    and `Integrity-Policy-Report-Only`); configure via `set…()` methods, build a header map with `build()`, or emit all
+    via `send()`.
 
 **Supported Platforms:** Linux, macOS, Windows (where `ext-php-rs` is available)
 
@@ -99,6 +105,21 @@ essential security utilities for PHP applications. It provides eight core classe
 - Configure allowed origins, methods, headers, credentials flag, exposed headers, and preflight cache duration.
 - Build a map of header names → values with `build()`, or emit them directly with `send()`.
 
+### Hardened\SecurityHeaders\ReferrerPolicy
+
+- Referrer-Policy header builder for HTTP responses.
+- Initialize with an optional policy token or configure via `setPolicy()`; enforces only valid CSP values.
+- Build the header value with `build()`, or emit it directly with `send()`.
+
+### Hardened\SecurityHeaders\MiscHeaders
+
+- Builder for miscellaneous HTTP security headers:  
+  `X-Frame-Options`, `X-XSS-Protection`, `X-Content-Type-Options`,  
+  `X-Permitted-Cross-Domain-Policies`, `Report-To`, `Integrity-Policy`,  
+  and `Integrity-Policy-Report-Only`.
+- Strongly-typed enums for frame & XSS modes, with optional URIs for “ALLOW-FROM” and reporting.
+- Configure each header with `set…()` methods, then gather with `build()` or emit via `send()`.
+
 ---
 
 ## Installation
@@ -136,7 +157,6 @@ extension=php_hardened_rs
 ### Hardened\Hostname
 
 ```php
-<?php
 use Hardened\Hostname;
 
 var_dump(Hostname::fromUrl("https://example.com/php")->equals("eXaMple.com.")); 
@@ -150,7 +170,6 @@ var_dump(Hostname::from("zzz.example.com")->subdomainOf("example.co.uk"));
 ### Hardened\Path
 
 ```php
-<?php
 use Hardened\Path;
 
 $path = Path::from("/foo/bar/data/");
@@ -174,7 +193,6 @@ try {
 ### Hardened\HtmlSanitizer
 
 ```php
-<?php
 use Hardened\HtmlSanitizer;
 
 $sanitizer = HtmlSanitizer::default();
@@ -203,7 +221,6 @@ var_dump($sanitizer->isValidUrl("foo"));
 ### Hardened\Rng
 
 ```php
-<?php
 use Hardened\Rng;
 
 // Random alphanumeric string of length 10
@@ -266,7 +283,6 @@ var_dump($multiWeighted);
 ### Hardened\SecurityHeaders\ContentSecurityPolicy
 
 ```php
-<?php
 use Hardened\SecurityHeaders\ContentSecurityPolicy;
 
 // Create a new CSP builder
@@ -327,7 +343,6 @@ $policy->send();
 ### Hardened\SecurityHeaders\Hsts
 
 ```php
-<?php
 use Hardened\SecurityHeaders\Hsts;
 
 // Create and configure HSTS
@@ -344,13 +359,12 @@ $value = $hsts->build();
 header('Strict-Transport-Security: ' . $value);
 
 // Or simply:
-// $hsts->send();
+$hsts->send();
 ```
 
 ### Hardened\SecurityHeaders\CorsPolicy
 
 ```php
-<?php
 use Hardened\SecurityHeaders\CorsPolicy;
 
 $cors = new CorsPolicy();
@@ -380,6 +394,74 @@ foreach ($cors->build() as $name => $value) {
 
 // Or simply:
 $cors->send();
+```
+
+### Hardened\SecurityHeaders\MiscHeaders
+
+```php
+use Hardened\SecurityHeaders\ReferrerPolicy;
+
+// Default policy (no-referrer)
+$rp = new ReferrerPolicy();
+
+// Specify initial policy
+$rp = new ReferrerPolicy('origin-when-cross-origin');
+
+// Override later
+$rp->setPolicy('strict-origin');
+
+// Get the header value
+$value = $rp->build();
+// e.g. "strict-origin"
+
+// Send the header
+header('Referrer-Policy: ' . $value);
+
+// Or simply:
+$rp->send();
+```
+
+```php
+use Hardened\SecurityHeaders\MiscHeaders;
+
+$misc = new MiscHeaders();
+
+// Frame options
+$misc->setFrameOptions('DENY', null);
+$misc->setFrameOptions('ALLOW-FROM', 'https://example.com');
+
+// XSS protection
+$misc->setXssProtection('on');
+$misc->setXssProtection('block');
+$misc->setXssProtection('block', 'https://report.example.com'); // Block with a report URI
+
+// No-sniff
+$misc->setNosniff(true);
+
+// Cross-domain policies
+$misc->setPermittedCrossDomainPolicies('none');
+
+$misc->setReportTo(
+    'csp-endpoint',          // group
+    10886400,                // max_age
+    true,                    // include_subdomains
+    ['primary', 'backup']    // endpoints
+);
+
+// Structured Integrity-Policy
+$misc->setIntegrityPolicy(
+    ['script'],                    // blocked-destinations
+    ['inline'],                    // sources (optional, defaults to ['inline'])
+    ['csp-endpoint','backup']      // endpoints (optional)
+);
+
+// Apply headers
+foreach ($misc->build() as $name => $value) {
+    header("$name: $value");
+}
+
+// Or simply:
+$misc->send();;
 ```
 
 ---
@@ -527,6 +609,31 @@ $cors->send();
 | `maxAge(int $seconds): void`           | Instance                          | Set `Access-Control-Max-Age` (in seconds) for caching preflight responses.    |
 | `build(): array`                       | Instance → `array<string,string>` | Return an associative array of header names → values to send.                 |
 | `send(): void`                         | Instance                          | Emit all configured CORS headers via PHP `header()` calls.                    |
+
+### Class `Hardened\SecurityHeaders\RefererPolicy`
+
+| Method                                | Signature                | Description                                                  |
+|---------------------------------------|--------------------------|--------------------------------------------------------------|
+| `__construct(?string $policy = null)` | static                   | Create builder with default `no-referrer` or given token.    |
+| `setPolicy(string $policy): void`     | Instance                 | Set a new policy token; throws on invalid value.             |
+| `policy(): string`                    | Instance, returns string | Get the current policy token.                                |
+| `build(): string`                     | Instance, returns string | Build the header value to pass to `header()`.                |
+| `send(): void`                        | Instance                 | Emit `Referrer-Policy: <value>` via PHP `header()` function. |
+
+### Class `Hardened\SecurityHeaders\MiscHeaders`
+
+| Method                                                                                     | Signature                                              | Description                                                                                                      |
+|--------------------------------------------------------------------------------------------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| `__construct(): void`                                                                      | `static`                                               | Initialize builder with all headers disabled.                                                                    |
+| `setFrameOptions(string $mode, ?string $uri): void`                                        | Instance                                               | Set `X-Frame-Options`: `"DENY"`, `"SAMEORIGIN"`, or `"ALLOW-FROM"` (URI required for `ALLOW-FROM`).              |
+| `setXssProtection(string $mode, ?string $reportUri): void`                                 | Instance                                               | Set `X-XSS-Protection`: `"0"`/`"off"`, `"1"`/`"on"`, or `"1; mode=block"`; optional report URI when mode=`"1"`.  |
+| `setNosniff(bool $enable): void`                                                           | Instance                                               | Enable or disable `X-Content-Type-Options: nosniff`.                                                             |
+| `setPermittedCrossDomainPolicies(string $value): void`                                     | Instance                                               | Set `X-Permitted-Cross-Domain-Policies`: `"none"`, `"master-only"`, `"by-content-type"`, or `"all"`.             |
+| `setReportTo(string $group, int $maxAge, bool $includeSubdomains, array $endpoints): void` | Instance                                               | Configure `Report-To` header with group name, retention (`max_age`), subdomain flag, and list of endpoint names. |
+| `setIntegrityPolicy(string $policy): void`                                                 | Instance                                               | Set `Integrity-Policy` header value.                                                                             |
+| `setIntegrityPolicyReportOnly(string $policy): void`                                       | Instance                                               | Set `Integrity-Policy-Report-Only` header value.                                                                 |
+| `build(): array<string,string>`                                                            | Instance → associative array of header names to values | Return all configured headers & values.                                                                          |
+| `send(): void`                                                                             | Instance                                               | Emit each header via PHP `header()` calls.                                                                       |
 
 ---
 

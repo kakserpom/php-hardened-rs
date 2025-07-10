@@ -1490,6 +1490,7 @@ dependencies = [
  "data-encoding",
  "ext-php-rs",
  "rand 0.9.1",
+ "serde_json",
  "strum",
  "strum_macros",
  "trim-in-place",

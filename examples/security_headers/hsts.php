@@ -15,4 +15,4 @@ $value = $hsts->build();
 header('Strict-Transport-Security: ' . $value);
 
 // Or simply:
-// $hsts->send();
+$hsts->send();
