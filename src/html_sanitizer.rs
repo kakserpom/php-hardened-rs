@@ -1,9 +1,9 @@
+use crate::{arg_into_hashset, arg_into_vec};
 use ammonia::{Builder, UrlRelative};
 use anyhow::anyhow;
 use ext_php_rs::prelude::{PhpException, PhpResult, ZendCallable};
-use ext_php_rs::types::{ZendHashTable, Zval};
+use ext_php_rs::types::Zval;
 use ext_php_rs::{php_class, php_impl};
-use std::collections::HashSet;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
@@ -19,6 +19,17 @@ pub struct HtmlSanitizer {
     req_rx: Option<Receiver<Option<FilterRequest>>>,
     resp_tx: Option<Sender<FilterResponse>>,
     req_tx: Option<Sender<Option<FilterRequest>>>,
+}
+
+#[derive(Debug)]
+struct FilterRequest {
+    element: String,
+    attribute: String,
+    value: String,
+}
+
+struct FilterResponse {
+    filtered: Option<String>,
 }
 
 #[php_impl]
@@ -343,7 +354,8 @@ impl HtmlSanitizer {
             return Err(PhpException::from("You cannot do this now"));
         };
         x.rm_tag_attributes(
-            tag.string().as_deref()
+            tag.string()
+                .as_deref()
                 .ok_or_else(|| anyhow!("tag must be a string"))?,
             arg_into_vec(
                 classes
@@ -826,34 +838,4 @@ impl HtmlSanitizer {
         };
         Ok(x.is_url_relative_custom())
     }
-}
-
-#[derive(Debug)]
-struct FilterRequest {
-    element: String,
-    attribute: String,
-    value: String,
-}
-
-struct FilterResponse {
-    filtered: Option<String>,
-}
-
-fn arg_into_vec(arg: &ZendHashTable) -> PhpResult<Vec<&str>> {
-    arg.values().try_fold(
-        Vec::with_capacity(arg.len()),
-        |mut vec, x| -> PhpResult<_> {
-            vec.push(x.str().ok_or_else(|| anyhow!("not a string"))?);
-            Ok(vec)
-        },
-    )
-}
-fn arg_into_hashset(arg: &ZendHashTable) -> PhpResult<HashSet<String>> {
-    arg.values().try_fold(
-        HashSet::with_capacity(arg.len()),
-        |mut set, x| -> PhpResult<_> {
-            set.insert(x.string().ok_or_else(|| anyhow!("not a string"))?);
-            Ok(set)
-        },
-    )
 }
