@@ -1,5 +1,5 @@
 <?php
-use Hardened\HtmlSanitizer;
+use Hardened\Sanitizers\HtmlSanitizer;
 
 $sanitizer = HtmlSanitizer::default();
 $sanitizer->urlRelativeDeny();
