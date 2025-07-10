@@ -1,17 +1,21 @@
 # php-hardened-rs
 
 A PHP extension powered by **Rust** 🦀 and [ext-php-rs](https://github.com/davidcole1340/ext-php-rs), delivering
-essential security utilities for PHP applications. It provides six core classes:
+essential security utilities for PHP applications. It provides eight core classes:
 
 1. **Hardened\Hostname** — secure hostname parsing, normalization, and comparison.
 2. **Hardened\Path** — safe, purely-lexical filesystem path handling to prevent directory traversal.
 3. **Hardened\HtmlSanitizer** — configurable HTML sanitization via [Ammonia](https://github.com/rust-ammonia/ammonia),
    with fine-grained tag, attribute, and URL policy controls.
-4. **Hardened\ContentSecurityPolicy** — builder for HTTP Content-Security-Policy headers; configure directives, keyword
-   sources, hosts, and automatic nonce generation.
-5. **Hardened\Rng** — stateless random-data generator: alphanumeric, alphabetic, byte sequences, integer ranges, and
+4. **Hardened\SecurityHeaders\ContentSecurityPolicy** — builder for HTTP Content-Security-Policy headers; configure
+   directives, keyword sources, hosts, and automatic nonce generation.
+5. **Hardened\SecurityHeaders\Hsts** — builder for HTTP Strict-Transport-Security (HSTS); configure `max-age`,
+   `includeSubDomains`, and `preload`, then emit the header.
+6. **Hardened\SecurityHeaders\CorsPolicy** — CORS policy builder; configure origins, methods, headers, credentials,
+   exposed headers, and preflight caching, then emit the necessary headers.
+7. **Hardened\Rng** — stateless random-data generator: alphanumeric, alphabetic, byte sequences, integer ranges, and
    custom Unicode or ASCII sampling.
-6. **Hardened\CsrfProtection** — synchronized CSRF token–cookie protection using AES-GCM with a friendly API for
+8. **Hardened\CsrfProtection** — synchronized CSRF token–cookie protection using AES-GCM, with PHP-friendly API for
    generation, verification, and cookie management.
 
 **Supported Platforms:** Linux, macOS, Windows (where `ext-php-rs` is available)
@@ -58,14 +62,6 @@ essential security utilities for PHP applications. It provides six core classes:
 - Configuration methods for URL policies, tags, attributes, and filters.
 - Thread-safe attribute filter callback support.
 
-### Hardened\ContentSecurityPolicy
-
-- Builder for HTTP Content-Security-Policy headers.
-- Configure directives (`default-src`, `script-src`, etc.) with keyword tokens and host sources via `setRule()`.
-- Automatically generates nonces for `'nonce-…'` directives.
-- Produces a valid header string with `build()`, and convenience method `send()` to emit it.
-- Retrieve the last-generated nonce with `getNonce()`.
-
 ### Hardened\Rng
 
 - Stateless random-data generator.
@@ -82,6 +78,26 @@ essential security utilities for PHP applications. It provides six core classes:
 - Validation: `verifyToken($token, $cookie = null)` (auto-fetches cookie if omitted).
 - Cookie management: `setCookieName()`, `cookieName()`,
   `setCookie($expires = null, $path = null, $domain = null, $secure = null, $httponly = null)`.
+
+### Hardened\SecurityHeaders\ContentSecurityPolicy
+
+- Builder for HTTP Content-Security-Policy headers.
+- Configure directives (`default-src`, `script-src`, etc.) with keyword tokens and host sources via `setRule()`.
+- Automatically generates nonces for `'nonce-…'` directives.
+- Produces a valid header string with `build()`, and convenience method `send()` to emit it.
+- Retrieve the last-generated nonce with `getNonce()`.
+
+### Hardened\SecurityHeaders\Hsts
+
+- HTTP Strict Transport Security (HSTS) header builder.
+- Configure `max-age`, `includeSubDomains`, and `preload` flags for best‐practice transport security.
+- Build the header string with `build()`, or emit it directly with `send()` (uses PHP `header()`).
+
+### Hardened\SecurityHeaders\CorsPolicy
+
+- CORS policy builder for HTTP responses.
+- Configure allowed origins, methods, headers, credentials flag, exposed headers, and preflight cache duration.
+- Build a map of header names → values with `build()`, or emit them directly with `send()`.
 
 ---
 
@@ -184,67 +200,6 @@ var_dump($sanitizer->isValidUrl("foo"));
 // bool(false)
 ```
 
-### Hardened\ContentSecurityPolicy
-
-```php
-<?php
-use Hardened\ContentSecurityPolicy;
-
-// Create a new CSP builder
-$policy = new ContentSecurityPolicy();
-
-// default-src 'self' *.site.tld blob:
-$policy->setRule(
-    ContentSecurityPolicy::DEFAULT_SRC,
-    [ContentSecurityPolicy::SELF],
-    ['*.site.tld', 'blob:']
-);
-
-// script-src 'self' 'nonce-…' https://cdn.site.tld/js
-$policy->setRule(
-    ContentSecurityPolicy::SCRIPT_SRC,
-    [ContentSecurityPolicy::SELF, ContentSecurityPolicy::NONCE],
-    ['https://cdn.site.tld/js']
-);
-
-// style-src 'self' 'nonce-…' https://fonts.googleapis.com
-$policy->setRule(
-    ContentSecurityPolicy::STYLE_SRC,
-    [ContentSecurityPolicy::SELF, ContentSecurityPolicy::NONCE],
-    ['https://fonts.googleapis.com']
-);
-
-// img-src 'self' data: *.images.site.tld
-$policy->setRule(
-    ContentSecurityPolicy::IMG_SRC,
-    [ContentSecurityPolicy::SELF],
-    ['data:', '*.images.site.tld']
-);
-
-// connect-src 'self' https://api.site.tld
-$policy->setRule(
-    ContentSecurityPolicy::CONNECT_SRC,
-    [ContentSecurityPolicy::SELF],
-    ['https://api.site.tld']
-);
-
-// frame-ancestors 'none'
-$policy->setRule(
-    ContentSecurityPolicy::FRAME_ANCESTORS,
-    [],        // no keywords
-    []         // empty list => effectively 'none'
-);
-
-// Build and display the value
-var_dump($policy->build());
-
-// Get and display the nonce
-var_dump($policy->getNonce());
-
-// Build and send the header
-$policy->send();
-```
-
 ### Hardened\Rng
 
 ```php
@@ -306,6 +261,125 @@ $multiWeighted = Rng::chooseMultipleWeighted(2, [
 ]);
 var_dump($multiWeighted);
 // Example: array(2) { [0]=> string(1) "B" [1]=> string(1) "C" }
+```
+
+### Hardened\SecurityHeaders\ContentSecurityPolicy
+
+```php
+<?php
+use Hardened\SecurityHeaders\ContentSecurityPolicy;
+
+// Create a new CSP builder
+$policy = new ContentSecurityPolicy();
+
+// default-src 'self' *.site.tld blob:
+$policy->setRule(
+    ContentSecurityPolicy::DEFAULT_SRC,
+    [ContentSecurityPolicy::SELF],
+    ['*.site.tld', 'blob:']
+);
+
+// script-src 'self' 'nonce-…' https://cdn.site.tld/js
+$policy->setRule(
+    ContentSecurityPolicy::SCRIPT_SRC,
+    [ContentSecurityPolicy::SELF, ContentSecurityPolicy::NONCE],
+    ['https://cdn.site.tld/js']
+);
+
+// style-src 'self' 'nonce-…' https://fonts.googleapis.com
+$policy->setRule(
+    ContentSecurityPolicy::STYLE_SRC,
+    [ContentSecurityPolicy::SELF, ContentSecurityPolicy::NONCE],
+    ['https://fonts.googleapis.com']
+);
+
+// img-src 'self' data: *.images.site.tld
+$policy->setRule(
+    ContentSecurityPolicy::IMG_SRC,
+    [ContentSecurityPolicy::SELF],
+    ['data:', '*.images.site.tld']
+);
+
+// connect-src 'self' https://api.site.tld
+$policy->setRule(
+    ContentSecurityPolicy::CONNECT_SRC,
+    [ContentSecurityPolicy::SELF],
+    ['https://api.site.tld']
+);
+
+// frame-ancestors 'none'
+$policy->setRule(
+    ContentSecurityPolicy::FRAME_ANCESTORS,
+    [],        // no keywords
+    []         // empty list => effectively 'none'
+);
+
+// Build and display the value
+var_dump($policy->build());
+
+// Get and display the nonce
+var_dump($policy->getNonce());
+
+// Build and send the header
+$policy->send();
+```
+
+### Hardened\SecurityHeaders\Hsts
+
+```php
+<?php
+use Hardened\SecurityHeaders\Hsts;
+
+// Create and configure HSTS
+$hsts = new Hsts();
+$hsts->maxAge(31536000);            // one year
+$hsts->includeSubDomains(true);     // apply to all subdomains
+$hsts->preload(true);               // request inclusion in browser preload lists
+
+// Get header value
+$value = $hsts->build();
+// e.g. "max-age=31536000; includeSubDomains; preload"
+
+// Send header to client
+header('Strict-Transport-Security: ' . $value);
+
+// Or simply:
+// $hsts->send();
+```
+
+### Hardened\SecurityHeaders\CorsPolicy
+
+```php
+<?php
+use Hardened\SecurityHeaders\CorsPolicy;
+
+$cors = new CorsPolicy();
+
+// Allow specific origins or use ['*'] for wildcard
+$cors->allowOrigins(['https://example.com', 'https://api.example.com']);
+
+// Permit HTTP methods
+$cors->allowMethods(['GET', 'POST', 'OPTIONS']);
+
+// Permit request headers
+$cors->allowHeaders(['Content-Type', 'Authorization']);
+
+// Allow cookies/auth credentials
+$cors->allowCredentials(true);
+
+// Expose custom response headers to the browser
+$cors->exposeHeaders(['X-Custom-Header']);
+
+// Cache preflight response for 3600 seconds
+$cors->maxAge(3600);
+
+// Apply headers manually
+foreach ($cors->build() as $name => $value) {
+    header("$name: $value");
+}
+
+// Or simply:
+$cors->send();
 ```
 
 ---
@@ -389,18 +463,6 @@ var_dump($multiWeighted);
 | **`rmCleanContentTags(array $tags): void`**                                 | Instance  | Remove already-blacklisted clean-content tags.                                                                        |
 | `isValidUrl(string $url): bool`                                             | Instance  | Checks whether a URL is allowed by the configured scheme whitelist or, for relative URLs, by the relative-URL policy. |
 
-### Class `Hardened\ContentSecurityPolicy`
-
-| Method                                                           | Signature | Description                                                                                                     |
-|------------------------------------------------------------------|-----------|-----------------------------------------------------------------------------------------------------------------|
-| `__construct()`                                                  | Instance  | Alias for `new()`, initializes an empty CSP builder.                                                            |
-| `new(): ContentSecurityPolicy`                                   | static    | Construct a new CSP builder with no directives set.                                                             |
-| `setRule(string $rule, array $keywords, ?array $sources): mixed` | Instance  | Set or replace a CSP directive with the given keywords (`'self'`, `'nonce'`, etc.) and host sources.            |
-| `build(): string`                                                | Instance  | Build the `Content-Security-Policy` header value from the configured directives.                                |
-| `send(): mixed`                                                  | Instance  | Send the constructed CSP header to the client (via PHP SAPI).                                                   |
-| `getNonce(): ?string`                                            | Instance  | Return the most recently generated nonce (without the `'nonce-'` prefix), or `null` if none has been generated. |
-| `resetNonce(): void`                                             | Instance  | Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.                     |
-
 ### Class `Hardened\Rng`
 
 | Method                                                       | Signature | Description                                                                                                      |
@@ -428,6 +490,43 @@ var_dump($multiWeighted);
 | `setCookieName(string $name): void`                                                                                                 | Instance  | Override the name used for the CSRF cookie.                                        |
 | `cookieName(): string`                                                                                                              | Instance  | Get the current CSRF cookie name (default is `csrf`).                              |
 | `setCookie(?int $expires = null, ?string $path = null, ?string $domain = null, ?bool $secure = null, ?bool $httponly = null): void` | Instance  | Send the CSRF cookie via PHP’s `setcookie()` function using native argument order. |
+
+### Class `Hardened\SecurityHeaders\ContentSecurityPolicy`
+
+| Method                                                           | Signature | Description                                                                                                     |
+|------------------------------------------------------------------|-----------|-----------------------------------------------------------------------------------------------------------------|
+| `__construct()`                                                  | Instance  | Alias for `new()`, initializes an empty CSP builder.                                                            |
+| `new(): ContentSecurityPolicy`                                   | static    | Construct a new CSP builder with no directives set.                                                             |
+| `setRule(string $rule, array $keywords, ?array $sources): mixed` | Instance  | Set or replace a CSP directive with the given keywords (`'self'`, `'nonce'`, etc.) and host sources.            |
+| `build(): string`                                                | Instance  | Build the `Content-Security-Policy` header value from the configured directives.                                |
+| `send(): mixed`                                                  | Instance  | Send the constructed CSP header to the client (via PHP SAPI).                                                   |
+| `getNonce(): ?string`                                            | Instance  | Return the most recently generated nonce (without the `'nonce-'` prefix), or `null` if none has been generated. |
+| `resetNonce(): void`                                             | Instance  | Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.                     |
+
+### Class `Hardened\SecurityHeaders\Hsts`
+
+| Method                                  | Signature | Description                                                                                                 |
+|-----------------------------------------|-----------|-------------------------------------------------------------------------------------------------------------|
+| `__construct()`                         | static    | Initialize with `max-age=0`, no subdomains, no preload.                                                     |
+| `maxAge(int $maxAge): void`             | Instance  | Set the `max-age` directive (in seconds).                                                                   |
+| `includeSubDomains(bool $enable): void` | Instance  | Enable or disable the `includeSubDomains` flag.                                                             |
+| `preload(bool $enable): void`           | Instance  | Enable or disable the `preload` flag.                                                                       |
+| `build(): string`                       | Instance  | Return the `Strict-Transport-Security` header value, e.g. `"max-age=31536000; includeSubDomains; preload"`. |
+| `send(): void`                          | Instance  | Emit the header via PHP `header()` function.                                                                |
+
+### Class `Hardened\SecurityHeaders\CorsPolicy`
+
+| Method                                 | Signature                         | Description                                                                   |
+|----------------------------------------|-----------------------------------|-------------------------------------------------------------------------------|
+| `__construct()`                        | `static`                          | Initialize with no restrictions (empty lists, credentials=false, max\_age=0). |
+| `allowOrigins(array $origins): void`   | Instance                          | Set `Access-Control-Allow-Origin` values (e.g. `['*']` or specific domains).  |
+| `allowMethods(array $methods): void`   | Instance                          | Set `Access-Control-Allow-Methods` values (e.g. `['GET','POST']`).            |
+| `allowHeaders(array $headers): void`   | Instance                          | Set `Access-Control-Allow-Headers` values (e.g. `['Content-Type']`).          |
+| `allowCredentials(bool $enable): void` | Instance                          | Enable `Access-Control-Allow-Credentials: true` when `$enable` is `true`.     |
+| `exposeHeaders(array $headers): void`  | Instance                          | Set `Access-Control-Expose-Headers` values for response exposure to client.   |
+| `maxAge(int $seconds): void`           | Instance                          | Set `Access-Control-Max-Age` (in seconds) for caching preflight responses.    |
+| `build(): array`                       | Instance → `array<string,string>` | Return an associative array of header names → values to send.                 |
+| `send(): void`                         | Instance                          | Emit all configured CORS headers via PHP `header()` calls.                    |
 
 ---
 

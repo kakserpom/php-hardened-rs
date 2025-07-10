@@ -667,158 +667,6 @@ namespace Hardened {
         public function __construct() {}
     }
 
-    /**
-     * Your application’s CSP config.
-     */
-    class ContentSecurityPolicy {
-        const DEFAULT_SRC = null;
-
-        const SCRIPT_SRC = null;
-
-        const STYLE_SRC = null;
-
-        const IMG_SRC = null;
-
-        const FRAME_ANCESTORS = null;
-
-        const FONT_SRC = null;
-
-        const CONNECT_SRC = null;
-
-        const CHILD_SRC = null;
-
-        const MANIFEST_SRC = null;
-
-        const MEDIA_SRC = null;
-
-        const OBJECT_SRC = null;
-
-        const PREFETCH_SRC = null;
-
-        const SCRIPT_SRC_ELEM = null;
-
-        const SCRIPT_SRC_ATTR = null;
-
-        const STYLE_SRC_ELEM = null;
-
-        const STYLE_SRC_ATTR = null;
-
-        const WORKER_SRC = null;
-
-        const BASE_URI = null;
-
-        const FORM_ACTION = null;
-
-        const SANDBOX = null;
-
-        const PLUGIN_TYPES = null;
-
-        const BLOCK_ALL_MIXED_CONTENT = null;
-
-        const UPGRADE_INSECURE_REQUESTS = null;
-
-        const REPORT_URI = null;
-
-        const REPORT_TO = null;
-
-        const REQUIRE_SRI_FOR = null;
-
-        const TRUSTED_TYPES = null;
-
-        const REQUIRE_TRUSTED_TYPES_FOR = null;
-
-        const SELF = null;
-
-        const NONE = null;
-
-        const UNSAFE_INLINE = null;
-
-        const UNSAFE_EVAL = null;
-
-        const UNSAFE_HASHES = null;
-
-        const STRICT_DYNAMIC = null;
-
-        const NONCE = null;
-
-        const SCRIPT = null;
-
-        const STYLE = null;
-
-        const ALLOW_FORMS = null;
-
-        const ALLOW_MODALS = null;
-
-        const ALLOW_ORIENTATION_LOCK = null;
-
-        const ALLOW_POINTER_LOCK = null;
-
-        const ALLOW_PRESENTATION = null;
-
-        const ALLOW_POPUPS = null;
-
-        const ALLOW_POPUPS_TO_ESCAPE_SANDBOX = null;
-
-        const ALLOW_SAME_ORIGIN = null;
-
-        const ALLOW_SCRIPTS = null;
-
-        const ALLOW_STORAGE_ACCESS_BY_USER_ACTIVATION = null;
-
-        const ALLOW_TOP_NAVIGATION_BY_USER_ACTIVATION = null;
-
-        const ALLOW_DUPLICATES = null;
-
-        const INLINE_SPECULATION_RULES = null;
-
-        const REPORT_SAMPLE = null;
-
-        const WASM_UNSAFE_EVAL = null;
-
-        /**
-         * Sets or replaces a CSP directive with the given keywords and host sources.
-         *
-         * # Parameters
-         * - `rule`: The directive name (e.g. `"default-src"`, `"script-src"`).
-         * - `keywords`: A `ZendHashTable` of keyword tokens (e.g. `'self'`, `'nonce-...'`).
-         * - `sources`: Optional vector of host strings (e.g. `"example.com"`).
-         *
-         * # Exceptions
-         * - Throws `Exception` if any array item in `keywords` is not a string.
-         * - Throws `Exception` if `rule` is not a valid CSP directive.
-         */
-        public function setRule(string $rule, array $keywords, ?array $sources): mixed {}
-
-        /**
-         * Builds the `Content-Security-Policy` header value from the configured directives.
-         *
-         * # Returns
-         * - `String` The full header value, for example:
-         *   `"default-src 'self'; script-src 'self' 'nonce-ABCD1234' example.com; …"`.
-         *
-         * # Exceptions
-         * - Throws `Exception` if formatting the header string fails.
-         */
-        public function build(): string {}
-
-        public function send(): mixed {}
-
-        /**
-         * Returns the most recently generated nonce, if any.
-         *
-         * # Returns
-         * - `Option<&str>` The raw nonce string (without the `'nonce-'` prefix), or `None` if `build()` has not yet generated one.
-         */
-        public function getNonce(): ?string {}
-
-        /**
-         * Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.                   
-         */
-        public function resetNonce() {}
-
-        public function __construct() {}
-    }
-
     class Rng {
         /**
          * Generate a random ASCII alphanumeric string of the specified length.
@@ -1056,5 +904,307 @@ namespace Hardened {
         public function setCookie(?int $expires, ?string $path, ?string $domain, ?bool $secure, ?bool $httponly): mixed {}
 
         public function __construct(string $key, int $ttl, ?string $previous_token_value) {}
+    }
+}
+
+namespace Hardened\SecurityHeaders {
+    /**
+     * Your application’s CSP config.
+     */
+    class ContentSecurityPolicy {
+        const DEFAULT_SRC = null;
+
+        const SCRIPT_SRC = null;
+
+        const STYLE_SRC = null;
+
+        const IMG_SRC = null;
+
+        const FRAME_ANCESTORS = null;
+
+        const FONT_SRC = null;
+
+        const CONNECT_SRC = null;
+
+        const CHILD_SRC = null;
+
+        const MANIFEST_SRC = null;
+
+        const MEDIA_SRC = null;
+
+        const OBJECT_SRC = null;
+
+        const PREFETCH_SRC = null;
+
+        const SCRIPT_SRC_ELEM = null;
+
+        const SCRIPT_SRC_ATTR = null;
+
+        const STYLE_SRC_ELEM = null;
+
+        const STYLE_SRC_ATTR = null;
+
+        const WORKER_SRC = null;
+
+        const BASE_URI = null;
+
+        const FORM_ACTION = null;
+
+        const SANDBOX = null;
+
+        const PLUGIN_TYPES = null;
+
+        const BLOCK_ALL_MIXED_CONTENT = null;
+
+        const UPGRADE_INSECURE_REQUESTS = null;
+
+        const REPORT_URI = null;
+
+        const REPORT_TO = null;
+
+        const REQUIRE_SRI_FOR = null;
+
+        const TRUSTED_TYPES = null;
+
+        const REQUIRE_TRUSTED_TYPES_FOR = null;
+
+        const SELF = null;
+
+        const NONE = null;
+
+        const UNSAFE_INLINE = null;
+
+        const UNSAFE_EVAL = null;
+
+        const UNSAFE_HASHES = null;
+
+        const STRICT_DYNAMIC = null;
+
+        const NONCE = null;
+
+        const SCRIPT = null;
+
+        const STYLE = null;
+
+        const ALLOW_FORMS = null;
+
+        const ALLOW_MODALS = null;
+
+        const ALLOW_ORIENTATION_LOCK = null;
+
+        const ALLOW_POINTER_LOCK = null;
+
+        const ALLOW_PRESENTATION = null;
+
+        const ALLOW_POPUPS = null;
+
+        const ALLOW_POPUPS_TO_ESCAPE_SANDBOX = null;
+
+        const ALLOW_SAME_ORIGIN = null;
+
+        const ALLOW_SCRIPTS = null;
+
+        const ALLOW_STORAGE_ACCESS_BY_USER_ACTIVATION = null;
+
+        const ALLOW_TOP_NAVIGATION_BY_USER_ACTIVATION = null;
+
+        const ALLOW_DUPLICATES = null;
+
+        const INLINE_SPECULATION_RULES = null;
+
+        const REPORT_SAMPLE = null;
+
+        const WASM_UNSAFE_EVAL = null;
+
+        /**
+         * Sets or replaces a CSP directive with the given keywords and host sources.
+         *
+         * # Parameters
+         * - `rule`: The directive name (e.g. `"default-src"`, `"script-src"`).
+         * - `keywords`: A `ZendHashTable` of keyword tokens (e.g. `'self'`, `'nonce-...'`).
+         * - `sources`: Optional vector of host strings (e.g. `"example.com"`).
+         *
+         * # Exceptions
+         * - Throws `Exception` if any array item in `keywords` is not a string.
+         * - Throws `Exception` if `rule` is not a valid CSP directive.
+         */
+        public function setRule(string $rule, array $keywords, ?array $sources): mixed {}
+
+        /**
+         * Builds the `Content-Security-Policy` header value from the configured directives.
+         *
+         * # Returns
+         * - `String` The full header value, for example:
+         *   `"default-src 'self'; script-src 'self' 'nonce-ABCD1234' example.com; …"`.
+         *
+         * # Exceptions
+         * - Throws `Exception` if formatting the header string fails.
+         */
+        public function build(): string {}
+
+        public function send(): mixed {}
+
+        /**
+         * Returns the most recently generated nonce, if any.
+         *
+         * # Returns
+         * - `Option<&str>` The raw nonce string (without the `'nonce-'` prefix), or `None` if `build()` has not yet generated one.
+         */
+        public function getNonce(): ?string {}
+
+        /**
+         * Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.
+         */
+        public function resetNonce() {}
+
+        public function __construct() {}
+    }
+
+    /**
+     * HTTP Strict Transport Security (HSTS) header builder.
+     */
+    class Hsts {
+        /**
+         * Sets the `max-age` directive (in seconds).
+         *
+         * # Parameters
+         * - `maxAge`: `int` number of seconds for `max-age`.
+         *
+         * # Returns
+         * - `void`
+         */
+        public function maxAge(int $max_age) {}
+
+        /**
+         * Enable or disable the `includeSubDomains` flag.
+         *
+         * # Parameters
+         * - `enable`: `bool` `true` to include subdomains, `false` to omit.
+         *
+         * # Returns
+         * - `void`
+         */
+        public function includeSubDomains(bool $enable) {}
+
+        /**
+         * Enable or disable the `preload` flag.
+         *
+         * # Parameters
+         * - `enable`: `bool` `true` to add `preload`, `false` to omit.
+         *
+         * # Returns
+         * - `void`
+         */
+        public function preload(bool $enable) {}
+
+        /**
+         * Builds the `Strict-Transport-Security` header value.
+         *
+         * # Returns
+         * - `string` e.g. `"max-age=31536000; includeSubDomains; preload"`.
+         */
+        public function build(): string {}
+
+        /**
+         * Sends the `Strict-Transport-Security` header via PHP `header()` function.
+         *
+         * # Exceptions
+         * - Throws `Exception` if PHP `header()` cannot be invoked.
+         */
+        public function send(): mixed {}
+
+        public function __construct() {}
+    }
+
+    /**
+     * CORS policy builder for HTTP responses.
+     */
+    class CorsPolicy {
+        /**
+         * Set the `Access-Control-Allow-Origin` header values.
+         *
+         * # Parameters
+         * - `origins`: `string[]` list of allowed origins, or `['*']` for wildcard.
+         *
+         * # Returns
+         * - `void`
+         */
+        public function allowOrigins(array $origins) {}
+
+        /**
+         * Set the `Access-Control-Allow-Methods` header values.
+         *
+         * # Parameters
+         * - `methods`: `string[]` list of allowed HTTP methods (e.g. `['GET','POST']`).
+         *
+         * # Returns
+         * - `void`
+         */
+        public function allowMethods(array $methods) {}
+
+        /**
+         * Set the `Access-Control-Allow-Headers` header values.
+         *
+         * # Parameters
+         * - `headers`: `string[]` list of allowed request headers (e.g. `['Content-Type']`).
+         *
+         * # Returns
+         * - `void`
+         */
+        public function allowHeaders(array $headers) {}
+
+        /**
+         * Enable or disable the `Access-Control-Allow-Credentials` flag.
+         *
+         * # Parameters
+         * - `enable`: `bool` `true` to allow credentials, `false` to omit header.
+         *
+         * # Returns
+         * - `void`
+         */
+        public function allowCredentials(bool $enable) {}
+
+        /**
+         * Set the `Access-Control-Expose-Headers` header values.
+         *
+         * # Parameters
+         * - `headers`: `string[]` list of response headers that can be exposed to browser.
+         *
+         * # Returns
+         * - `void`
+         */
+        public function exposeHeaders(array $headers) {}
+
+        /**
+         * Set the `Access-Control-Max-Age` directive (in seconds).
+         *
+         * # Parameters
+         * - `seconds`: `int` number of seconds the preflight response may be cached.
+         *
+         * # Returns
+         * - `void`
+         */
+        public function maxAge(int $seconds) {}
+
+        /**
+         * Build an associative array of CORS headers and their values.
+         *
+         * # Returns
+         * - `array<string,string>` Map of header names to header values.
+         */
+        public function build(): array {}
+
+        /**
+         * Send all configured CORS headers via PHP's `header()` function.
+         *
+         * # Returns
+         * - `void`
+         *
+         * # Exceptions
+         * - Throws `Exception` if PHP `header()` cannot be invoked.
+         */
+        public function send(): mixed {}
+
+        public function __construct() {}
     }
 }

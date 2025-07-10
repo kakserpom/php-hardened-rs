@@ -95,7 +95,7 @@ pub type CspSettings = (Vec<Keyword>, Vec<Source>);
 
 /// Your application’s CSP config.
 #[php_class]
-#[php(name = "Hardened\\ContentSecurityPolicy")]
+#[php(name = "Hardened\\SecurityHeaders\\ContentSecurityPolicy")]
 pub struct ContentSecurityPolicy {
     pub src_map: BTreeMap<Rule, CspSettings>,
     pub nonce: Option<String>,
@@ -322,9 +322,9 @@ impl ContentSecurityPolicy {
     }
 
     pub fn send(&mut self) -> PhpResult<()> {
-        let var_dump = Function::try_from_function("header")
-            .ok_or_else(|| anyhow!("Could not call header"))?;
-        let _ = var_dump.try_call(vec![&format!("content-security-policy: {}", self.build()?)]);
+        let _ = Function::try_from_function("header")
+            .ok_or_else(|| anyhow::anyhow!("Could not call header()"))?
+            .try_call(vec![&format!("content-security-policy: {}", self.build()?)]);
         Ok(())
     }
 
@@ -336,7 +336,7 @@ impl ContentSecurityPolicy {
         self.nonce.as_ref().map(String::as_str)
     }
 
-    /// Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.                   
+    /// Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.
     pub fn reset_nonce(&mut self) {
         self.nonce = None;
     }

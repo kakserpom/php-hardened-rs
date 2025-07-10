@@ -1,20 +1,22 @@
-mod csp;
+mod csrf;
 #[warn(clippy::pedantic)]
 mod hostname;
 mod html_sanitizer;
 mod path;
 mod rng;
-mod csrf;
+mod security_headers;
 
-use crate::csp::ContentSecurityPolicy;
+use crate::csrf::Csrf;
 pub use crate::hostname::Hostname;
 use crate::html_sanitizer::HtmlSanitizer;
 use crate::path::PathObj;
 use crate::rng::Rng;
+use crate::security_headers::cors::CorsPolicy;
+use crate::security_headers::csp::ContentSecurityPolicy;
+use crate::security_headers::hsts::Hsts;
 use anyhow::Error;
 use ext_php_rs::prelude::*;
 use ext_php_rs::types::Zval;
-use crate::csrf::Csrf;
 
 #[php_module]
 pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
@@ -22,9 +24,11 @@ pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
         .class::<Hostname>()
         .class::<PathObj>()
         .class::<HtmlSanitizer>()
-        .class::<ContentSecurityPolicy>()
         .class::<Rng>()
         .class::<Csrf>()
+        .class::<ContentSecurityPolicy>()
+        .class::<Hsts>()
+        .class::<CorsPolicy>()
 }
 
 fn to_str(path: &Zval) -> Result<String, Error> {
