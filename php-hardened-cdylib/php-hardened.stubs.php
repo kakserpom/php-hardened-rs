@@ -685,7 +685,51 @@ namespace Hardened {
 
         const CONNECT_SRC = null;
 
+        const CHILD_SRC = null;
+
+        const MANIFEST_SRC = null;
+
+        const MEDIA_SRC = null;
+
+        const OBJECT_SRC = null;
+
+        const PREFETCH_SRC = null;
+
+        const SCRIPT_SRC_ELEM = null;
+
+        const SCRIPT_SRC_ATTR = null;
+
+        const STYLE_SRC_ELEM = null;
+
+        const STYLE_SRC_ATTR = null;
+
+        const WORKER_SRC = null;
+
+        const BASE_URI = null;
+
+        const FORM_ACTION = null;
+
+        const SANDBOX = null;
+
+        const PLUGIN_TYPES = null;
+
+        const BLOCK_ALL_MIXED_CONTENT = null;
+
+        const UPGRADE_INSECURE_REQUESTS = null;
+
+        const REPORT_URI = null;
+
+        const REPORT_TO = null;
+
+        const REQUIRE_SRI_FOR = null;
+
+        const TRUSTED_TYPES = null;
+
+        const REQUIRE_TRUSTED_TYPES_FOR = null;
+
         const SELF = null;
+
+        const NONE = null;
 
         const UNSAFE_INLINE = null;
 
@@ -697,19 +741,53 @@ namespace Hardened {
 
         const NONCE = null;
 
+        const SCRIPT = null;
+
+        const STYLE = null;
+
+        const ALLOW_FORMS = null;
+
+        const ALLOW_MODALS = null;
+
+        const ALLOW_ORIENTATION_LOCK = null;
+
+        const ALLOW_POINTER_LOCK = null;
+
+        const ALLOW_PRESENTATION = null;
+
+        const ALLOW_POPUPS = null;
+
+        const ALLOW_POPUPS_TO_ESCAPE_SANDBOX = null;
+
+        const ALLOW_SAME_ORIGIN = null;
+
+        const ALLOW_SCRIPTS = null;
+
+        const ALLOW_STORAGE_ACCESS_BY_USER_ACTIVATION = null;
+
+        const ALLOW_TOP_NAVIGATION_BY_USER_ACTIVATION = null;
+
+        const ALLOW_DUPLICATES = null;
+
+        const INLINE_SPECULATION_RULES = null;
+
+        const REPORT_SAMPLE = null;
+
+        const WASM_UNSAFE_EVAL = null;
+
         /**
-         * Sets or replaces a CSP directive with the given special sources and host sources.
+         * Sets or replaces a CSP directive with the given keywords and host sources.
          *
          * # Parameters
          * - `rule`: The directive name (e.g. `"default-src"`, `"script-src"`).
-         * - `special_sources`: A `ZendHashTable` of keyword tokens (e.g. `'self'`, `'nonce-...'`).
+         * - `keywords`: A `ZendHashTable` of keyword tokens (e.g. `'self'`, `'nonce-...'`).
          * - `sources`: Optional vector of host strings (e.g. `"example.com"`).
          *
          * # Exceptions
-         * - Throws `Exception` if any array item in `special_sources` is not a string.
+         * - Throws `Exception` if any array item in `keywords` is not a string.
          * - Throws `Exception` if `rule` is not a valid CSP directive.
          */
-        public function setRule(string $rule, array $special_sources, ?array $sources): mixed {}
+        public function setRule(string $rule, array $keywords, ?array $sources): mixed {}
 
         /**
          * Builds the `Content-Security-Policy` header value from the configured directives.
@@ -734,7 +812,7 @@ namespace Hardened {
         public function getNonce(): ?string {}
 
         /**
-         * Resets nonce. It will not be set until next run of build() or send().
+         * Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.                   
          */
         public function resetNonce() {}
 
@@ -847,6 +925,63 @@ namespace Hardened {
          * - `String` of length `len`, or an empty string if `chars` is empty.
          */
         public static function customAscii(int $len, string $chars): string {}
+
+        /**
+         * Randomly selects one element from the given list.
+         *
+         * # Parameters
+         * - `choices`: PHP array of values to pick from.
+         *
+         * # Returns
+         * - `mixed|null`: A randomly chosen element, or `null` if `choices` is empty.
+         */
+        public static function choose(array $choices): mixed {}
+
+        /**
+         * Randomly selects exactly `amount` distinct elements without replacement.
+         *
+         * # Parameters
+         * - `amount`: Number of elements to select.
+         * - `choices`: PHP array of values to pick from.
+         *
+         * # Returns
+         * - `mixed[]`: Array of selected values.
+         *
+         * # Exceptions
+         * - Throws `Exception` if `amount` is greater than the number of available choices.
+         */
+        public static function chooseMultiple(int $amount, array $choices): array {}
+
+        /**
+         * Randomly selects one element from weighted choices.
+         *
+         * # Parameters
+         * - `choices`: PHP array of `[value, weight]` pairs, where `weight` is an integer.
+         *
+         * # Returns
+         * - `array{0: mixed, 1: int}` Two‐element array: the chosen value and its weight.
+         *
+         * # Exceptions
+         * - Throws `Exception` if any entry is not a two‐element array or weight is not an integer.
+         * - Throws `Exception` if selection fails.
+         */
+        public static function chooseWeighted(array $choices): array {}
+
+        /**
+         * Randomly selects `amount` elements from weighted choices without replacement.
+         *
+         * # Parameters
+         * - `amount`: Number of elements to select.
+         * - `choices`: PHP array of `[value, weight]` pairs, where `weight` is a float.
+         *
+         * # Returns
+         * - `mixed[]`: Array of selected values.
+         *
+         * # Exceptions
+         * - Throws `Exception` if any entry is not a two‐element array or weight is not a float.
+         * - Throws `Exception` if selection fails.
+         */
+        public static function chooseMultipleWeighted(int $amount, array $choices): array {}
 
         public function __construct() {}
     }

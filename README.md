@@ -238,13 +238,63 @@ $policy->send();
 
 ```php
 <?php
-var_dump(Hardened\Rng::alphanumeric(10));
-var_dump(Hardened\Rng::bytes(32));
-var_dump(Hardened\Rng::ints(10, 0, 100));
-var_dump(Hardened\Rng::int(0, 100));
-var_dump(Hardened\Rng::customUnicodeChars(10, "Абвгд"));
-var_dump(Hardened\Rng::customAscii(10, "AbcDef"));
-var_dump(Hardened\Rng::customUnicodeGraphemes(4, "🙈🙉🙊"));
+use Hardened\Rng;
+
+// Random alphanumeric string of length 10
+var_dump(Rng::alphanumeric(10));
+// Example: string(10) "A1b2C3d4E5"
+
+// 32 random bytes (binary data)
+var_dump(Rng::bytes(32));
+// Example: string(32) "\x8F\xA3\xC1\x7E\x09…"
+
+// 3 random integers between 0 and 100
+var_dump(Rng::ints(3, 0, 100));
+// Example: array(3) { [0]=> int(42) [1]=> int(7) [2]=> int(89) }
+
+// A single random integer between 0 and 100
+var_dump(Rng::int(0, 100));
+// Example: int(84)
+
+// 10 random Unicode code‐points sampled from "Абвгд"
+var_dump(Rng::customUnicodeChars(10, "Абвгд"));
+// Example: string(20) "гдбАвдгАбвгд"
+
+// 10 random ASCII characters sampled from "AbcDef"
+var_dump(Rng::customAscii(10, "AbcDef"));
+// Example: string(10) "cDfDefAbcD"
+
+// 4 random Unicode grapheme clusters from the emoji set
+var_dump(Rng::customUnicodeGraphemes(4, "🙈🙉🙊"));
+// Example: string(16) "🙊🙈🙉🙊"
+
+// Randomly pick one element
+$choice = Rng::choose(['apple', 'banana', 'cherry']);
+var_dump($choice);
+// Example: string(6) "banana"
+
+// Pick 2 distinct elements
+$multiple = Rng::chooseMultiple(2, ['red','green','blue','yellow']);
+var_dump($multiple);
+// Example: array(2) { [0]=> string(5) "green" [1]=> string(4) "blue" }
+
+// Weighted pick (integer weights)
+$weighted = Rng::chooseWeighted([
+    ['gold',  5],
+    ['silver', 3],
+    ['bronze',1],
+]);
+var_dump($weighted);
+// Example: array(2) { [0]=> string(4) "gold" [1]=> int(5) }
+
+// Pick 2 elements from weighted set (float weights)
+$multiWeighted = Rng::chooseMultipleWeighted(2, [
+    ['A', 0.1],
+    ['B', 0.7],
+    ['C', 0.2],
+]);
+var_dump($multiWeighted);
+// Example: array(2) { [0]=> string(1) "B" [1]=> string(1) "C" }
 ```
 
 ---
@@ -338,19 +388,23 @@ var_dump(Hardened\Rng::customUnicodeGraphemes(4, "🙈🙉🙊"));
 | `build(): string`                                                | Instance  | Build the `Content-Security-Policy` header value from the configured directives.                                |
 | `send(): mixed`                                                  | Instance  | Send the constructed CSP header to the client (via PHP SAPI).                                                   |
 | `getNonce(): ?string`                                            | Instance  | Return the most recently generated nonce (without the `'nonce-'` prefix), or `null` if none has been generated. |
+| `resetNonce(): void`                                             | Instance  | Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.                     |
 
 ### Class `Hardened\Rng`
 
-| Method                                                    | Signature | Description                                                                                               |
-|-----------------------------------------------------------|-----------|-----------------------------------------------------------------------------------------------------------|
-| `alphanumeric(int $len): string`                          | static    | Generate a random ASCII alphanumeric string of length `$len`.                                             |
-| `alphabetic(int $len): string`                            | static    | Generate a random ASCII alphabetic string of length `$len`.                                               |
-| `bytes(int $len): string`                                 | static    | Generate `$len` random bytes and return them as a binary string.                                          |
-| `ints(int $len, int $low, int $high): array`              | static    | Generate an array of `$len` random integers in the inclusive range `[$low, $high]`.                       |
-| `int(int $low, int $high): int`                           | static    | Generate a single random integer in the inclusive range `[$low, $high]`.                                  |
-| `customUnicodeChars(int $len, string $chars): string`     | static    | Generate a string of `$len` random Unicode **code points** sampled from the characters in `$chars`.       |
-| `customUnicodeGraphemes(int $len, string $chars): string` | static    | Generate a string of `$len` random Unicode **grapheme clusters** sampled from the substrings in `$chars`. |
-| `customAscii(int $len, string $chars): string`            | static    | Generate a string of `$len` random ASCII characters sampled from the bytes in `$chars`.                   |
+| Method                                                       | Signature | Description                                                                                                      |
+|--------------------------------------------------------------|-----------|------------------------------------------------------------------------------------------------------------------|
+| `alphanumeric(int $len): string`                             | static    | Generate a random ASCII alphanumeric string of length `$len`.                                                    |
+| `alphabetic(int $len): string`                               | static    | Generate a random ASCII alphabetic string of length `$len`.                                                      |
+| `bytes(int $len): string`                                    | static    | Generate `$len` random bytes and return them as a binary string.                                                 |
+| `ints(int $len, int $low, int $high): array`                 | static    | Generate an array of `$len` random integers in the inclusive range `[$low, $high]`.                              |
+| `int(int $low, int $high): int`                              | static    | Generate a single random integer in the inclusive range `[$low, $high]`.                                         |
+| `customUnicodeChars(int $len, string $chars): string`        | static    | Generate a string of `$len` random Unicode **code points** sampled from the characters in `$chars`.              |
+| `customUnicodeGraphemes(int $len, string $chars): string`    | static    | Generate a string of `$len` random Unicode **grapheme clusters** sampled from the substrings in `$chars`.        |
+| `customAscii(int $len, string $chars): string`               | static    | Generate a string of `$len` random ASCII characters sampled from the bytes in `$chars`.                          |
+| `chooseMultiple(int $amount, array $choices): array`         | static    | Randomly select exactly `$amount` distinct elements from `$choices`; throws if `$amount` exceeds available.      |
+| `chooseWeighted(array $choices): array`                      | static    | Randomly select one `[value, weight]` pair from `$choices` where `weight` is integer; returns `[value, weight]`. |
+| `chooseMultipleWeighted(int $amount, array $choices): array` | static    | Randomly select `$amount` elements from weighted `[value, weight]` pairs (float weight) without replacement.     |
 
 ---
 

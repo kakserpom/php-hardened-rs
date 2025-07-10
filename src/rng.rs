@@ -1,8 +1,9 @@
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use ext_php_rs::binary::Binary;
+use ext_php_rs::types::Zval;
 use ext_php_rs::{php_class, php_impl};
 use rand::distr::{Alphabetic, Alphanumeric, SampleString, Uniform};
-use rand::{Rng as _, rng};
+use rand::{Rng as _, rng, seq::IndexedRandom};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[php_class]
@@ -151,5 +152,112 @@ impl Rng {
             .take(len)
             .map(|n| chars[n] as char)
             .collect()
+    }
+
+    /// Randomly selects one element from the given list.
+    ///
+    /// # Parameters
+    /// - `choices`: PHP array of values to pick from.
+    ///
+    /// # Returns
+    /// - `mixed|null`: A randomly chosen element, or `null` if `choices` is empty.
+    fn choose(choices: Vec<&Zval>) -> Option<Zval> {
+        let mut rng = rand::rng();
+        choices
+            .choose(&mut rng)
+            .map(|choice| choice.shallow_clone())
+    }
+
+    /// Randomly selects exactly `amount` distinct elements without replacement.
+    ///
+    /// # Parameters
+    /// - `amount`: Number of elements to select.
+    /// - `choices`: PHP array of values to pick from.
+    ///
+    /// # Returns
+    /// - `mixed[]`: Array of selected values.
+    ///
+    /// # Exceptions
+    /// - Throws `Exception` if `amount` is greater than the number of available choices.
+    fn choose_multiple(amount: usize, choices: Vec<&Zval>) -> Vec<Zval> {
+        let mut rng = rand::rng();
+        choices
+            .choose_multiple(&mut rng, amount)
+            .map(|choice| choice.shallow_clone())
+            .collect()
+    }
+
+    /// Randomly selects one element from weighted choices.
+    ///
+    /// # Parameters
+    /// - `choices`: PHP array of `[value, weight]` pairs, where `weight` is an integer.
+    ///
+    /// # Returns
+    /// - `array{0: mixed, 1: int}` Two‐element array: the chosen value and its weight.
+    ///
+    /// # Exceptions
+    /// - Throws `Exception` if any entry is not a two‐element array or weight is not an integer.
+    /// - Throws `Exception` if selection fails.
+    fn choose_weighted(choices: Vec<Vec<&Zval>>) -> anyhow::Result<Vec<Zval>> {
+        let mut rng = rand::rng();
+        let len = choices.len();
+        let vec = choices.iter().try_fold(
+            Vec::with_capacity(len),
+            |mut vec, choice| -> anyhow::Result<_> {
+                if choice.len() != 2 {
+                    bail!("every choice must be an array of two elements — value and weight");
+                }
+                let value = choice[0];
+                let weight = choice[1]
+                    .long()
+                    .ok_or_else(|| anyhow!("second element must be integer"))?;
+                vec.push((value, weight));
+                Ok(vec)
+            },
+        )?;
+        let choice = vec.choose_weighted(&mut rng, |pair| pair.1)?;
+        Ok(vec![
+            choice.0.shallow_clone(),
+            Zval::try_from(choice.1).map_err(|err| anyhow!("{err:?}"))?,
+        ])
+    }
+
+    /// Randomly selects `amount` elements from weighted choices without replacement.
+    ///
+    /// # Parameters
+    /// - `amount`: Number of elements to select.
+    /// - `choices`: PHP array of `[value, weight]` pairs, where `weight` is a float.
+    ///
+    /// # Returns
+    /// - `mixed[]`: Array of selected values.
+    ///
+    /// # Exceptions
+    /// - Throws `Exception` if any entry is not a two‐element array or weight is not a float.
+    /// - Throws `Exception` if selection fails.
+    fn choose_multiple_weighted(
+        amount: usize,
+        choices: Vec<Vec<&Zval>>,
+    ) -> anyhow::Result<Vec<Zval>> {
+        let mut rng = rand::rng();
+        let len = choices.len();
+        let vec = choices.iter().try_fold(
+            Vec::with_capacity(len),
+            |mut vec, choice| -> anyhow::Result<_> {
+                if choice.len() != 2 {
+                    bail!("every choice must be an array of two elements — value and weight");
+                }
+                let value = choice[0];
+                let weight = choice[1]
+                    .double()
+                    .ok_or_else(|| anyhow!("second element must be float"))?;
+                vec.push((value, weight));
+                Ok(vec)
+            },
+        )?;
+        Ok(vec
+            .choose_multiple_weighted(&mut rng, amount, |pair| pair.1)?
+            .into_iter()
+            .map(|pair| pair.0.shallow_clone())
+            .collect())
     }
 }

@@ -336,7 +336,7 @@ impl ContentSecurityPolicy {
         self.nonce.as_ref().map(String::as_str)
     }
 
-    /// Resets nonce. It will not be set until next run of build() or send().
+    /// Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.                   
     pub fn reset_nonce(&mut self) {
         self.nonce = None;
     }
