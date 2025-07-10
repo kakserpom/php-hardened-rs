@@ -1,6 +1,8 @@
+use anyhow::{Result, anyhow, bail};
 use ext_php_rs::types::Zval;
+#[cfg(not(test))]
 use ext_php_rs::zend::Function;
-use ext_php_rs::{exception::PhpException, exception::PhpResult, php_class, php_impl};
+use ext_php_rs::{php_class, php_impl};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -9,7 +11,7 @@ use strum_macros::{Display, EnumString};
 
 /// Values for the `X-Permitted-Cross-Domain-Policies` header.
 #[derive(EnumString, Display, Debug, Clone, PartialEq, Eq)]
-#[strum(serialize_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum PermittedCrossDomainPolicies {
     None,
     MasterOnly,
@@ -19,7 +21,7 @@ pub enum PermittedCrossDomainPolicies {
 
 /// Possible values for the `X-Frame-Options` header.
 #[derive(EnumString, Display, Debug, Clone, PartialEq, Eq)]
-#[strum(serialize_all = "UPPERCASE")]
+#[strum(serialize_all = "UPPERCASE", ascii_case_insensitive)]
 pub enum FrameOptions {
     Deny,
     SameOrigin,
@@ -29,25 +31,25 @@ pub enum FrameOptions {
 
 /// Possible values for the `X-XSS-Protection` header.
 #[derive(EnumString, Display, Debug, Clone, PartialEq, Eq)]
-#[strum(serialize_all = "lowercase")]
+#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum XssProtection {
-    #[strum(serialize = "0", serialize = "off")]
+    #[strum(serialize = "off", to_string = "0")]
     Off,
-    #[strum(serialize = "1", serialize = "on")]
+    #[strum(serialize = "on", to_string = "1")]
     On,
-    #[strum(serialize = "1; mode=block", serialize = "block")]
+    #[strum(serialize = "block", to_string = "1; mode=block")]
     ModeBlock,
 }
 /// Allowed destinations for Integrity-Policy `blocked-destinations`.
 #[derive(EnumString, Display, Debug, Clone, PartialEq, Eq)]
-#[strum(serialize_all = "lowercase")]
+#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum IntegrityBlockedDestination {
     Script,
 }
 
 /// Allowed sources for Integrity-Policy `sources`.
 #[derive(EnumString, Display, Debug, Clone, PartialEq, Eq)]
-#[strum(serialize_all = "lowercase")]
+#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum IntegritySource {
     Inline,
 }
@@ -136,11 +138,11 @@ impl MiscHeaders {
     ///
     /// # Exceptions
     /// - Throws if `mode` is invalid or `"ALLOW-FROM"` is given without a URI.
-    fn set_frame_options(&mut self, mode: &str, uri: Option<&str>) -> PhpResult<()> {
-        let opt = FrameOptions::from_str(mode)
-            .map_err(|_| PhpException::from(format!("Invalid Frame-Options: {mode}")))?;
+    fn set_frame_options(&mut self, mode: &str, uri: Option<&str>) -> Result<()> {
+        let opt =
+            FrameOptions::from_str(mode).map_err(|_| anyhow!("Invalid Frame-Options: {mode}"))?;
         if opt == FrameOptions::AllowFrom && uri.is_none() {
-            return Err(PhpException::from("`ALLOW-FROM` requires a URI"));
+            bail!("`ALLOW-FROM` requires a URI");
         }
         self.frame = Some((opt, uri.map(String::from)));
         Ok(())
@@ -154,13 +156,11 @@ impl MiscHeaders {
     ///
     /// # Exceptions
     /// - Throws if `mode` is invalid or a `report_uri` is provided for 'off' mode.
-    fn set_xss_protection(&mut self, mode: &str, report_uri: Option<&str>) -> PhpResult<()> {
-        let opt = XssProtection::from_str(mode)
-            .map_err(|_| PhpException::from(format!("Invalid XSS-Protection: {mode}")))?;
+    fn set_xss_protection(&mut self, mode: &str, report_uri: Option<&str>) -> Result<()> {
+        let opt =
+            XssProtection::from_str(mode).map_err(|_| anyhow!("Invalid XSS-Protection: {mode}"))?;
         if report_uri.is_some() && opt != XssProtection::On {
-            return Err(PhpException::from(
-                "`report_uri` only allowed with mode \"1\"",
-            ));
+            bail!("`report_uri` only allowed with mode \"1\"");
         }
         self.xss = Some((opt, report_uri.map(String::from)));
         Ok(())
@@ -178,10 +178,9 @@ impl MiscHeaders {
     ///
     /// # Exceptions
     /// - Throws if `mode` is not a valid policy token.
-    fn set_permitted_cross_domain_policies(&mut self, mode: &str) -> PhpResult<()> {
-        let policy = PermittedCrossDomainPolicies::from_str(mode).map_err(|_| {
-            PhpException::from(format!("Invalid cross-domain policies value: {mode}"))
-        })?;
+    fn set_permitted_cross_domain_policies(&mut self, mode: &str) -> Result<()> {
+        let policy = PermittedCrossDomainPolicies::from_str(mode)
+            .map_err(|_| anyhow!("Invalid cross-domain policies value: {mode}"))?;
         self.permitted_policies = Some(policy);
         Ok(())
     }
@@ -201,19 +200,12 @@ impl MiscHeaders {
         group: &str,
         max_age: i64,
         include_subdomains: bool,
-        endpoints: &Zval,
-    ) -> PhpResult<()> {
-        let endpoint_arr = endpoints
-            .array()
-            .ok_or_else(|| PhpException::from("`endpoints` must be an array"))?;
-        let eps: Vec<Value> = endpoint_arr
-            .values()
-            .map(|v| {
-                v.string()
-                    .ok_or_else(|| PhpException::from("Each endpoint must be a string"))
-                    .map(|s| Value::String(s.to_string()))
-            })
-            .collect::<Result<_, _>>()?;
+        endpoints: Vec<&str>,
+    ) -> Result<()> {
+        let eps: Vec<Value> = endpoints
+            .into_iter()
+            .map(|s| Value::String(s.to_string()))
+            .collect::<Vec<_>>();
 
         let mut map = Map::new();
         map.insert("group".into(), Value::String(group.to_string()));
@@ -239,36 +231,36 @@ impl MiscHeaders {
         blocked_destinations: &Zval,
         sources: Option<&Zval>,
         endpoints: Option<&Zval>,
-    ) -> PhpResult<()> {
+    ) -> Result<()> {
         // blocked-destinations
         let bd_table = blocked_destinations
             .array()
-            .ok_or_else(|| PhpException::from("`blocked_destinations` must be an array"))?;
+            .ok_or_else(|| anyhow!("`blocked_destinations` must be an array"))?;
         let mut blocked = Vec::new();
         for v in bd_table.values() {
             let s = v
                 .string()
-                .ok_or_else(|| PhpException::from("Each blocked_destination must be a string"))?;
+                .ok_or_else(|| anyhow!("Each blocked_destination must be a string"))?;
             let dest = IntegrityBlockedDestination::from_str(&s)
-                .map_err(|_| PhpException::from(format!("Invalid blocked_destination: {s}")))?;
+                .map_err(|_| anyhow!("Invalid blocked_destination: {s}"))?;
             blocked.push(dest);
         }
         if blocked.is_empty() {
-            return Err(PhpException::from("`blocked_destinations` cannot be empty"));
+            bail!("`blocked_destinations` cannot be empty");
         }
 
         // sources (optional)
         let src_vec = if let Some(src_zv) = sources {
             let src_table = src_zv
                 .array()
-                .ok_or_else(|| PhpException::from("`sources` must be an array"))?;
+                .ok_or_else(|| anyhow!("`sources` must be an array"))?;
             let mut v = Vec::new();
             for sv in src_table.values() {
                 let s = sv
                     .string()
-                    .ok_or_else(|| PhpException::from("Each source must be a string"))?;
-                let src = IntegritySource::from_str(&s)
-                    .map_err(|_| PhpException::from(format!("Invalid source: {s}")))?;
+                    .ok_or_else(|| anyhow!("Each source must be a string"))?;
+                let src =
+                    IntegritySource::from_str(&s).map_err(|_| anyhow!("Invalid source: {s}"))?;
                 v.push(src);
             }
             v
@@ -280,12 +272,12 @@ impl MiscHeaders {
         let ep_vec = if let Some(ep_zv) = endpoints {
             let ep_table = ep_zv
                 .array()
-                .ok_or_else(|| PhpException::from("`endpoints` must be an array"))?;
+                .ok_or_else(|| anyhow!("`endpoints` must be an array"))?;
             let mut v = Vec::new();
             for ev in ep_table.values() {
                 let s = ev
                     .string()
-                    .ok_or_else(|| PhpException::from("Each endpoint must be a string"))?;
+                    .ok_or_else(|| anyhow!("Each endpoint must be a string"))?;
                 v.push(s.to_string());
             }
             Some(v)
@@ -302,7 +294,7 @@ impl MiscHeaders {
     }
 
     /// Set `Integrity-Policy-Report-Only` header value.
-    fn set_integrity_policy_report_only(&mut self, policy: &str) -> PhpResult<()> {
+    fn set_integrity_policy_report_only(&mut self, policy: &str) -> Result<()> {
         self.integrity_policy_report_only = Some(policy.to_string());
         Ok(())
     }
@@ -352,13 +344,189 @@ impl MiscHeaders {
     }
 
     /// Emit all configured headers via PHP `header()` calls.
-    fn send(&self) -> PhpResult<()> {
-        let header_fn = Function::try_from_function("header")
-            .ok_or_else(|| PhpException::from("Could not call header()"))?;
-        for (name, value) in self.build() {
-            let hdr = format!("{name}: {value}");
-            header_fn.try_call(vec![&hdr])?;
+    fn send(&self) -> Result<()> {
+        #[cfg(not(test))]
+        {
+            let header_fn = Function::try_from_function("header")
+                .ok_or_else(|| anyhow!("Could not call header()"))?;
+            for (name, value) in self.build() {
+                let hdr = format!("{name}: {value}");
+                header_fn
+                    .try_call(vec![&hdr])
+                    .map_err(|err| anyhow!("{}", err))?;
+            }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::MiscHeaders;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_default_build_empty() {
+        let m = MiscHeaders::__construct();
+        let headers = m.build();
+        assert!(headers.is_empty(), "Expected no headers by default");
+    }
+
+    #[test]
+    fn test_set_frame_options_deny() {
+        let mut m = MiscHeaders::__construct();
+        m.set_frame_options("DENY", None).unwrap();
+        let headers = m.build();
+        assert_eq!(
+            headers.get("X-Frame-Options").map(String::as_str),
+            Some("DENY")
+        );
+    }
+
+    #[test]
+    fn test_set_frame_options_allow_from() {
+        let mut m = MiscHeaders::__construct();
+        m.set_frame_options("ALLOW-FROM", Some("https://example.com"))
+            .unwrap();
+        let headers = m.build();
+        assert_eq!(
+            headers.get("X-Frame-Options").map(String::as_str),
+            Some("ALLOW-FROM https://example.com")
+        );
+    }
+
+    #[test]
+    fn test_set_frame_options_errors() {
+        let mut m = MiscHeaders::__construct();
+        assert!(m.set_frame_options("INVALID", None).is_err());
+        assert!(m.set_frame_options("ALLOW-FROM", None).is_err());
+    }
+
+    #[test]
+    fn test_set_xss_protection_modes() {
+        let mut m = MiscHeaders::__construct();
+        m.set_xss_protection("off", None).unwrap();
+        let headers = m.build();
+        assert_eq!(
+            headers.get("X-XSS-Protection").map(String::as_str),
+            Some("0")
+        );
+
+        let mut m = MiscHeaders::__construct();
+        m.set_xss_protection("on", None).unwrap();
+        let headers = m.build();
+        assert_eq!(
+            headers.get("X-XSS-Protection").map(String::as_str),
+            Some("1")
+        );
+
+        let mut m = MiscHeaders::__construct();
+        m.set_xss_protection("block", None).unwrap();
+        let headers = m.build();
+        assert_eq!(
+            headers.get("X-XSS-Protection").map(String::as_str),
+            Some("1; mode=block")
+        );
+    }
+
+    #[test]
+    fn test_set_xss_protection_with_report() {
+        let mut m = MiscHeaders::__construct();
+        m.set_xss_protection("on", Some("https://report.com"))
+            .unwrap();
+        let headers = m.build();
+        assert_eq!(
+            headers.get("X-XSS-Protection").map(String::as_str),
+            Some("1; report=https://report.com")
+        );
+    }
+
+    #[test]
+    fn test_set_xss_protection_errors() {
+        let mut m = MiscHeaders::__construct();
+        // report_uri only allowed with "on"
+        assert!(m.set_xss_protection("off", Some("uri")).is_err());
+        // invalid mode
+        assert!(m.set_xss_protection("invalid", None).is_err());
+    }
+
+    #[test]
+    fn test_set_nosniff() {
+        let mut m = MiscHeaders::__construct();
+        m.set_nosniff(true);
+        let headers = m.build();
+        assert_eq!(
+            headers.get("X-Content-Type-Options").map(String::as_str),
+            Some("nosniff")
+        );
+    }
+
+    #[test]
+    fn test_set_permitted_cross_domain_policies() {
+        let mut m = MiscHeaders::__construct();
+        m.set_permitted_cross_domain_policies("none").unwrap();
+        let headers = m.build();
+        assert_eq!(
+            headers
+                .get("X-Permitted-Cross-Domain-Policies")
+                .map(String::as_str),
+            Some("none")
+        );
+        // invalid
+        assert!(m.set_permitted_cross_domain_policies("invalid").is_err());
+    }
+
+    #[test]
+    fn test_set_report_to() {
+        let mut m = MiscHeaders::__construct();
+        m.set_report_to("grp", 3600, true, vec!["ep1", "ep2"])
+            .unwrap();
+        let headers = m.build();
+        let val = headers.get("Report-To").unwrap();
+        // Must be valid JSON containing the right fields
+        assert!(val.contains(r#""group":"grp""#));
+        assert!(val.contains(r#""max_age":3600"#));
+        assert!(val.contains(r#""include_subdomains":true"#));
+        assert!(val.contains(r#""endpoints":["ep1","ep2"]"#));
+    }
+
+    #[test]
+    fn test_set_integrity_policy_report_only() {
+        let mut m = MiscHeaders::__construct();
+        m.set_integrity_policy_report_only("policy-value").unwrap();
+        let headers = m.build();
+        assert_eq!(
+            headers
+                .get("Integrity-Policy-Report-Only")
+                .map(String::as_str),
+            Some("policy-value")
+        );
+    }
+
+    #[test]
+    fn test_combined_headers() {
+        let mut m = MiscHeaders::__construct();
+        m.set_frame_options("SAMEORIGIN", None).unwrap();
+        m.set_xss_protection("on", None).unwrap();
+        m.set_nosniff(true);
+        m.set_permitted_cross_domain_policies("all").unwrap();
+        m.set_report_to("g", 10, false, vec!["e"]).unwrap();
+        m.set_integrity_policy_report_only("p").unwrap();
+
+        let headers = m.build();
+        let expect: HashMap<_, _> = vec![
+            ("X-Frame-Options", "SAMEORIGIN"),
+            ("X-XSS-Protection", "1"),
+            ("X-Content-Type-Options", "nosniff"),
+            ("X-Permitted-Cross-Domain-Policies", "all"),
+            ("Report-To", headers.get("Report-To").unwrap().as_str()),
+            ("Integrity-Policy-Report-Only", "p"),
+        ]
+        .into_iter()
+        .collect();
+
+        for (k, v) in expect {
+            assert_eq!(headers.get(k).map(String::as_str), Some(v));
+        }
     }
 }

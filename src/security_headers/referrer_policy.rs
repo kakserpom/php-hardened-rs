@@ -1,11 +1,13 @@
+use anyhow::{Result, anyhow};
+#[cfg(not(test))]
 use ext_php_rs::zend::Function;
-use ext_php_rs::{exception::PhpException, exception::PhpResult, php_class, php_impl};
+use ext_php_rs::{php_class, php_impl};
 use std::str::FromStr;
 use strum_macros::{Display, EnumString};
 
 /// All valid Referrer-Policy directives.
 #[derive(EnumString, Display, Debug, Clone)]
-#[strum(serialize_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum ReferrerPolicyDirective {
     NoReferrer,
     NoReferrerWhenDowngrade,
@@ -20,6 +22,7 @@ pub enum ReferrerPolicyDirective {
 /// Referrer-Policy header builder.
 #[php_class]
 #[php(name = "Hardened\\SecurityHeaders\\ReferrerPolicy")]
+#[derive(Debug)]
 pub struct ReferrerPolicy {
     policy: ReferrerPolicyDirective,
 }
@@ -33,10 +36,10 @@ impl ReferrerPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if an invalid policy token is provided.
-    fn __construct(policy: Option<&str>) -> PhpResult<Self> {
+    fn __construct(policy: Option<&str>) -> Result<Self> {
         let directive = if let Some(s) = policy {
             ReferrerPolicyDirective::from_str(s)
-                .map_err(|_| PhpException::from(format!("Invalid Referrer-Policy value: {s}")))?
+                .map_err(|_| anyhow!("Invalid Referrer-Policy value: {s}"))?
         } else {
             ReferrerPolicyDirective::NoReferrer
         };
@@ -50,10 +53,9 @@ impl ReferrerPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if an invalid policy token is provided.
-    fn set_policy(&mut self, policy: &str) -> PhpResult<()> {
-        let parsed = ReferrerPolicyDirective::from_str(policy).map_err(|_| {
-            PhpException::from(format!("Invalid Referrer-Policy value: {policy}"))
-        })?;
+    fn set_policy(&mut self, policy: &str) -> Result<()> {
+        let parsed = ReferrerPolicyDirective::from_str(policy)
+            .map_err(|_| anyhow!("Invalid Referrer-Policy value: {policy}"))?;
         self.policy = parsed;
         Ok(())
     }
@@ -78,10 +80,60 @@ impl ReferrerPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if the PHP `header()` function cannot be invoked.
-    fn send(&self) -> PhpResult<()> {
-        Function::try_from_function("header")
-            .ok_or_else(|| PhpException::from("Could not call header()"))?
-            .try_call(vec![&format!("Referrer-Policy: {}", self.build())])?;
-        Ok(())
+    fn send(&self) -> Result<()> {
+        #[cfg(not(test))]
+        {
+            Function::try_from_function("header")
+                .ok_or_else(|| anyhow!("Could not call header()"))?
+                .try_call(vec![&format!("Referrer-Policy: {}", self.build())])
+                .map_err(|_| anyhow!("Could not call header()"))?;
+            Ok(())
+        }
+        #[cfg(test)]
+        panic!("attribute_filter() can not be called from tests");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ReferrerPolicy;
+
+    #[test]
+    fn test_default_policy() {
+        let rp = ReferrerPolicy::__construct(None).unwrap();
+        // Default should be no-referrer
+        assert_eq!(rp.policy(), "no-referrer");
+        assert_eq!(rp.build(), "no-referrer");
+    }
+
+    #[test]
+    fn test_construct_with_valid_policy() {
+        let rp = ReferrerPolicy::__construct(Some("origin")).unwrap();
+        assert_eq!(rp.policy(), "origin");
+        assert_eq!(rp.build(), "origin");
+    }
+
+    #[test]
+    fn test_construct_invalid_policy() {
+        let err = ReferrerPolicy::__construct(Some("invalid-policy")).unwrap_err();
+        // Should be a PhpException with appropriate message
+        let msg = format!("{}", err);
+        assert!(msg.contains("Invalid Referrer-Policy value"));
+    }
+
+    #[test]
+    fn test_set_policy_valid() {
+        let mut rp = ReferrerPolicy::__construct(None).unwrap();
+        rp.set_policy("strict-origin-when-cross-origin").unwrap();
+        assert_eq!(rp.policy(), "strict-origin-when-cross-origin");
+        assert_eq!(rp.build(), "strict-origin-when-cross-origin");
+    }
+
+    #[test]
+    fn test_set_policy_invalid() {
+        let mut rp = ReferrerPolicy::__construct(None).unwrap();
+        let err = rp.set_policy("not-a-policy").unwrap_err();
+        let msg = format!("{}", err);
+        assert!(msg.contains("Invalid Referrer-Policy value"));
     }
 }

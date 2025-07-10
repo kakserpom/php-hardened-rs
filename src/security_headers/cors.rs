@@ -153,3 +153,145 @@ impl CorsPolicy {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::CorsPolicy;
+
+    #[test]
+    fn test_default_policy_empty() {
+        let cp = CorsPolicy::__construct();
+        let headers = cp.build();
+        assert!(headers.is_empty(), "Expected no headers by default");
+    }
+
+    #[test]
+    fn test_allow_origins_only() {
+        let mut cp = CorsPolicy::__construct();
+        cp.allow_origins(vec!["https://example.com".to_string(), "*".to_string()]);
+        let headers = cp.build();
+        assert_eq!(
+            headers
+                .get("Access-Control-Allow-Origin")
+                .map(String::as_str),
+            Some("https://example.com, *")
+        );
+        assert_eq!(headers.len(), 1);
+    }
+
+    #[test]
+    fn test_allow_methods_only() {
+        let mut cp = CorsPolicy::__construct();
+        cp.allow_methods(vec!["GET".to_string(), "POST".to_string()]);
+        let headers = cp.build();
+        assert_eq!(
+            headers
+                .get("Access-Control-Allow-Methods")
+                .map(String::as_str),
+            Some("GET, POST")
+        );
+        assert_eq!(headers.len(), 1);
+    }
+
+    #[test]
+    fn test_allow_headers_only() {
+        let mut cp = CorsPolicy::__construct();
+        cp.allow_headers(vec!["Content-Type".to_string(), "X-Custom".to_string()]);
+        let headers = cp.build();
+        assert_eq!(
+            headers
+                .get("Access-Control-Allow-Headers")
+                .map(String::as_str),
+            Some("Content-Type, X-Custom")
+        );
+        assert_eq!(headers.len(), 1);
+    }
+
+    #[test]
+    fn test_allow_credentials_only() {
+        let mut cp = CorsPolicy::__construct();
+        cp.allow_credentials(true);
+        let headers = cp.build();
+        assert_eq!(
+            headers
+                .get("Access-Control-Allow-Credentials")
+                .map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(headers.len(), 1);
+    }
+
+    #[test]
+    fn test_expose_headers_only() {
+        let mut cp = CorsPolicy::__construct();
+        cp.expose_headers(vec!["X-Exposed".to_string()]);
+        let headers = cp.build();
+        assert_eq!(
+            headers
+                .get("Access-Control-Expose-Headers")
+                .map(String::as_str),
+            Some("X-Exposed")
+        );
+        assert_eq!(headers.len(), 1);
+    }
+
+    #[test]
+    fn test_max_age_only() {
+        let mut cp = CorsPolicy::__construct();
+        cp.max_age(3600);
+        let headers = cp.build();
+        assert_eq!(
+            headers.get("Access-Control-Max-Age").map(String::as_str),
+            Some("3600")
+        );
+        assert_eq!(headers.len(), 1);
+    }
+
+    #[test]
+    fn test_full_policy_combination() {
+        let mut cp = CorsPolicy::__construct();
+        cp.allow_origins(vec!["https://foo".to_string()]);
+        cp.allow_methods(vec!["GET".to_string()]);
+        cp.allow_headers(vec!["X-Test".to_string()]);
+        cp.allow_credentials(true);
+        cp.expose_headers(vec!["X-Exp".to_string()]);
+        cp.max_age(1200);
+
+        let headers = cp.build();
+        assert_eq!(
+            headers
+                .get("Access-Control-Allow-Origin")
+                .map(String::as_str),
+            Some("https://foo")
+        );
+        assert_eq!(
+            headers
+                .get("Access-Control-Allow-Methods")
+                .map(String::as_str),
+            Some("GET")
+        );
+        assert_eq!(
+            headers
+                .get("Access-Control-Allow-Headers")
+                .map(String::as_str),
+            Some("X-Test")
+        );
+        assert_eq!(
+            headers
+                .get("Access-Control-Allow-Credentials")
+                .map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            headers
+                .get("Access-Control-Expose-Headers")
+                .map(String::as_str),
+            Some("X-Exp")
+        );
+        assert_eq!(
+            headers.get("Access-Control-Max-Age").map(String::as_str),
+            Some("1200")
+        );
+        assert_eq!(headers.len(), 6);
+    }
+}

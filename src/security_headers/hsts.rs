@@ -1,6 +1,9 @@
+use anyhow::Result;
+#[cfg(not(test))]
+use anyhow::anyhow;
+#[cfg(not(test))]
 use ext_php_rs::zend::Function;
-use ext_php_rs::{exception::PhpResult, php_class, php_impl};
-
+use ext_php_rs::{php_class, php_impl};
 /// HTTP Strict Transport Security (HSTS) header builder.
 #[php_class]
 #[php(name = "Hardened\\SecurityHeaders\\Hsts")]
@@ -76,13 +79,61 @@ impl Hsts {
     ///
     /// # Exceptions
     /// - Throws `Exception` if PHP `header()` cannot be invoked.
-    fn send(&self) -> PhpResult<()> {
-        Function::try_from_function("header")
-            .ok_or_else(|| anyhow::anyhow!("Could not call header()"))?
-            .try_call(vec![&format!(
-                "Strict-Transport-Security: {}",
-                self.build()
-            )])?;
-        Ok(())
+    fn send(&self) -> Result<()> {
+        #[cfg(not(test))]
+        {
+            Function::try_from_function("header")
+                .ok_or_else(|| anyhow!("Could not call header()"))?
+                .try_call(vec![&format!(
+                    "Strict-Transport-Security: {}",
+                    self.build()
+                )])
+                .map_err(|err| anyhow!("{:?}", err))?;
+
+            Ok(())
+        }
+        #[cfg(test)]
+        panic!("attribute_filter() can not be called from tests");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Hsts;
+
+    #[test]
+    fn test_default_build() {
+        let h = Hsts::__construct();
+        assert_eq!(h.build(), "max-age=0");
+    }
+
+    #[test]
+    fn test_max_age_only() {
+        let mut h = Hsts::__construct();
+        h.max_age(31536000);
+        assert_eq!(h.build(), "max-age=31536000");
+    }
+
+    #[test]
+    fn test_include_subdomains_only() {
+        let mut h = Hsts::__construct();
+        h.include_sub_domains(true);
+        assert_eq!(h.build(), "max-age=0; includeSubDomains");
+    }
+
+    #[test]
+    fn test_preload_only() {
+        let mut h = Hsts::__construct();
+        h.preload(true);
+        assert_eq!(h.build(), "max-age=0; preload");
+    }
+
+    #[test]
+    fn test_full_directives() {
+        let mut h = Hsts::__construct();
+        h.max_age(86400);
+        h.include_sub_domains(true);
+        h.preload(true);
+        assert_eq!(h.build(), "max-age=86400; includeSubDomains; preload");
     }
 }

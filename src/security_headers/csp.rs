@@ -1,7 +1,4 @@
-use anyhow::anyhow;
-use ext_php_rs::exception::PhpResult;
-use ext_php_rs::prelude::PhpException;
-use ext_php_rs::types::ZendHashTable;
+use anyhow::{Result, anyhow, bail};
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_const, php_impl};
 use fmt::Write;
@@ -15,7 +12,7 @@ use trim_in_place::TrimInPlace;
 
 /// All the CSP directives you want to support.
 #[derive(Debug, Eq, PartialEq, Hash, EnumString, strum_macros::Display, Ord, PartialOrd)]
-#[strum(serialize_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum Rule {
     DefaultSrc,
     ScriptSrc,
@@ -58,7 +55,7 @@ pub enum Rule {
 /// - a nonce placeholder
 /// - a domain string
 #[derive(Clone, EnumString, strum_macros::Display)]
-#[strum(serialize_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum Keyword {
     #[strum(serialize = "self")]
     _Self,
@@ -231,7 +228,7 @@ impl ContentSecurityPolicy {
     ///
     /// # Parameters
     /// - `rule`: The directive name (e.g. `"default-src"`, `"script-src"`).
-    /// - `keywords`: A `ZendHashTable` of keyword tokens (e.g. `'self'`, `'nonce-...'`).
+    /// - `keywords`: An array of keyword tokens (e.g. `'self'`, `'nonce'`).
     /// - `sources`: Optional vector of host strings (e.g. `"example.com"`).
     ///
     /// # Exceptions
@@ -240,31 +237,25 @@ impl ContentSecurityPolicy {
     pub fn set_rule(
         &mut self,
         rule: &str,
-        keywords: &ZendHashTable,
+        keywords: Vec<&str>,
         mut sources: Option<Vec<String>>,
-    ) -> PhpResult<()> {
+    ) -> Result<()> {
         let mut keywords_vec = Vec::with_capacity(keywords.len());
-        for item in keywords.values() {
-            let s = item
-                .str()
-                .ok_or_else(|| PhpException::from("Array item of keywords is not a string"))?;
-            let keyword = Keyword::from_str(s)
-                .map_err(|e| PhpException::from(format!("Invalid keyword `{s}`: {e}")))?;
+        for keyword in keywords {
+            let keyword = Keyword::from_str(keyword)
+                .map_err(|e| anyhow!("Invalid keyword `{keyword}`: {e}"))?;
             keywords_vec.push(keyword);
         }
         if let Some(vec_sources) = sources.as_mut() {
             for source in vec_sources {
                 if source.contains(['\'', '"']) {
-                    return Err(PhpException::from(format!(
-                        "source `{source}` may not contain single quotes"
-                    )));
+                    bail!("source `{source}` may not contain single quotes");
                 }
                 source.trim_in_place();
             }
         }
         self.src_map.insert(
-            Rule::from_str(rule)
-                .map_err(|_| PhpException::from(format!("Invalid rule name: {rule}")))?,
+            Rule::from_str(rule).map_err(|_| anyhow!("Invalid rule name: {rule}"))?,
             (keywords_vec, sources.unwrap_or_default()),
         );
         Ok(())
@@ -278,7 +269,7 @@ impl ContentSecurityPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if formatting the header string fails.
-    pub fn build(&mut self) -> PhpResult<String> {
+    pub fn build(&mut self) -> Result<String> {
         let mut header = String::new();
 
         let mut it = self.src_map.iter().peekable();
@@ -321,7 +312,7 @@ impl ContentSecurityPolicy {
         Ok(header)
     }
 
-    pub fn send(&mut self) -> PhpResult<()> {
+    pub fn send(&mut self) -> Result<()> {
         let _ = Function::try_from_function("header")
             .ok_or_else(|| anyhow::anyhow!("Could not call header()"))?
             .try_call(vec![&format!("content-security-policy: {}", self.build()?)]);
@@ -339,5 +330,83 @@ impl ContentSecurityPolicy {
     /// Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.
     pub fn reset_nonce(&mut self) {
         self.nonce = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ContentSecurityPolicy, Keyword, Rule};
+
+    #[test]
+    fn build_empty_policy() {
+        let mut csp = ContentSecurityPolicy::__construct();
+        let header = csp.build().unwrap();
+        assert!(
+            header.is_empty(),
+            "Empty policy should produce empty header"
+        );
+    }
+
+    #[test]
+    fn build_none_directive() {
+        let mut csp = ContentSecurityPolicy::__construct();
+        csp.src_map
+            .insert(Rule::DefaultSrc, (Vec::new(), Vec::new()));
+        let header = csp.build().unwrap();
+        assert_eq!(header, "default-src 'none'");
+    }
+
+    #[test]
+    fn build_single_keyword() {
+        let mut csp = ContentSecurityPolicy::__construct();
+        csp.src_map
+            .insert(Rule::DefaultSrc, (vec![Keyword::_Self], Vec::new()));
+        let header = csp.build().unwrap();
+        assert_eq!(header, "default-src 'self'");
+    }
+
+    #[test]
+    fn build_keyword_and_source() {
+        let mut csp = ContentSecurityPolicy::__construct();
+        csp.src_map.insert(
+            Rule::DefaultSrc,
+            (vec![Keyword::_Self], vec!["example.com".into()]),
+        );
+        let header = csp.build().unwrap();
+        assert_eq!(header, "default-src 'self' example.com");
+    }
+
+    #[test]
+    fn build_multiple_directives_ordered() {
+        let mut csp = ContentSecurityPolicy::__construct();
+        // insert in reverse order
+        csp.src_map
+            .insert(Rule::ScriptSrc, (vec![Keyword::_Self], Vec::new()));
+        csp.src_map
+            .insert(Rule::DefaultSrc, (vec![Keyword::_Self], Vec::new()));
+        let header = csp.build().unwrap();
+        // BTreeMap orders DefaultSrc before ScriptSrc
+        assert_eq!(header, "default-src 'self';script-src 'self'");
+    }
+
+    #[test]
+    fn nonce_generation_and_reset() {
+        let mut csp = ContentSecurityPolicy::__construct();
+        csp.src_map
+            .insert(Rule::DefaultSrc, (vec![Keyword::Nonce], Vec::new()));
+        // first build generates a nonce
+        let header1 = csp.build().unwrap();
+        assert!(header1.starts_with("default-src 'nonce-"));
+        let nonce1 = csp.get_nonce().expect("nonce should be set").to_owned();
+        // second build uses same nonce
+        let header2 = csp.build().unwrap();
+        assert!(header2.contains(&format!("'nonce-{}'", nonce1)));
+        // reset and build produces a new nonce
+        csp.reset_nonce();
+        assert!(csp.get_nonce().is_none());
+        let header3 = csp.build().unwrap();
+        assert!(header3.starts_with("default-src 'nonce-"));
+        let nonce2 = csp.get_nonce().unwrap();
+        assert_ne!(nonce1, nonce2, "nonce after reset should differ");
     }
 }
