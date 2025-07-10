@@ -1,5 +1,5 @@
 use crate::to_str;
-use ext_php_rs::prelude::{PhpException, PhpResult};
+use anyhow::anyhow;
 use ext_php_rs::types::Zval;
 use ext_php_rs::{php_class, php_impl};
 use std::ffi::OsStr;
@@ -8,8 +8,50 @@ use std::path::{Path, PathBuf};
 
 #[php_class]
 #[php(name = "Hardened\\Path")]
+#[derive(Debug)]
 pub struct PathObj {
     inner: PathBuf,
+}
+
+impl PathObj {
+    #[inline]
+    pub fn _join(&self, path: &str) -> Self {
+        Self {
+            inner: lexical_canonicalize(self.inner.join(path)),
+        }
+    }
+
+    #[inline]
+    pub fn _join_within(&self, path: &str) -> anyhow::Result<Self> {
+        let inner = lexical_canonicalize(self.inner.join(path));
+        if inner.starts_with(&self.inner) {
+            Ok(Self { inner })
+        } else {
+            Err(anyhow!("Not a sub path"))
+        }
+    }
+
+    pub fn _starts_with(&self, path: &str) -> bool {
+        self.inner.starts_with(path)
+    }
+}
+
+impl PartialEq<Self> for PathObj {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl PartialEq<OsStr> for PathObj {
+    fn eq(&self, other: &OsStr) -> bool {
+        self.inner.eq(other)
+    }
+}
+
+impl PartialEq<str> for PathObj {
+    fn eq(&self, other: &str) -> bool {
+        self.inner.eq(Path::new(other))
+    }
 }
 
 #[php_impl]
@@ -22,7 +64,7 @@ impl PathObj {
     /// # Errors
     /// Throws an exception if conversion from Zval to string fails.
     #[inline]
-    pub fn from(path: &Zval) -> PhpResult<Self> {
+    pub fn from(path: &Zval) -> anyhow::Result<Self> {
         Ok(Self {
             inner: lexical_canonicalize(Path::new(&to_str(path)?)),
         })
@@ -35,7 +77,7 @@ impl PathObj {
     ///
     /// # Errors
     /// Throws an exception if conversion from Zval to string fails.
-    pub fn __construct(path: &Zval) -> PhpResult<Self> {
+    pub fn __construct(path: &Zval) -> anyhow::Result<Self> {
         Self::from(path)
     }
 
@@ -49,7 +91,7 @@ impl PathObj {
     ///
     /// # Errors
     /// Throws an exception if conversion from Zval to string fails.
-    pub fn starts_with(&self, path: &Zval) -> PhpResult<bool> {
+    pub fn starts_with(&self, path: &Zval) -> anyhow::Result<bool> {
         Ok(self.inner.starts_with(to_str(path)?))
     }
 
@@ -63,10 +105,8 @@ impl PathObj {
     ///
     /// # Errors
     /// Throws an exception if conversion from Zval to string fails.
-    pub fn join(&self, path: &Zval) -> PhpResult<Self> {
-        Ok(Self {
-            inner: lexical_canonicalize(self.inner.join(to_str(path)?)),
-        })
+    pub fn join(&self, path: &Zval) -> anyhow::Result<Self> {
+        Ok(self._join(&to_str(path)?))
     }
 
     /// Joins the given path onto this path, canonicalizes it, and ensures it's a subpath.
@@ -76,22 +116,17 @@ impl PathObj {
     ///
     /// # Errors
     /// Throws an exception if conversion from Zval to string fails or if the resulting path is not a subpath.
-    pub fn join_within(&self, path: &Zval) -> PhpResult<Self> {
-        let inner = lexical_canonicalize(self.inner.join(to_str(path)?));
-        if inner.starts_with(&self.inner) {
-            Ok(Self { inner })
-        } else {
-            Err(PhpException::from("Not a sub path"))
-        }
+    pub fn join_within(&self, path: &Zval) -> anyhow::Result<Self> {
+        self._join_within(&to_str(path)?)
     }
 
-    pub fn set_file_name(&mut self, file_name: &Zval) -> PhpResult<Self> {
+    pub fn set_file_name(&mut self, file_name: &Zval) -> anyhow::Result<Self> {
         let mut inner = self.inner.clone();
         inner.set_file_name(to_str(file_name)?);
         Ok(Self { inner })
     }
 
-    pub fn set_extension(&mut self, file_name: &Zval) -> PhpResult<Self> {
+    pub fn set_extension(&mut self, file_name: &Zval) -> anyhow::Result<Self> {
         let mut inner = self.inner.clone();
         inner.set_extension(to_str(file_name)?);
         Ok(Self { inner })
@@ -111,7 +146,7 @@ impl PathObj {
     ///
     /// # Errors
     /// Throws an exception if the path cannot be converted to a string.
-    pub fn __to_string(&self) -> PhpResult<String> {
+    pub fn __to_string(&self) -> anyhow::Result<String> {
         Ok(self
             .inner
             .to_str()
@@ -119,7 +154,7 @@ impl PathObj {
             .ok_or_else(|| anyhow::anyhow!("Could not convert path to string"))?)
     }
 
-    pub fn path(&self) -> PhpResult<String> {
+    pub fn path(&self) -> anyhow::Result<String> {
         Ok(self
             .inner
             .to_str()
@@ -229,10 +264,11 @@ pub fn lexical_canonicalize<P: AsRef<Path>>(path: P) -> PathBuf {
     }
     result
 }
-
 #[cfg(test)]
 mod tests {
-    use super::lexical_canonicalize;
+    use super::{PathObj, lexical_canonicalize};
+    use std::ffi::OsStr;
+    use std::path::PathBuf;
 
     fn canon(s: &str) -> String {
         lexical_canonicalize(s).to_str().unwrap().to_owned()
@@ -266,5 +302,173 @@ mod tests {
             canon(r"\\\\server\\share\\dir\\..\\file"),
             "\\\\server\\share\\file\\\\"
         );
+    }
+
+    // --- Tests for PathObj stringification and basic join/canonicalize ---
+
+    #[test]
+    fn test_pathobj_to_string() {
+        let p = PathObj {
+            inner: PathBuf::from("foo/bar"),
+        };
+        assert_eq!(p.__to_string().unwrap(), "foo/bar");
+    }
+
+    #[test]
+    fn test_lexical_join_paths() {
+        // join-like behavior via canonicalize
+        assert_eq!(canon("base/inner/../leaf"), "base/leaf");
+        assert_eq!(canon("/base//subdir//file.txt"), "/base/subdir/file.txt");
+    }
+
+    #[test]
+    fn test_lexical_canonicalize_escape_prevention() {
+        // attempting to escape beyond root yields root-relative
+        assert_eq!(canon("base/sub/../../etc"), "etc");
+    }
+
+    // --- Tests for std::path PathBuf file-name and extension operations ---
+
+    #[test]
+    fn test_std_pathbuf_file_name_and_extension() {
+        let mut path = PathBuf::from("dir/filename.txt");
+        assert_eq!(path.file_name(), Some(OsStr::new("filename.txt")));
+        assert_eq!(path.extension(), Some(OsStr::new("txt")));
+
+        path.set_file_name("other.bin");
+        assert_eq!(path.file_name(), Some(OsStr::new("other.bin")));
+        assert_eq!(path.extension(), Some(OsStr::new("bin")));
+
+        path.set_extension("md");
+        assert_eq!(path.file_name(), Some(OsStr::new("other.md")));
+        assert_eq!(path.extension(), Some(OsStr::new("md")));
+    }
+
+    // --- Tests for our PathObj extension helpers ---
+
+    #[test]
+    fn test_validate_extension_custom() {
+        let p = PathObj {
+            inner: PathBuf::from("photo.JPG"),
+        };
+        assert!(p.validate_extension(vec!["jpg", "png"]));
+        assert!(!p.validate_extension(vec!["gif", "bmp"]));
+    }
+
+    #[test]
+    fn test_validate_extension_image() {
+        let p_img = PathObj {
+            inner: PathBuf::from("image.PNG"),
+        };
+        let p_not = PathObj {
+            inner: PathBuf::from("video.mp4"),
+        };
+        assert!(p_img.validate_extension_image());
+        assert!(!p_not.validate_extension_image());
+    }
+
+    #[test]
+    fn test_validate_extension_video() {
+        let p_vid = PathObj {
+            inner: PathBuf::from("clip.webm"),
+        };
+        let p_not = PathObj {
+            inner: PathBuf::from("sound.mp3"),
+        };
+        assert!(p_vid.validate_extension_video());
+        assert!(!p_not.validate_extension_video());
+    }
+
+    #[test]
+    fn test_validate_extension_audio() {
+        let p_audio = PathObj {
+            inner: PathBuf::from("track.FlAc"),
+        };
+        let p_not = PathObj {
+            inner: PathBuf::from("document.pdf"),
+        };
+        assert!(p_audio.validate_extension_audio());
+        assert!(!p_not.validate_extension_audio());
+    }
+
+    #[test]
+    fn test_validate_extension_document() {
+        let p_doc = PathObj {
+            inner: PathBuf::from("report.PdF"),
+        };
+        let p_not = PathObj {
+            inner: PathBuf::from("archive.zip"),
+        };
+        assert!(p_doc.validate_extension_document());
+        assert!(!p_not.validate_extension_document());
+    }
+
+    #[test]
+    fn test_join_simple() {
+        let base = PathBuf::from("base/dir");
+        let joined = lexical_canonicalize(base.join("sub/file.txt"));
+        assert_eq!(joined, PathBuf::from("base/dir/sub/file.txt"));
+    }
+
+    #[test]
+    fn test_join_and_canonicalize() {
+        let base = PathBuf::from("base/dir");
+        let joined = lexical_canonicalize(base.join("../other/./leaf"));
+        assert_eq!(joined, PathBuf::from("base/other/leaf"));
+    }
+
+    #[test]
+    fn test_join_within_allowed() {
+        let base = PathBuf::from("home/user");
+        let candidate = lexical_canonicalize(base.join("docs/report.pdf"));
+        assert!(candidate.starts_with("home/user"));
+    }
+
+    #[test]
+    fn test_join_within_disallowed() {
+        let base = PathBuf::from("home/user");
+        let candidate = lexical_canonicalize(base.join("../../etc/passwd"));
+        assert!(!candidate.starts_with("home/user"));
+    }
+
+    // --- Tests for PathObj methods that mirror PathBuf operations ---
+
+    #[test]
+    fn test_pathobj_to_string_and_starts_with() {
+        let p = PathObj {
+            inner: PathBuf::from("a/b/c"),
+        };
+        // __to_string
+        assert_eq!(p.__to_string().unwrap(), "a/b/c");
+        // starts_with
+        assert!(p._starts_with("a/b"));
+        assert!(!p._starts_with("a/x"));
+    }
+
+    #[test]
+    fn test_pathobj_join_and_join_within() {
+        let base = PathObj {
+            inner: PathBuf::from("root/dir"),
+        };
+        // join
+        assert!(base._join("sub/child").eq("root/dir/sub/child"));
+        // join_within valid
+        assert!(base._join_within("docs").unwrap().eq("root/dir/docs"));
+        assert!(base._join_within("../dir").unwrap().eq("root/dir"));
+
+        // join_within disallowed
+        assert!(base._join_within("../outside").is_err());
+        assert!(base._join_within("../dirzzz").is_err());
+    }
+
+    #[test]
+    fn test_pathobj_file_name_and_extension_methods() {
+        let mut p = PathBuf::from("folder/old.txt");
+        // file_name change
+        p.set_file_name("new.bin");
+        assert_eq!(p.file_name(), Some(OsStr::new("new.bin")));
+        // extension change
+        p.set_extension("md");
+        assert_eq!(p.extension(), Some(OsStr::new("md")));
     }
 }
