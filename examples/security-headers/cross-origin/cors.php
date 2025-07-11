@@ -1,7 +1,9 @@
 <?php
-use Hardened\SecurityHeaders\CorsPolicy;
+declare(strict_types=1);
 
-$cors = new CorsPolicy();
+use Hardened\SecurityHeaders\CrossOrigin\Cors;
+
+$cors = new Cors();
 
 // Allow specific origins or use ['*'] for wildcard
 $cors->allowOrigins(['https://example.com', 'https://api.example.com']);

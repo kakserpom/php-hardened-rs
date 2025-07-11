@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 use Hardened\SecurityHeaders\Hsts;
 
 // Create and configure HSTS

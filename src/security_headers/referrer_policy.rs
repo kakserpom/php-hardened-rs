@@ -90,7 +90,7 @@ impl ReferrerPolicy {
             Ok(())
         }
         #[cfg(test)]
-        panic!("attribute_filter() can not be called from tests");
+        panic!("send() can not be called from tests");
     }
 }
 
@@ -118,7 +118,7 @@ mod tests {
     fn test_construct_invalid_policy() {
         let err = ReferrerPolicy::__construct(Some(String::from("invalid-policy"))).unwrap_err();
         // Should be a PhpException with appropriate message
-        let msg = format!("{}", err);
+        let msg = format!("{err}");
         assert!(msg.contains("Invalid Referrer-Policy value"));
     }
 
@@ -134,7 +134,7 @@ mod tests {
     fn test_set_policy_invalid() {
         let mut rp = ReferrerPolicy::__construct(None).unwrap();
         let err = rp.set_policy("not-a-policy").unwrap_err();
-        let msg = format!("{}", err);
+        let msg = format!("{err}");
         assert!(msg.contains("Invalid Referrer-Policy value"));
     }
 

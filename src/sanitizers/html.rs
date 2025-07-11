@@ -780,14 +780,14 @@ mod tests {
     fn test_strip_comments_toggle_and_clean() -> anyhow::Result<()> {
         let mut s = HtmlSanitizer::default();
         // By default comments are stripped
-        assert_eq!(s.will_strip_comments()?, true);
+        assert!(s.will_strip_comments()?);
         let html = "<div><!--comment--><p>text</p></div>".to_string();
         let out = s.clean(html.clone())?;
         assert_not_contains!(out, "<!--comment-->");
 
         // Disable stripping
         s.strip_comments(false)?;
-        assert_eq!(s.will_strip_comments()?, false);
+        assert!(!(s.will_strip_comments()?));
         let out2 = s.clean(html)?;
         assert_contains!(out2, "<!--");
 

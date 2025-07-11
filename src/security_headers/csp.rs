@@ -324,7 +324,7 @@ impl ContentSecurityPolicy {
     /// # Returns
     /// - `Option<&str>` The raw nonce string (without the `'nonce-'` prefix), or `None` if `build()` has not yet generated one.
     pub fn get_nonce(&self) -> Option<&str> {
-        self.nonce.as_ref().map(String::as_str)
+        self.nonce.as_deref()
     }
 
     /// Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.
@@ -401,7 +401,7 @@ mod tests {
         let nonce1 = csp.get_nonce().expect("nonce should be set").to_owned();
         // second build uses same nonce
         let header2 = csp.build().unwrap();
-        assert!(header2.contains(&format!("'nonce-{}'", nonce1)));
+        assert!(header2.contains(&format!("'nonce-{nonce1}'")));
         // reset and build produces a new nonce
         csp.reset_nonce();
         assert!(csp.get_nonce().is_none());

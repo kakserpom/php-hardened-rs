@@ -255,8 +255,8 @@ impl MiscHeaders {
                 sources
                     .into_iter()
                     .map(|source| -> Result<IntegritySource> {
-                        Ok(IntegritySource::from_str(&source)
-                            .map_err(|_| anyhow!("Invalid source: {source}"))?)
+                        IntegritySource::from_str(&source)
+                            .map_err(|_| anyhow!("Invalid source: {source}"))
                     })
                     .collect::<Result<Vec<IntegritySource>>>()
             })
@@ -333,8 +333,10 @@ impl MiscHeaders {
                     .try_call(vec![&hdr])
                     .map_err(|err| anyhow!("{}", err))?;
             }
+            Ok(())
         }
-        Ok(())
+        #[cfg(test)]
+        panic!("send() can not be called from tests");
     }
 }
 

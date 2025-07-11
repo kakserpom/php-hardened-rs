@@ -1,12 +1,12 @@
-use anyhow::anyhow;
+use anyhow::{Result, anyhow};
 use ext_php_rs::zend::Function;
-use ext_php_rs::{exception::PhpResult, php_class, php_impl};
+use ext_php_rs::{php_class, php_impl};
 use std::collections::HashMap;
 
 /// CORS policy builder for HTTP responses.
 #[php_class]
-#[php(name = "Hardened\\SecurityHeaders\\CorsPolicy")]
-pub struct CorsPolicy {
+#[php(name = "Hardened\\SecurityHeaders\\CrossOrigin\\Cors")]
+pub struct Cors {
     allow_origins: Vec<String>,
     allow_methods: Vec<String>,
     allow_headers: Vec<String>,
@@ -16,11 +16,11 @@ pub struct CorsPolicy {
 }
 
 #[php_impl]
-impl CorsPolicy {
+impl Cors {
     /// Constructs a new CORS policy with default settings (no restrictions).
     ///
     /// # Returns
-    /// - `CorsPolicy` instance where all lists are empty and flags are false/zero.
+    /// - `Cors` instance where all lists are empty and flags are false/zero.
     fn __construct() -> Self {
         Self {
             allow_origins: Vec::new(),
@@ -143,12 +143,14 @@ impl CorsPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if PHP `header()` cannot be invoked.
-    fn send(&self) -> PhpResult<()> {
+    fn send(&self) -> Result<()> {
         let header_fn = Function::try_from_function("header")
-            .ok_or_else(|| anyhow!("Could not call header()"))?;
+            .ok_or_else(|| anyhow!("header() is not available"))?;
         for (name, value) in self.build() {
             let hdr = format!("{name}: {value}");
-            header_fn.try_call(vec![&hdr])?;
+            header_fn
+                .try_call(vec![&hdr])
+                .map_err(|e| anyhow!("header() call failed {}", e))?;
         }
         Ok(())
     }
@@ -156,19 +158,19 @@ impl CorsPolicy {
 
 #[cfg(test)]
 mod tests {
+    use super::Cors;
     use crate::run_php_example;
-    use super::CorsPolicy;
 
     #[test]
     fn test_default_policy_empty() {
-        let cp = CorsPolicy::__construct();
+        let cp = Cors::__construct();
         let headers = cp.build();
         assert!(headers.is_empty(), "Expected no headers by default");
     }
 
     #[test]
     fn test_allow_origins_only() {
-        let mut cp = CorsPolicy::__construct();
+        let mut cp = Cors::__construct();
         cp.allow_origins(vec!["https://example.com".to_string(), "*".to_string()]);
         let headers = cp.build();
         assert_eq!(
@@ -182,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_allow_methods_only() {
-        let mut cp = CorsPolicy::__construct();
+        let mut cp = Cors::__construct();
         cp.allow_methods(vec!["GET".to_string(), "POST".to_string()]);
         let headers = cp.build();
         assert_eq!(
@@ -196,7 +198,7 @@ mod tests {
 
     #[test]
     fn test_allow_headers_only() {
-        let mut cp = CorsPolicy::__construct();
+        let mut cp = Cors::__construct();
         cp.allow_headers(vec!["Content-Type".to_string(), "X-Custom".to_string()]);
         let headers = cp.build();
         assert_eq!(
@@ -210,7 +212,7 @@ mod tests {
 
     #[test]
     fn test_allow_credentials_only() {
-        let mut cp = CorsPolicy::__construct();
+        let mut cp = Cors::__construct();
         cp.allow_credentials(true);
         let headers = cp.build();
         assert_eq!(
@@ -224,7 +226,7 @@ mod tests {
 
     #[test]
     fn test_expose_headers_only() {
-        let mut cp = CorsPolicy::__construct();
+        let mut cp = Cors::__construct();
         cp.expose_headers(vec!["X-Exposed".to_string()]);
         let headers = cp.build();
         assert_eq!(
@@ -238,7 +240,7 @@ mod tests {
 
     #[test]
     fn test_max_age_only() {
-        let mut cp = CorsPolicy::__construct();
+        let mut cp = Cors::__construct();
         cp.max_age(3600);
         let headers = cp.build();
         assert_eq!(
@@ -250,7 +252,7 @@ mod tests {
 
     #[test]
     fn test_full_policy_combination() {
-        let mut cp = CorsPolicy::__construct();
+        let mut cp = Cors::__construct();
         cp.allow_origins(vec!["https://foo".to_string()]);
         cp.allow_methods(vec!["GET".to_string()]);
         cp.allow_headers(vec!["X-Test".to_string()]);
@@ -298,7 +300,7 @@ mod tests {
 
     #[test]
     fn php_example() -> anyhow::Result<()> {
-        run_php_example("security-headers/cors")?;
+        run_php_example("security-headers/cross-origin/cors")?;
         Ok(())
     }
 }

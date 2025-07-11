@@ -185,13 +185,27 @@ See [example](examples/security-headers/csp.php).
 
 See [example](examples/security-headers/hsts.php).
 
-### Hardened\SecurityHeaders\CorsPolicy
+### Hardened\SecurityHeaders\CrossOrigin\Cors
 
 - CORS policy builder for HTTP responses.
 - Configure allowed origins, methods, headers, credentials flag, exposed headers, and preflight cache duration.
 - Build a map of header names → values with `build()`, or emit them directly with `send()`.
 
-See [example](examples/security-headers/cors.php).
+See [example](examples/security-headers/cross-origin/cors.php).
+
+### Hardened\SecurityHeaders\CrossOrigin\Coep
+
+- **Cross-Origin-Embedder-Policy** header builder.
+- Supported policies:
+  - `unsafe-none` (default)
+  - `require-corp`
+  - `credentialless`
+- `__construct(?string $policy = null)` initialize with optional policy.
+- `set_policy(string $policy)` change policy; throws on invalid tokens.
+- `build(): string` returns the header value.
+- `send(): void` emits `header("Cross-Origin-Embedder-Policy: …")`.
+
+See [example](examples/security-headers/cross-origin/coep.php).
 
 ### Hardened\SecurityHeaders\ReferrerPolicy
 

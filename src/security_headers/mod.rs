@@ -1,4 +1,4 @@
-pub mod cors;
+pub mod cross_origin;
 pub mod csp;
 pub mod hsts;
 pub mod misc;

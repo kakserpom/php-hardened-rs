@@ -12,7 +12,7 @@ pub use crate::hostname::Hostname;
 use crate::path::PathObj;
 use crate::rng::Rng;
 use crate::sanitizers::html::HtmlSanitizer;
-use crate::security_headers::cors::CorsPolicy;
+use crate::security_headers::cross_origin::cors::Cors;
 use crate::security_headers::csp::ContentSecurityPolicy;
 use crate::security_headers::hsts::Hsts;
 use crate::security_headers::misc::MiscHeaders;
@@ -21,6 +21,7 @@ use crate::security_headers::referrer_policy::ReferrerPolicy;
 use anyhow::{Error, Result};
 use ext_php_rs::prelude::*;
 use ext_php_rs::types::Zval;
+use crate::security_headers::cross_origin::coep::Coep;
 
 #[php_module]
 pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
@@ -32,10 +33,11 @@ pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
         .class::<Csrf>()
         .class::<ContentSecurityPolicy>()
         .class::<Hsts>()
-        .class::<CorsPolicy>()
         .class::<MiscHeaders>()
         .class::<PermissionsPolicy>()
         .class::<ReferrerPolicy>()
+        .class::<Cors>()
+        .class::<Coep>()
 }
 
 fn to_str(path: &Zval) -> Result<String, Error> {
@@ -59,14 +61,14 @@ fn run_php_example(name: &str) -> Result<String> {
         .map_err(|e| anyhow::anyhow!("env CARGO_MANIFEST_DIR: {}", e))?;
     let php_file = std::path::Path::new(&manifest)
         .join("examples")
-        .join(format!("{}.php", name));
+        .join(format!("{name}.php"));
 
     // Spawn `php -f <script_name>`
     let output = Command::new("php")
         .arg("-f")
         .arg(&php_file)
         .output()
-        .map_err(|err| anyhow!("Failed to execute php on `{php_file}`: {err}"))?;
+        .map_err(|err| anyhow!("Failed to execute php on {php_file:?}: {err}"))?;
 
     // Print PHP stdout for debugging
     println!(

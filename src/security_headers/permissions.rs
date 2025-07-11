@@ -226,7 +226,7 @@ impl PermissionsPolicy {
             }
             first = false;
 
-            write!(header, "{}=(", feat).unwrap();
+            write!(header, "{feat}=(").unwrap();
 
             if !origins.is_empty() {
                 let mut first_origin = true;
@@ -240,7 +240,7 @@ impl PermissionsPolicy {
                         "*" => header.push('*'),
                         "self" => header.push_str("self"),
                         "src" => header.push_str("'src'"),
-                        other => write!(header, "\"{}\"", other).unwrap(),
+                        other => write!(header, "\"{other}\"").unwrap(),
                     }
                 }
             }
@@ -261,11 +261,11 @@ impl PermissionsPolicy {
             Function::try_from_function("header")
                 .ok_or_else(|| anyhow!("could not call header()"))?
                 .try_call(vec![&format!("Permissions-Policy: {}", self.build())])
-                .map_err(|e| anyhow!("header() failed: {}", e))?;
+                .map_err(|e| anyhow!("header() call failed: {}", e))?;
             Ok(())
         }
         #[cfg(test)]
-        panic!("send() can not dbe called from tests");
+        panic!("send() can not be called from tests");
     }
 }
 

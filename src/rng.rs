@@ -286,14 +286,14 @@ mod tests {
         let v = Rng::ints(5, 0, 10).unwrap();
         assert_eq!(v.len(), 5);
         for &i in &v {
-            assert!(0 <= i && i <= 10);
+            assert!((0..=10).contains(&i));
         }
     }
 
     #[test]
     fn test_int_valid_and_invalid() {
         let i = Rng::int(1, 3).unwrap();
-        assert!(1 <= i && i <= 3);
+        assert!((1..=3).contains(&i));
         assert!(Rng::int(5, 0).is_err(), "should error when low > high");
     }
 

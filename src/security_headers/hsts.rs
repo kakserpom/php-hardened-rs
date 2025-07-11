@@ -93,7 +93,7 @@ impl Hsts {
             Ok(())
         }
         #[cfg(test)]
-        panic!("attribute_filter() can not be called from tests");
+        panic!("send() can not be called from tests");
     }
 }
 
