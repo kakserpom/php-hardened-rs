@@ -3,19 +3,21 @@
 A PHP extension powered by **Rust** 🦀 and [ext-php-rs](https://github.com/davidcole1340/ext-php-rs), delivering
 essential security utilities for PHP applications. It provides following core classes:
 
-1. **Hardened\Hostname** — secure hostname parsing, normalization, and comparison.
-2. **Hardened\Path** — safe, purely-lexical filesystem path handling to prevent directory traversal.
-   with fine-grained tag, attribute, and URL policy controls.
-3. **Hardened\Rng** — stateless random-data generator: alphanumeric, alphabetic, byte sequences, integer ranges, and
-   custom Unicode or ASCII sampling.
-4. **Hardened\CsrfProtection** — synchronized [CSRF](https://owasp.org/www-community/attacks/csrf) token–cookie
-   protection using AES-GCM, with a PHP-friendly API for
-   token/cookie generation, verification, and cookie management.
+- **Hardened\Hostname** — secure hostname parsing, normalization, and comparison.
+- **Hardened\Path** — safe, purely-lexical filesystem path handling to prevent directory traversal.
+  with fine-grained tag, attribute, and URL policy controls.
+- **Hardened\Rng** — stateless random-data generator: alphanumeric, alphabetic, byte sequences, integer ranges, and
+  custom Unicode or ASCII sampling. Using [rand](https://crates.io/crates/rand) crate.
+- **Hardened\CsrfProtection** — synchronized [CSRF](https://owasp.org/www-community/attacks/csrf) token–cookie
+  protection using AES-GCM, with a PHP-friendly API for
+  token/cookie generation, verification, and cookie management. Using [csrf](https://crates.io/crates/csrf) crate.
+
+As well as blazingly fast sanitizers, ergonomic builders of HTTP security headers (including cross-origin policies).
 
 ## Sanitizers (`Hardened\Sanitizers`)
 
-1**Hardened\Sanitizers\HtmlSanitizer** — configurable HTML sanitization
-via [Ammonia](https://github.com/rust-ammonia/ammonia),
+- **Hardened\Sanitizers\HtmlSanitizer** — configurable HTML sanitization
+  via [Ammonia](https://github.com/rust-ammonia/ammonia),
 
 ## Security Headers (`Hardened\SecurityHeaders`)
 
@@ -53,7 +55,7 @@ Currently, we provide builders for several HTTP security headers (namespace `Har
 
 ## Classes
 
-### Hardened\Hostname
+### `Hardened\Hostname`
 
 - Parse or wrap existing `Hostname` objects.
 - Methods accept mixed inputs (`string` or `Hostname` instances).
@@ -91,7 +93,7 @@ See [example](examples/hostname.php).
 | `subdomainOfUrl(string $url): bool`      | Instance  | Subdomain check from URL.                             |
 | `subdomainOfAnyUrl(array $urls): bool`   | Instance  | Any subdomain from URL or Hostname array.             |
 
-### Hardened\Path
+### `Hardened\Path`
 
 - Lexical canonicalization: remove `.` and `..`, collapse separators.
 - No filesystem I/O or symlink resolution.
@@ -123,7 +125,7 @@ See [example](examples/path.php).
 | `validateExtensionAudio(): bool`          | Instance  | Returns `true` if extension is a common audio (`mp3, wav, ogg, flac, aac`).                  |
 | `validateExtensionDocument(): bool`       | Instance  | Returns `true` if extension is a common document (`pdf, doc, docx, xls, xlsx, ppt, pptx`).   |
 
-### Hardened\Sanitizers\HtmlSanitizer
+### `Hardened\Sanitizers\HtmlSanitizer`
 
 - Wraps Ammonia `Builder` for fine-grained HTML sanitization.
 - Configuration methods for URL policies, tags, attributes, and filters.
@@ -173,7 +175,7 @@ See [example](examples/sanitizers/html-sanitizer.php).
 | **`rmCleanContentTags(array $tags): void`**                                 | Instance  | Remove already-blacklisted clean-content tags.                                                                        |
 | `isValidUrl(string $url): bool`                                             | Instance  | Checks whether a URL is allowed by the configured scheme whitelist or, for relative URLs, by the relative-URL policy. |
 
-### Hardened\Rng
+### `Hardened\Rng`
 
 - Stateless random-data generator.
 - Static methods to create random alphanumeric or alphabetic strings (`alphanumeric()`, `alphabetic()`).
@@ -197,7 +199,7 @@ See [example](examples/rng.php).
 | `chooseWeighted(array $choices): array`                      | static    | Randomly select one `[value, weight]` pair from `$choices` where `weight` is integer; returns `[value, weight]`. |
 | `chooseMultipleWeighted(int $amount, array $choices): array` | static    | Randomly select `$amount` elements from weighted `[value, weight]` pairs (float weight) without replacement.     |
 
-### Hardened\CsrfProtection
+### `Hardened\CsrfProtection`
 
 - Synchronized token–cookie [CSRF](https://owasp.org/www-community/attacks/csrf) protection using AES-GCM.
 - Constructor: `__construct($key, $ttl, $previousTokenValue = null)`.
@@ -218,7 +220,7 @@ See [example](examples/csrf-protection.php).
 | `cookieName(): string`                                                                                                              | Instance  | Get the current CSRF cookie name (default is `csrf`).                              |
 | `setCookie(?int $expires = null, ?string $path = null, ?string $domain = null, ?bool $secure = null, ?bool $httponly = null): void` | Instance  | Send the CSRF cookie via PHP’s `setcookie()` function using native argument order. |
 
-### Hardened\SecurityHeaders\ContentSecurityPolicy
+### `Hardened\SecurityHeaders\ContentSecurityPolicy`
 
 - Builder for HTTP Content-Security-Policy headers.
 - Configure directives (`default-src`, `script-src`, etc.) with keyword tokens and host sources via `setRule()`.
@@ -238,7 +240,7 @@ See [example](examples/security-headers/content-security-policy.php).
 | `getNonce(): ?string`                                            | Instance  | Return the most recently generated nonce (without the `'nonce-'` prefix), or `null` if none has been generated. |
 | `resetNonce(): void`                                             | Instance  | Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.                     |
 
-### Hardened\SecurityHeaders\StrictTransportSecurity
+### `Hardened\SecurityHeaders\StrictTransportSecurity`
 
 - HTTP Strict Transport Security (HSTS) header builder.
 - Configure `max-age`, `includeSubDomains`, and `preload` flags for best‐practice transport security.
@@ -255,7 +257,7 @@ See [example](examples/security-headers/strict-transport-security.php).
 | `build(): string`                       | Instance  | Return the `Strict-Transport-Security` header value, e.g. `"max-age=31536000; includeSubDomains; preload"`. |
 | `send(): void`                          | Instance  | Emit the header via PHP `header()` function.                                                                |
 
-### Hardened\SecurityHeaders\CrossOrigin\Cors
+### `Hardened\SecurityHeaders\CrossOrigin\ResourceSharing`
 
 - CORS policy builder for HTTP responses.
 - Configure allowed origins, methods, headers, credentials flag, exposed headers, and preflight cache duration.
