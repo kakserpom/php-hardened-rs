@@ -2,7 +2,6 @@
 #[allow(clippy::used_underscore_items)]
 mod csrf;
 mod hostname;
-mod html_sanitizer;
 mod path;
 mod rng;
 mod sanitizers;
@@ -52,8 +51,8 @@ fn to_str(path: &Zval) -> Result<String, Error> {
 
 /// Runs the given PHP script via the `php` CLI and returns an error if it fails.
 #[cfg(test)]
-fn run_php_example(name: &str) -> Result<()> {
-    use anyhow::bail;
+fn run_php_example(name: &str) -> Result<String> {
+    use anyhow::{anyhow, bail};
     use std::process::Command;
 
     let script_name = format!("examples/{name}.php");
@@ -88,5 +87,5 @@ fn run_php_example(name: &str) -> Result<()> {
         );
     }
 
-    Ok(())
+    Ok(String::from_utf8_lossy(&output.stdout).parse()?)
 }

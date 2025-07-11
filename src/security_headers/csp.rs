@@ -335,6 +335,7 @@ impl ContentSecurityPolicy {
 
 #[cfg(test)]
 mod tests {
+    use crate::run_php_example;
     use super::{ContentSecurityPolicy, Keyword, Rule};
 
     #[test]
@@ -408,5 +409,11 @@ mod tests {
         assert!(header3.starts_with("default-src 'nonce-"));
         let nonce2 = csp.get_nonce().unwrap();
         assert_ne!(nonce1, nonce2, "nonce after reset should differ");
+    }
+
+    #[test]
+    fn php_example() -> anyhow::Result<()> {
+        run_php_example("security-headers/csp")?;
+        Ok(())
     }
 }

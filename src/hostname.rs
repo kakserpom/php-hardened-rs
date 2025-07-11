@@ -380,6 +380,7 @@ impl Hostname {
 #[cfg(test)]
 mod tests {
     use super::Hostname;
+    use crate::run_php_example;
 
     #[test]
     fn test_from_str_and_equals() {
@@ -438,5 +439,11 @@ mod tests {
             h._subdomain_of_any_url(&["https://foo.com", "https://sub.example.com"])
                 .unwrap()
         );
+    }
+
+    #[test]
+    fn php_example() -> anyhow::Result<()> {
+        run_php_example("hostname")?;
+        Ok(())
     }
 }

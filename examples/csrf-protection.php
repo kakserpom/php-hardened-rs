@@ -6,7 +6,7 @@ use Hardened\CsrfProtection;
 //
 // 1) Initialization
 //
-$key = 'YOUR_BASE64URL_32_BYTE_KEY_HERE';  // must decode to 32 bytes
+$key = '7sVldqnZoPUIY7wWp1We-mbaZ5SAoe04QXUFiNnwJFE=';  // must decode to 32 bytes
 $ttl = 3600;                              // token lifetime in seconds
 
 // If you have a previous token (for rotation), pass it as third argument:
@@ -30,7 +30,6 @@ $csrf->setCookie(
 // 3) Embed the CSRF token in your form or AJAX request
 //
 $token = $csrf->token();  // Base64URL-encoded token string
-
 ?>
 <!doctype html>
 <html>
@@ -44,9 +43,11 @@ $token = $csrf->token();  // Base64URL-encoded token string
 </html>
 <?php
 
+return;
 //
 // 4) On form submission (submit.php):
 //
+
 try {
     // Reconstruct with same key/ttl and pass previous cookie if rotating:
     $csrf = new CsrfProtection($key, $ttl, $_COOKIE['csrf'] ?? null);

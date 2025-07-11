@@ -99,6 +99,7 @@ impl Hsts {
 
 #[cfg(test)]
 mod tests {
+    use crate::run_php_example;
     use super::Hsts;
 
     #[test]
@@ -135,5 +136,11 @@ mod tests {
         h.include_sub_domains(true);
         h.preload(true);
         assert_eq!(h.build(), "max-age=86400; includeSubDomains; preload");
+    }
+
+    #[test]
+    fn php_example() -> anyhow::Result<()> {
+        run_php_example("security-headers/hsts")?;
+        Ok(())
     }
 }

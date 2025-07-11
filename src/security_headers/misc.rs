@@ -33,9 +33,9 @@ pub enum FrameOptions {
 #[derive(EnumString, Display, Debug, Clone, PartialEq, Eq)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum XssProtection {
-    #[strum(serialize = "off", to_string = "0")]
+    #[strum(serialize = "off", serialize = "0", to_string = "0")]
     Off,
-    #[strum(serialize = "on", to_string = "1")]
+    #[strum(serialize = "on", serialize = "1", to_string = "1")]
     On,
     #[strum(serialize = "block", to_string = "1; mode=block")]
     ModeBlock,
@@ -138,13 +138,13 @@ impl MiscHeaders {
     ///
     /// # Exceptions
     /// - Throws if `mode` is invalid or `"ALLOW-FROM"` is given without a URI.
-    fn set_frame_options(&mut self, mode: &str, uri: Option<&str>) -> Result<()> {
+    fn set_frame_options(&mut self, mode: &str, uri: Option<String>) -> Result<()> {
         let opt =
             FrameOptions::from_str(mode).map_err(|_| anyhow!("Invalid Frame-Options: {mode}"))?;
         if opt == FrameOptions::AllowFrom && uri.is_none() {
             bail!("`ALLOW-FROM` requires a URI");
         }
-        self.frame = Some((opt, uri.map(String::from)));
+        self.frame = Some((opt, uri));
         Ok(())
     }
 
@@ -156,13 +156,13 @@ impl MiscHeaders {
     ///
     /// # Exceptions
     /// - Throws if `mode` is invalid or a `report_uri` is provided for 'off' mode.
-    fn set_xss_protection(&mut self, mode: &str, report_uri: Option<&str>) -> Result<()> {
+    fn set_xss_protection(&mut self, mode: &str, report_uri: Option<String>) -> Result<()> {
         let opt =
             XssProtection::from_str(mode).map_err(|_| anyhow!("Invalid XSS-Protection: {mode}"))?;
-        if report_uri.is_some() && opt != XssProtection::On {
-            bail!("`report_uri` only allowed with mode \"1\"");
+        if report_uri.is_some() && opt == XssProtection::Off {
+            bail!("`report_uri` is incompatible with `mode` being 'off'");
         }
-        self.xss = Some((opt, report_uri.map(String::from)));
+        self.xss = Some((opt, report_uri));
         Ok(())
     }
 
@@ -229,8 +229,8 @@ impl MiscHeaders {
     fn set_integrity_policy(
         &mut self,
         blocked_destinations: &Zval,
-        sources: Option<&Zval>,
-        endpoints: Option<&Zval>,
+        sources: Option<Vec<String>>,
+        endpoints: Option<Vec<String>>,
     ) -> Result<()> {
         // blocked-destinations
         let bd_table = blocked_destinations
@@ -250,45 +250,23 @@ impl MiscHeaders {
         }
 
         // sources (optional)
-        let src_vec = if let Some(src_zv) = sources {
-            let src_table = src_zv
-                .array()
-                .ok_or_else(|| anyhow!("`sources` must be an array"))?;
-            let mut v = Vec::new();
-            for sv in src_table.values() {
-                let s = sv
-                    .string()
-                    .ok_or_else(|| anyhow!("Each source must be a string"))?;
-                let src =
-                    IntegritySource::from_str(&s).map_err(|_| anyhow!("Invalid source: {s}"))?;
-                v.push(src);
-            }
-            v
-        } else {
-            vec![]
-        };
-
-        // endpoints (optional)
-        let ep_vec = if let Some(ep_zv) = endpoints {
-            let ep_table = ep_zv
-                .array()
-                .ok_or_else(|| anyhow!("`endpoints` must be an array"))?;
-            let mut v = Vec::new();
-            for ev in ep_table.values() {
-                let s = ev
-                    .string()
-                    .ok_or_else(|| anyhow!("Each endpoint must be a string"))?;
-                v.push(s.to_string());
-            }
-            Some(v)
-        } else {
-            None
-        };
+        let sources = sources
+            .map(|sources| {
+                sources
+                    .into_iter()
+                    .map(|source| -> Result<IntegritySource> {
+                        Ok(IntegritySource::from_str(&source)
+                            .map_err(|_| anyhow!("Invalid source: {source}"))?)
+                    })
+                    .collect::<Result<Vec<IntegritySource>>>()
+            })
+            .transpose()?
+            .unwrap_or_default();
 
         self.integrity_policy = Some(IntegrityPolicy {
             blocked_destinations: blocked,
-            sources: src_vec,
-            endpoints: ep_vec,
+            sources,
+            endpoints,
         });
         Ok(())
     }
@@ -363,6 +341,7 @@ impl MiscHeaders {
 #[cfg(test)]
 mod tests {
     use super::MiscHeaders;
+    use crate::run_php_example;
     use std::collections::HashMap;
 
     #[test]
@@ -386,7 +365,7 @@ mod tests {
     #[test]
     fn test_set_frame_options_allow_from() {
         let mut m = MiscHeaders::__construct();
-        m.set_frame_options("ALLOW-FROM", Some("https://example.com"))
+        m.set_frame_options("ALLOW-FROM", Some(String::from("https://example.com")))
             .unwrap();
         let headers = m.build();
         assert_eq!(
@@ -432,7 +411,7 @@ mod tests {
     #[test]
     fn test_set_xss_protection_with_report() {
         let mut m = MiscHeaders::__construct();
-        m.set_xss_protection("on", Some("https://report.com"))
+        m.set_xss_protection("on", Some(String::from("https://report.com")))
             .unwrap();
         let headers = m.build();
         assert_eq!(
@@ -445,7 +424,10 @@ mod tests {
     fn test_set_xss_protection_errors() {
         let mut m = MiscHeaders::__construct();
         // report_uri only allowed with "on"
-        assert!(m.set_xss_protection("off", Some("uri")).is_err());
+        assert!(
+            m.set_xss_protection("off", Some(String::from("uri")))
+                .is_err()
+        );
         // invalid mode
         assert!(m.set_xss_protection("invalid", None).is_err());
     }
@@ -528,5 +510,11 @@ mod tests {
         for (k, v) in expect {
             assert_eq!(headers.get(k).map(String::as_str), Some(v));
         }
+    }
+
+    #[test]
+    fn php_example() -> anyhow::Result<()> {
+        run_php_example("security-headers/misc")?;
+        Ok(())
     }
 }

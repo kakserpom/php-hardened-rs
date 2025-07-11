@@ -36,9 +36,9 @@ impl ReferrerPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if an invalid policy token is provided.
-    fn __construct(policy: Option<&str>) -> Result<Self> {
+    fn __construct(policy: Option<String>) -> Result<Self> {
         let directive = if let Some(s) = policy {
-            ReferrerPolicyDirective::from_str(s)
+            ReferrerPolicyDirective::from_str(s.as_str())
                 .map_err(|_| anyhow!("Invalid Referrer-Policy value: {s}"))?
         } else {
             ReferrerPolicyDirective::NoReferrer
@@ -97,6 +97,7 @@ impl ReferrerPolicy {
 #[cfg(test)]
 mod tests {
     use super::ReferrerPolicy;
+    use crate::run_php_example;
 
     #[test]
     fn test_default_policy() {
@@ -108,14 +109,14 @@ mod tests {
 
     #[test]
     fn test_construct_with_valid_policy() {
-        let rp = ReferrerPolicy::__construct(Some("origin")).unwrap();
+        let rp = ReferrerPolicy::__construct(Some(String::from("origin"))).unwrap();
         assert_eq!(rp.policy(), "origin");
         assert_eq!(rp.build(), "origin");
     }
 
     #[test]
     fn test_construct_invalid_policy() {
-        let err = ReferrerPolicy::__construct(Some("invalid-policy")).unwrap_err();
+        let err = ReferrerPolicy::__construct(Some(String::from("invalid-policy"))).unwrap_err();
         // Should be a PhpException with appropriate message
         let msg = format!("{}", err);
         assert!(msg.contains("Invalid Referrer-Policy value"));
@@ -135,5 +136,11 @@ mod tests {
         let err = rp.set_policy("not-a-policy").unwrap_err();
         let msg = format!("{}", err);
         assert!(msg.contains("Invalid Referrer-Policy value"));
+    }
+
+    #[test]
+    fn php_example() -> anyhow::Result<()> {
+        run_php_example("security-headers/referrer-policy")?;
+        Ok(())
     }
 }

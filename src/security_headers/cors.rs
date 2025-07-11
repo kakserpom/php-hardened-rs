@@ -156,6 +156,7 @@ impl CorsPolicy {
 
 #[cfg(test)]
 mod tests {
+    use crate::run_php_example;
     use super::CorsPolicy;
 
     #[test]
@@ -293,5 +294,11 @@ mod tests {
             Some("1200")
         );
         assert_eq!(headers.len(), 6);
+    }
+
+    #[test]
+    fn php_example() -> anyhow::Result<()> {
+        run_php_example("security-headers/cors")?;
+        Ok(())
     }
 }

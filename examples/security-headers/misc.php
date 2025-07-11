@@ -4,7 +4,7 @@ use Hardened\SecurityHeaders\MiscHeaders;
 $misc = new MiscHeaders();
 
 // Frame options
-$misc->setFrameOptions('DENY', null);
+$misc->setFrameOptions('DENY');
 $misc->setFrameOptions('ALLOW-FROM', 'https://example.com');
 
 // XSS protection

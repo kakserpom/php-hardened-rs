@@ -269,6 +269,7 @@ mod tests {
     use super::{PathObj, lexical_canonicalize};
     use std::ffi::OsStr;
     use std::path::PathBuf;
+    use crate::run_php_example;
 
     fn canon(s: &str) -> String {
         lexical_canonicalize(s).to_str().unwrap().to_owned()
@@ -470,5 +471,11 @@ mod tests {
         // extension change
         p.set_extension("md");
         assert_eq!(p.extension(), Some(OsStr::new("md")));
+    }
+
+    #[test]
+    fn php_example() -> anyhow::Result<()> {
+        run_php_example("path")?;
+        Ok(())
     }
 }

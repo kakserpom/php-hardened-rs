@@ -33,14 +33,14 @@ impl Csrf {
     pub fn __construct(
         key: &str,
         ttl: i64,
-        previous_token_value: Option<&str>,
+        previous_token_value: Option<String>,
     ) -> anyhow::Result<Self> {
         let key = <[u8; 32]>::try_from(
             BASE64URL
                 .decode(key.as_bytes())
-                .map_err(|err| anyhow!("{}", err))?,
+                .map_err(|err| anyhow!("csrf protection key: {}", err))?,
         )
-        .map_err(|_| anyhow!("key must contain 32 bytes"))?;
+        .map_err(|_| anyhow!("csrf protection key must contain 32 bytes"))?;
         let inner = AesGcmCsrfProtection::from_key(key);
 
         let previous_token_value = if let Some(previous_token_value) = previous_token_value {
@@ -63,6 +63,10 @@ impl Csrf {
             cookie,
             cookie_name: String::from("csrf"),
         })
+    }
+
+    pub fn generate_key() -> String {
+        BASE64URL.encode(&rand::random::<[u8; 32]>())
     }
 
     /// Verifies a CSRF token & cookie pair from PHP.
@@ -193,6 +197,7 @@ impl Csrf {
 #[cfg(test)]
 mod tests {
     use super::Csrf;
+    use crate::run_php_example;
     use anyhow::Result;
     use data_encoding::BASE64URL;
 
@@ -264,6 +269,12 @@ mod tests {
         // set a new cookie name
         csrf.set_cookie_name("my_csrf".to_string());
         assert_eq!(csrf.cookie_name(), "my_csrf");
+        Ok(())
+    }
+
+    #[test]
+    fn php_example() -> Result<()> {
+        run_php_example("csrf-protection")?;
         Ok(())
     }
 }

@@ -1,5 +1,5 @@
 <?php
-use Hardened\ContentSecurityPolicy;
+use Hardened\SecurityHeaders\ContentSecurityPolicy;
 
 // Create a new CSP builder
 $policy = new ContentSecurityPolicy();

@@ -265,6 +265,7 @@ impl Rng {
 mod tests {
     use super::Rng;
     use unicode_segmentation::UnicodeSegmentation;
+    use crate::run_php_example;
 
     #[test]
     fn test_alphanumeric() {
@@ -327,5 +328,11 @@ mod tests {
         assert!(s.chars().all(|c| pool.contains(c)));
         let empty = Rng::custom_ascii(4, "");
         assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn php_example() -> anyhow::Result<()> {
+        run_php_example("rng")?;
+        Ok(())
     }
 }

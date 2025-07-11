@@ -21,7 +21,7 @@ type _Zval = Zval;
 #[cfg(test)]
 type _Zval = str;
 #[php_class]
-#[php(name = "Hardened\\Sanitizers\\Html")]
+#[php(name = "Hardened\\Sanitizers\\HtmlSanitizer")]
 /// PHP class wrapping Ammonia's HTML sanitizer builder.
 /// Allows customized sanitization through PHP method calls.
 pub struct HtmlSanitizer {
@@ -841,8 +841,8 @@ mod tests {
     }
 
     #[test]
-    fn example_runs_without_error() {
-        // Place a `tests/example.php` file in your project root
-        run_php_example("sanitizers/html").unwrap();
+    fn php_example() -> anyhow::Result<()> {
+        run_php_example("sanitizers/html")?;
+        Ok(())
     }
 }

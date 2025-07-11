@@ -1,7 +1,9 @@
 use anyhow::{Result, anyhow};
+use ext_php_rs::php_const;
 #[cfg(not(test))]
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_impl};
+use php_hardened_macro::php_enum_constants;
 use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::str::FromStr;
@@ -162,8 +164,15 @@ pub struct PermissionsPolicy {
     policies: BTreeMap<Feature, Vec<String>>,
 }
 
+#[php_enum_constants((Feature, "src/security_headers/permissions.rs"))]
 #[php_impl]
 impl PermissionsPolicy {
+    #[php_const]
+    const ORIGIN_SELF: &str = "self";
+    #[php_const]
+    const ORIGIN_ANY: &str = "*";
+    #[php_const]
+    const ORIGIN_SRC: &str = "src";
     /// Constructs a new Permissions-Policy builder with no features allowed.
     ///
     /// # Returns
@@ -263,6 +272,7 @@ impl PermissionsPolicy {
 #[cfg(test)]
 mod tests {
     use super::PermissionsPolicy;
+    use crate::run_php_example;
 
     #[test]
     fn build_empty_policy_returns_empty() {
@@ -319,5 +329,11 @@ mod tests {
             pp.build(),
             "midi=(self 'src' \"https://a.example.com\"), storage-access=(*), translator=()"
         );
+    }
+
+    #[test]
+    fn php_example() -> anyhow::Result<()> {
+        run_php_example("security-headers/permissions")?;
+        Ok(())
     }
 }
