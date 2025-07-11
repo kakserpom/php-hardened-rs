@@ -15,14 +15,14 @@ pub struct PathObj {
 
 impl PathObj {
     #[inline]
-    pub fn _join(&self, path: &str) -> Self {
+    pub fn _append(&self, path: &str) -> Self {
         Self {
             inner: lexical_canonicalize(self.inner.join(path)),
         }
     }
 
     #[inline]
-    pub fn _join_within(&self, path: &str) -> anyhow::Result<Self> {
+    pub fn _append_within(&self, path: &str) -> anyhow::Result<Self> {
         let inner = lexical_canonicalize(self.inner.join(path));
         if inner.starts_with(&self.inner) {
             Ok(Self { inner })
@@ -105,8 +105,8 @@ impl PathObj {
     ///
     /// # Errors
     /// Throws an exception if conversion from Zval to string fails.
-    pub fn join(&self, path: &Zval) -> anyhow::Result<Self> {
-        Ok(self._join(&to_str(path)?))
+    pub fn append(&self, path: &Zval) -> anyhow::Result<Self> {
+        Ok(self._append(&to_str(path)?))
     }
 
     /// Joins the given path onto this path, canonicalizes it, and ensures it's a subpath.
@@ -116,8 +116,8 @@ impl PathObj {
     ///
     /// # Errors
     /// Throws an exception if conversion from Zval to string fails or if the resulting path is not a subpath.
-    pub fn join_within(&self, path: &Zval) -> anyhow::Result<Self> {
-        self._join_within(&to_str(path)?)
+    pub fn append_within_base(&self, path: &Zval) -> anyhow::Result<Self> {
+        self._append_within(&to_str(path)?)
     }
 
     pub fn set_file_name(&mut self, file_name: &Zval) -> anyhow::Result<Self> {
@@ -147,16 +147,14 @@ impl PathObj {
     /// # Errors
     /// Throws an exception if the path cannot be converted to a string.
     pub fn __to_string(&self) -> anyhow::Result<String> {
-        self
-            .inner
+        self.inner
             .to_str()
             .map(str::to_string)
             .ok_or_else(|| anyhow::anyhow!("Could not convert path to string"))
     }
 
     pub fn path(&self) -> anyhow::Result<String> {
-        self
-            .inner
+        self.inner
             .to_str()
             .map(str::to_string)
             .ok_or_else(|| anyhow::anyhow!("Could not convert path to string"))
@@ -173,9 +171,7 @@ impl PathObj {
         self.inner
             .extension()
             .and_then(OsStr::to_str)
-            .is_some_and(|ext| {
-                allowed.iter().any(|a| a.eq_ignore_ascii_case(ext))
-            })
+            .is_some_and(|ext| allowed.iter().any(|a| a.eq_ignore_ascii_case(ext)))
     }
 
     /// Check if the path’s extension is a common image type.
@@ -267,9 +263,9 @@ pub fn lexical_canonicalize<P: AsRef<Path>>(path: P) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::{PathObj, lexical_canonicalize};
+    use crate::run_php_example;
     use std::ffi::OsStr;
     use std::path::PathBuf;
-    use crate::run_php_example;
 
     fn canon(s: &str) -> String {
         lexical_canonicalize(s).to_str().unwrap().to_owned()
@@ -316,7 +312,7 @@ mod tests {
     }
 
     #[test]
-    fn test_lexical_join_paths() {
+    fn test_lexical_append_paths() {
         // join-like behavior via canonicalize
         assert_eq!(canon("base/inner/../leaf"), "base/leaf");
         assert_eq!(canon("/base//subdir//file.txt"), "/base/subdir/file.txt");
@@ -405,28 +401,28 @@ mod tests {
     }
 
     #[test]
-    fn test_join_simple() {
+    fn test_append_simple() {
         let base = PathBuf::from("base/dir");
         let joined = lexical_canonicalize(base.join("sub/file.txt"));
         assert_eq!(joined, PathBuf::from("base/dir/sub/file.txt"));
     }
 
     #[test]
-    fn test_join_and_canonicalize() {
+    fn test_append_and_canonicalize() {
         let base = PathBuf::from("base/dir");
         let joined = lexical_canonicalize(base.join("../other/./leaf"));
         assert_eq!(joined, PathBuf::from("base/other/leaf"));
     }
 
     #[test]
-    fn test_join_within_allowed() {
+    fn test_append_within_allowed() {
         let base = PathBuf::from("home/user");
         let candidate = lexical_canonicalize(base.join("docs/report.pdf"));
         assert!(candidate.starts_with("home/user"));
     }
 
     #[test]
-    fn test_join_within_disallowed() {
+    fn test_append_within_disallowed() {
         let base = PathBuf::from("home/user");
         let candidate = lexical_canonicalize(base.join("../../etc/passwd"));
         assert!(!candidate.starts_with("home/user"));
@@ -447,19 +443,19 @@ mod tests {
     }
 
     #[test]
-    fn test_pathobj_join_and_join_within() {
+    fn test_pathobj_append_and_append_within() {
         let base = PathObj {
             inner: PathBuf::from("root/dir"),
         };
         // join
-        assert!(base._join("sub/child").eq("root/dir/sub/child"));
+        assert!(base._append("sub/child").eq("root/dir/sub/child"));
         // join_within valid
-        assert!(base._join_within("docs").unwrap().eq("root/dir/docs"));
-        assert!(base._join_within("../dir").unwrap().eq("root/dir"));
+        assert!(base._append_within("docs").unwrap().eq("root/dir/docs"));
+        assert!(base._append_within("../dir").unwrap().eq("root/dir"));
 
         // join_within disallowed
-        assert!(base._join_within("../outside").is_err());
-        assert!(base._join_within("../dirzzz").is_err());
+        assert!(base._append_within("../outside").is_err());
+        assert!(base._append_within("../dirzzz").is_err());
     }
 
     #[test]

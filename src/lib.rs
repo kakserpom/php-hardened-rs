@@ -23,6 +23,7 @@ use crate::security_headers::referrer_policy::ReferrerPolicy;
 use anyhow::{Error, Result};
 use ext_php_rs::prelude::*;
 use ext_php_rs::types::Zval;
+use crate::security_headers::cross_origin::resource_policy::ResourcePolicy;
 
 #[php_module]
 pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
@@ -39,6 +40,7 @@ pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
         .class::<ReferrerPolicy>()
         .class::<ResourceSharing>()
         .class::<EmbedderPolicy>()
+        .class::<ResourcePolicy>()
         .class::<OpenerPolicy>()
 }
 

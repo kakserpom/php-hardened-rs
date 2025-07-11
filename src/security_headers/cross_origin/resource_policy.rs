@@ -1,4 +1,5 @@
 use anyhow::{Result, anyhow};
+#[cfg(not(test))]
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_impl};
 use std::str::FromStr;
@@ -93,6 +94,7 @@ impl ResourcePolicy {
 }
 #[cfg(test)]
 mod tests {
+    use crate::run_php_example;
     use super::ResourcePolicy;
 
     #[test]
@@ -124,5 +126,11 @@ mod tests {
 
         let mut rp = ResourcePolicy::__construct(None).unwrap();
         assert!(rp.set("bogus").is_err());
+    }
+
+    #[test]
+    fn php_example() -> anyhow::Result<()> {
+        run_php_example("security-headers/cross-origin/resource-policy")?;
+        Ok(())
     }
 }
