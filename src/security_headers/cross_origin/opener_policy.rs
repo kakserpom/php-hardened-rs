@@ -28,13 +28,20 @@ pub struct OpenerPolicy {
 
 #[php_impl]
 impl OpenerPolicy {
-    /// Constructs a new OpenerPolicy builder.
+    /// Create a new Cross-Origin-Opener-Policy builder.
+    ///
+    /// By default, this sets the policy to `"unsafe-none"`, which imposes
+    /// no special opener isolation. PHP users can call this without arguments
+    /// to get the default behavior.
     ///
     /// # Parameters
-    /// - `policy`: `?string` optional initial policy value; defaults to `"unsafe-none"`.
+    /// - `policy`: Optional string directive. If provided, must be one of:
+    ///   - `"unsafe-none"` — no isolation; pages can share a browsing context.
+    ///   - `"same-origin"` — only pages from the same origin can share.
+    ///   - `"same-origin-allow-popups"` — same-origin pages and their popups.
     ///
     /// # Exceptions
-    /// - Throws `Exception` if an invalid token is provided.
+    /// - Throws `Exception` if the provided token is not one of the allowed values.
     pub fn __construct(policy: Option<String>) -> anyhow::Result<Self> {
         let policy = if let Some(p) = policy {
             Policy::from_str(&p)
@@ -45,13 +52,14 @@ impl OpenerPolicy {
         Ok(Self { policy })
     }
 
-    /// Set the Cross-Origin-Opener-Policy value.
+    /// Use this if you need to change the policy after construction.
+    /// Calling this method will override any previous setting.
     ///
     /// # Parameters
-    /// - `policy`: one of `"unsafe-none"`, `"same-origin"`, or `"same-origin-allow-popups"`.
+    /// - `policy`: Directive string. Must be one of the tokens listed above for `__construct`.
     ///
     /// # Exceptions
-    /// - Throws `Exception` if an invalid token is provided.
+    /// - Throws `Exception` if the given token is invalid.
     pub fn set(&mut self, policy: &str) -> anyhow::Result<()> {
         self.policy = Policy::from_str(policy)
             .map_err(|_| anyhow!("Invalid Cross-Origin-Opener-Policy value: {}", policy))?;
@@ -85,8 +93,8 @@ impl OpenerPolicy {
 #[cfg(test)]
 mod tests {
     use super::OpenerPolicy;
-    use anyhow::Result;
     use crate::run_php_example;
+    use anyhow::Result;
 
     #[test]
     fn default_is_unsafe_none() -> Result<()> {

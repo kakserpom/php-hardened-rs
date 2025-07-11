@@ -11,8 +11,10 @@ use strum_macros::{Display, EnumString};
 pub enum ResourcePolicyDirective {
     /// Only same-origin resources may be loaded.
     SameOrigin,
+
     /// Same-site resources and same-origin resources may be loaded.
     SameSite,
+
     /// Any resource may be loaded, including cross-origin.
     CrossOrigin,
 }
@@ -26,13 +28,19 @@ pub struct ResourcePolicy {
 
 #[php_impl]
 impl ResourcePolicy {
-    /// Constructs a new Resource-Policy builder.
+    /// Create a new Cross-Origin-Resource-Policy builder.
+    ///
+    /// By default, the policy is set to `same-origin`, which restricts
+    /// resource sharing to the same origin that served the document.
     ///
     /// # Parameters
-    /// - `policy`: `?string` optional directive to use instead of the default `same-origin`.
+    /// - `policy`: Optional directive string. If provided, must be one of:
+    ///   - `"same-origin"` — only same-origin requests allowed.
+    ///   - `"same-site"`   — allow same-site requests (including subdomains).
+    ///   - `"cross-origin"` — allow all cross-site requests.
     ///
     /// # Exceptions
-    /// - Throws `Exception` if an invalid token is provided.
+    /// - Throws an `Exception` if `policy` cannot be parsed into a valid directive.
     pub fn __construct(policy: Option<String>) -> Result<Self> {
         let directive = if let Some(s) = policy {
             ResourcePolicyDirective::from_str(&s)
@@ -43,13 +51,15 @@ impl ResourcePolicy {
         Ok(Self { policy: directive })
     }
 
-    /// Set the Resource-Policy directive.
+    /// Change the active Cross-Origin-Resource-Policy directive.
+    ///
+    /// This will override any previous setting or the default.
     ///
     /// # Parameters
-    /// - `policy`: `string` one of `"same-origin"`, `"same-site"`, or `"cross-origin"`.
+    /// - `policy`: Directive string. Must be one of the tokens listed above for `__construct`.
     ///
     /// # Exceptions
-    /// - Throws `Exception` if an invalid token is provided.
+    /// - Throws an `Exception` if `policy` cannot be parsed into a valid directive.
     pub fn set(&mut self, policy: &str) -> Result<()> {
         self.policy = ResourcePolicyDirective::from_str(policy)
             .map_err(|_| anyhow!("Invalid Cross-Origin-Resource-Policy value: {}", policy))?;
@@ -94,8 +104,8 @@ impl ResourcePolicy {
 }
 #[cfg(test)]
 mod tests {
-    use crate::run_php_example;
     use super::ResourcePolicy;
+    use crate::run_php_example;
 
     #[test]
     fn test_default_policy() {

@@ -30,17 +30,22 @@ pub struct EmbedderPolicy {
     policy: Policy,
 }
 
-#[php_enum_constants((Policy, "src/security_headers/cross_origin/embedder_policy.rs"))]
+#[php_enum_constants(Policy, "src/security_headers/cross_origin/embedder_policy.rs")]
 #[php_impl]
 impl EmbedderPolicy {
-    /// Constructs a new COEP builder.
+    /// Create a new Cross-Origin-Embedder-Policy (COEP) builder for PHP.
+    ///
+    /// By default, this sets the policy to `"unsafe-none"`, allowing all embedders.
     ///
     /// # Parameters
-    /// - `policy`: `?string` one of `"unsafe-none"`, `"require-corp"` or `"credentialless"`.
+    /// - `policy`: Optional string directive. Valid values:
+    ///   - `"unsafe-none"`    — no embedder restrictions.
+    ///   - `"require-corp"`   — only embedders with valid CORP headers.
+    ///   - `"credentialless"` — restrict resources and omit credentials.
     ///   If omitted, defaults to `"unsafe-none"`.
     ///
-    /// # Errors
-    /// - Throws `Exception` if `policy` is invalid.
+    /// # Exceptions
+    /// - Throws `Exception` if an invalid token is provided.
     pub fn __construct(policy: Option<String>) -> anyhow::Result<Self> {
         Ok(Self {
             policy: if let Some(p) = policy {
@@ -52,13 +57,13 @@ impl EmbedderPolicy {
         })
     }
 
-    /// Change the COEP policy.
+    /// Update the COEP directive.
     ///
     /// # Parameters
-    /// - `policy`: `string` one of `"unsafe-none"`, `"require-corp"`, or `"credentialless"`.
+    /// - `policy`: Directive string. Must be one of the tokens listed above for `__construct`.
     ///
-    /// # Errors
-    /// - Throws `Exception` if `policy` is not recognized.
+    /// # Exceptions
+    /// - Throws an `Exception` if `policy` cannot be parsed into a valid directive.
     pub fn set(&mut self, policy: &str) -> anyhow::Result<()> {
         self.policy = Policy::from_str(policy)
             .map_err(|_| anyhow!("Invalid Cross-Origin-Embedder-Policy value: {policy}"))?;
@@ -72,7 +77,6 @@ impl EmbedderPolicy {
     fn get(&self) -> String {
         self.policy.to_string()
     }
-
 
     /// Render the header value.
     ///

@@ -164,7 +164,7 @@ pub struct PermissionsPolicy {
     policies: BTreeMap<Feature, Vec<String>>,
 }
 
-#[php_enum_constants((Feature, "src/security_headers/permissions.rs"))]
+#[php_enum_constants(Feature, "src/security_headers/permissions.rs")]
 #[php_impl]
 impl PermissionsPolicy {
     #[php_const]

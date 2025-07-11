@@ -14,80 +14,180 @@ use trim_in_place::TrimInPlace;
 /// All the CSP directives you want to support.
 #[derive(Debug, Eq, PartialEq, Hash, EnumString, strum_macros::Display, Ord, PartialOrd)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
+/// Supported Content Security Policy (CSP) directives.
+///
+/// These correspond to the various directives you can set in a
+/// Content-Security-Policy header.
 pub enum Rule {
+    /// Fallback for other fetch directives.
     DefaultSrc,
+
+    /// Controls allowed sources for scripts.
     ScriptSrc,
+
+    /// Controls allowed sources for stylesheets.
     StyleSrc,
+
+    /// Controls allowed sources for images.
     ImgSrc,
+
+    /// Restricts which parent origins can embed this resource.
     FrameAncestors,
+
+    /// Controls allowed endpoints for fetch, XHR, WebSocket, etc.
     ConnectSrc,
+
+    /// Controls allowed sources for font resources.
     FontSrc,
 
+    /// Alias for controlling allowed embedding contexts.
     ChildSrc,
+
+    /// Controls allowed sources for web app manifests.
     ManifestSrc,
+
+    /// Controls allowed sources for media elements.
     MediaSrc,
+
+    /// Controls allowed sources for plugin content.
     ObjectSrc,
+
+    /// Controls allowed sources for prefetch operations.
     PrefetchSrc,
+
+    /// Controls allowed sources for script elements.
     ScriptSrcElem,
+
+    /// Controls allowed sources for inline event handlers.
     ScriptSrcAttr,
+
+    /// Controls allowed sources for style elements.
     StyleSrcElem,
+
+    /// Controls allowed sources for inline style attributes.
     StyleSrcAttr,
+
+    /// Controls allowed sources for worker scripts.
     WorkerSrc,
 
-    // **Document directives**:
+    // Document-level directives:
+    /// Restricts the set of URLs usable in the document’s base element.
     BaseUri,
+
+    /// Restricts the URLs that forms can submit to.
     FormAction,
+
+    /// Applies sandboxing rules to the document.
     Sandbox,
+
+    /// Restricts the types of plugins that may be loaded.
     PluginTypes,
+
+    /// Disallows all mixed HTTP content on secure pages.
     BlockAllMixedContent,
+
+    /// Instructs browsers to upgrade insecure requests to HTTPS.
     UpgradeInsecureRequests,
 
-    // **Reporting directives**:
+    // Reporting directives:
+    /// Specifies a URI to which policy violation reports are sent.
     ReportUri,
+
+    /// Specifies a reporting group for violation reports.
     ReportTo,
 
-    // **Integrity & trust directives**:
+    // Integrity and trust directives:
+    /// Requires Subresource Integrity checks for specified resource types.
     RequireSriFor,
+
+    /// Restricts creation of DOM sinks to a trusted-types policy.
     TrustedTypes,
+
+    /// Enforces Trusted Types for specified sinks.
     RequireTrustedTypesFor,
 }
-/// Everything that can go after a directive:
-/// - a keyword like 'self'
-/// - a nonce placeholder
-/// - a domain string
+
+/// All valid source keywords for CSP directives.
+///
+/// These include host-independent keywords, nonce placeholders, resource-type tokens,
+/// and sandbox flags that can appear after a directive name.
 #[derive(Clone, EnumString, strum_macros::Display)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum Keyword {
+    /// The `'self'` keyword, allowing the same origin.
     #[strum(serialize = "self")]
     _Self,
+
+    /// The `'unsafe-inline'` keyword, allowing inline scripts or styles.
     UnsafeInline,
+
+    /// The `'unsafe-eval'` keyword, allowing `eval()` and similar.
     UnsafeEval,
+
+    /// The `'unsafe-hashes'` keyword, allowing hash-based inline resources.
     UnsafeHashes,
+
+    /// The `'strict-dynamic'` keyword, enabling strict dynamic loading.
     StrictDynamic,
+
+    /// The `'nonce-…'` placeholder for single-use nonces.
     Nonce,
 
-    // Resource‐type tokens for require-sri-for & require-trusted-types-for
+    // Resource-type tokens for integrity/trusted-types directives:
+    /// The `script` token for SRI or Trusted Types policies.
     Script,
+
+    /// The `style` token for SRI or Trusted Types policies.
     Style,
 
-    // Sandbox flags (for the sandbox directive)
+    // Sandbox flags for the `sandbox` directive:
+    /// Allows form submission in a sandboxed context.
     AllowForms,
+
+    /// Allows modal dialogs in a sandboxed context.
     AllowModals,
+
+    /// Allows orientation lock in a sandboxed context.
     AllowOrientationLock,
+
+    /// Allows pointer lock in a sandboxed context.
     AllowPointerLock,
+
+    /// Allows presentation mode in a sandboxed context.
     AllowPresentation,
+
+    /// Allows pop-ups in a sandboxed context.
     AllowPopups,
+
+    /// Allows pop-ups to escape sandbox restrictions.
     AllowPopupsToEscapeSandbox,
+
+    /// Allows same-origin access in a sandboxed context.
     AllowSameOrigin,
+
+    /// Allows script execution in a sandboxed context.
     AllowScripts,
+
+    /// Allows storage access via user activation in a sandbox.
     AllowStorageAccessByUserActivation,
+
+    /// Allows top-level navigation via user activation.
     AllowTopNavigationByUserActivation,
 
+    // Other miscellaneous keywords:
+    /// Allows duplicate directives.
     AllowDuplicates,
+
+    /// Allows WebAssembly to use `eval()`.
     WasmUnsafeEval,
+
+    /// Enables inline speculation rules.
     InlineSpeculationRules,
+
+    /// Includes sample reports in violation reports.
     ReportSample,
 }
+
 pub type Source = String;
 pub type CspSettings = (Vec<Keyword>, Vec<Source>);
 
@@ -98,8 +198,8 @@ pub struct ContentSecurityPolicy {
     pub src_map: BTreeMap<Rule, CspSettings>,
     pub nonce: Option<String>,
 }
-#[php_enum_constants((Keyword, "src/security_headers/csp.rs"))]
-#[php_enum_constants((Rule, "src/security_headers/csp.rs"))]
+#[php_enum_constants(Keyword, "src/security_headers/csp.rs")]
+#[php_enum_constants(Rule, "src/security_headers/csp.rs")]
 #[php_impl]
 impl ContentSecurityPolicy {
     /// Constructs a new `ContentSecurityPolicy` builder with no directives set.
@@ -120,9 +220,20 @@ impl ContentSecurityPolicy {
     /// Sets or replaces a CSP directive with the given keywords and host sources.
     ///
     /// # Parameters
-    /// - `rule`: The directive name (e.g. `"default-src"`, `"script-src"`).
-    /// - `keywords`: An array of keyword tokens (e.g. `'self'`, `'nonce'`).
-    /// - `sources`: Optional vector of host strings (e.g. `"example.com"`).
+    /// - `rule`: The directive name. One of `default-src`, `script-src`, `style-src`, `img-src`, `frame-ancestors`,
+    ///   `connect-src`, `font-src`, `child-src`, `manifest-src`, `media-src`, `object-src`, `prefetch-src`,
+    ///   `script-src-elem`, `script-src-attr`, `style-src-elem`, `style-src-attr`, `worker-src`,
+    ///   `base-uri`, `form-action`, `sandbox`, `plugin-types`, `block-all-mixed-content`,
+    ///   `upgrade-insecure-requests`, `report-uri`, `report-to`, `require-sri-for`,
+    ///   `trusted-types`, `require-trusted-types-for`.
+    /// - `keywords`: Slice of keyword tokens. One or more of `self`, `none`, `unsafe-inline`,
+    ///   `unsafe-eval`, `unsafe-hashes`, `strict-dynamic`, `nonce`, `script`, `style`,
+    ///   `allow-forms`, `allow-modals`, `allow-orientation-lock`, `allow-pointer-lock`,
+    ///   `allow-presentation`, `allow-popups`, `allow-popups-to-escape-sandbox`,
+    ///   `allow-same-origin`, `allow-scripts`, `allow-storage-access-by-user-activation`,
+    ///   `allow-top-navigation-by-user-activation`, `allow-duplicates`, `wasm-unsafe-eval`,
+    ///   `inline-speculation-rules`, `report-sample`.
+    /// - `sources`: Optional list of host sources (e.g. `["example.com"]`)
     ///
     /// # Exceptions
     /// - Throws `Exception` if any array item in `keywords` is not a string.

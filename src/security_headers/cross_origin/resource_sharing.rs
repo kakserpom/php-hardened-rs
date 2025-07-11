@@ -23,7 +23,7 @@ impl ResourceSharing {
     /// Constructs a new CORS policy with default settings (no restrictions).
     ///
     /// # Returns
-    /// - `Cors` instance where all lists are empty and flags are false/zero.
+    /// - `ResourceSharing` instance where all lists are empty and flags are false/zero.
     fn __construct() -> Self {
         Self {
             allow_origins: Vec::new(),
@@ -35,10 +35,19 @@ impl ResourceSharing {
         }
     }
 
-    /// Set the `Access-Control-Allow-Origin` header values.
+    /// Specify which origins are allowed to access the resource.
+    ///
+    /// Browsers will only allow cross-origin requests if the request’s
+    /// `Origin` header matches one of these values. Use `["*"]` to allow
+    /// any origin (note: this will disable credentials).
     ///
     /// # Parameters
-    /// - `origins`: `string[]` list of allowed origins, or `['*']` for wildcard.
+    /// - `origins`: A list of allowed origin URLs (e.g. `["https://example.com"]`),
+    ///   or `["*"]` for a wildcard that permits all origins.
+    ///
+    /// # Behavior
+    /// - If the request’s `Origin` header is not in this list, the browser
+    ///   will block the response.
     ///
     /// # Returns
     /// - `void`
@@ -46,10 +55,17 @@ impl ResourceSharing {
         self.allow_origins = origins;
     }
 
-    /// Set the `Access-Control-Allow-Methods` header values.
+    /// Specify which HTTP methods may be used in cross-origin requests.
+    ///
+    /// During a CORS preflight (`OPTIONS`) request, the browser checks
+    /// this list to determine whether to allow the actual request method.
     ///
     /// # Parameters
-    /// - `methods`: `string[]` list of allowed HTTP methods (e.g. `['GET','POST']`).
+    /// - `methods`: A list of allowed HTTP methods (e.g. `["GET", "POST", "PUT"]`).
+    ///
+    /// # Behavior
+    /// - Methods not in this list will cause the browser to block the
+    ///   corresponding cross-origin request.
     ///
     /// # Returns
     /// - `void`
@@ -57,10 +73,17 @@ impl ResourceSharing {
         self.allow_methods = methods;
     }
 
-    /// Set the `Access-Control-Allow-Headers` header values.
+    /// Specify which custom headers the client may include in the request.
+    ///
+    /// Browsers enforce that only simple headers are sent by default; to
+    /// allow additional headers (e.g. `Content-Type`, `X-Custom-Header`),
+    /// they must be listed here.
     ///
     /// # Parameters
-    /// - `headers`: `string[]` list of allowed request headers (e.g. `['Content-Type']`).
+    /// - `headers`: A list of allowed request header names.
+    ///
+    /// # Behavior
+    /// - Any request header not in this list will be stripped by the browser.
     ///
     /// # Returns
     /// - `void`
@@ -68,10 +91,15 @@ impl ResourceSharing {
         self.allow_headers = headers;
     }
 
-    /// Enable or disable the `Access-Control-Allow-Credentials` flag.
+    /// Control whether cookies or HTTP authentication information are
+    /// included in cross-origin requests.
     ///
     /// # Parameters
-    /// - `enable`: `bool` `true` to allow credentials, `false` to omit header.
+    /// - `enable`: `true` to send credentials (cookies, HTTP auth), `false`
+    ///   to omit the `Access-Control-Allow-Credentials` header.
+    ///
+    /// # Behavior
+    /// - If enabled, you **cannot** use `"*"` for `allow_origins`.
     ///
     /// # Returns
     /// - `void`
@@ -79,10 +107,15 @@ impl ResourceSharing {
         self.allow_credentials = enable;
     }
 
-    /// Set the `Access-Control-Expose-Headers` header values.
+    /// Specify which response headers can be accessed by client-side scripts.
+    ///
+    /// By default, browsers only expose a limited set of safe headers.
+    /// To expose additional headers (e.g. `X-RateLimit-Remaining`),
+    /// list them here.
     ///
     /// # Parameters
-    /// - `headers`: `string[]` list of response headers that can be exposed to browser.
+    /// - `headers`: A list of response header names that should be
+    ///   made available to JavaScript via `XMLHttpRequest` or `fetch`.
     ///
     /// # Returns
     /// - `void`
@@ -90,10 +123,16 @@ impl ResourceSharing {
         self.expose_headers = headers;
     }
 
-    /// Set the `Access-Control-Max-Age` directive (in seconds).
+    /// Set how long (in seconds) the results of a preflight request can
+    /// be cached by the browser.
+    ///
+    /// A higher value reduces the number of CORS preflight requests,
+    /// improving performance. A value of `0` forces the browser to
+    /// perform a preflight check on every request.
     ///
     /// # Parameters
-    /// - `seconds`: `int` number of seconds the preflight response may be cached.
+    /// - `seconds`: Number of seconds that the browser may cache the
+    ///   preflight response.
     ///
     /// # Returns
     /// - `void`
