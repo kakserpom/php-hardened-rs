@@ -1293,6 +1293,7 @@ dependencies = [
  "csrf",
  "data-encoding",
  "ext-php-rs",
+ "php-hardened-macro",
  "rand 0.9.1",
  "serde_json",
  "strum",
@@ -1307,6 +1308,15 @@ name = "php-hardened-cdylib"
 version = "0.1.0"
 dependencies = [
  "php-hardened",
+]
+
+[[package]]
+name = "php-hardened-macro"
+version = "0.1.0"
+dependencies = [
+ "heck",
+ "quote",
+ "syn",
 ]
 
 [[package]]

@@ -55,14 +55,18 @@ fn run_php_example(name: &str) -> Result<String> {
     use anyhow::{anyhow, bail};
     use std::process::Command;
 
-    let script_name = format!("examples/{name}.php");
+    let manifest = std::env::var("CARGO_MANIFEST_DIR")
+        .map_err(|e| anyhow::anyhow!("env CARGO_MANIFEST_DIR: {}", e))?;
+    let php_file = std::path::Path::new(&manifest)
+        .join("examples")
+        .join(format!("{}.php", name));
 
     // Spawn `php -f <script_name>`
     let output = Command::new("php")
         .arg("-f")
-        .arg(&script_name)
+        .arg(&php_file)
         .output()
-        .map_err(|err| anyhow!("Failed to execute php on `{script_name}`: {err}"))?;
+        .map_err(|err| anyhow!("Failed to execute php on `{php_file}`: {err}"))?;
 
     // Print PHP stdout for debugging
     println!(
@@ -81,8 +85,7 @@ fn run_php_example(name: &str) -> Result<String> {
     // Check exit status
     if !output.status.success() {
         bail!(
-            "PHP script `{}` exited with code {}",
-            script_name,
+            "PHP script {php_file:?} exited with code {}",
             output.status.code().unwrap_or(-1)
         );
     }
