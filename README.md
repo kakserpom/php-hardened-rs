@@ -138,7 +138,7 @@ See [example](examples/path.php).
     - `extended-graphemes` (or `e`) — units of `$max` will be Unicode extended grapheme clusters.
     - `graphemes` (or `g`) — units of `$max` will be Unicode grapheme clusters.
     - __default__` unicode` (or `u`) — units of  `$max` will be Unicode code points.
-    - `ascii` (or `a`) — units of  `$max` will be bytes. Even this mode doesn't chop Unicode code points in half even.
+    - `ascii` (or `a`) — units of  `$max` will be bytes. Even this mode doesn't chop Unicode code points in half.
 
 > Open HTML tags will automatically close at all times, but beware that added closing tags may cause the result to
 > flow over `$max` if you are truncating.
@@ -276,7 +276,7 @@ See [example](examples/security-headers/strict-transport-security.php).
 - Configure allowed origins, methods, headers, credentials flag, exposed headers, and preflight cache duration.
 - Build a map of header names → values with `build()`, or emit them directly with `send()`.
 
-See [example](examples/security-headers/cross-origin/cors.php).
+See [example](examples/security-headers/cross-origin/resource-sharing.php).
 
 | Method                                  | Description                                                                   |
 |-----------------------------------------|-------------------------------------------------------------------------------|
@@ -361,7 +361,7 @@ See [example](examples/security-headers/cross-origin/resource-policy.php).
 - Initialize with an optional policy token or configure via `set()`; enforces only valid CSP values.
 - Build the header value with `build()`, or emit it directly with `send()`.
 
-See [example](examples/security-headers/csp.php).
+See [example](examples/security-headers/referrer-policy.php).
 
 | Method                                | Description                                                  |
 |---------------------------------------|--------------------------------------------------------------|
@@ -380,7 +380,7 @@ See [example](examples/security-headers/csp.php).
 - Strongly-typed enums for frame & XSS modes, with optional URIs for “ALLOW-FROM” and reporting.
 - Configure each header with `set…()` methods, then gather with `build()` or emit via `send()`.
 
-See [example](examples/security-headers/misc.php).
+See [example](examples/security-headers/whatnot.php).
 
 | Method                                                                                     | Description                                                                                                     |
 |--------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
