@@ -1,26 +1,26 @@
 <?php
 declare(strict_types=1);
 
-use Hardened\SecurityHeaders\MiscHeaders;
+use Hardened\SecurityHeaders\Whatnot;
 
-$misc = new MiscHeaders();
+$policy = new Whatnot();
 
 // Frame options
-$misc->setFrameOptions('DENY');
-$misc->setFrameOptions('ALLOW-FROM', 'https://example.com');
+$policy->setFrameOptions('DENY');
+$policy->setFrameOptions('ALLOW-FROM', 'https://example.com');
 
 // XSS protection
-$misc->setXssProtection('on');
-$misc->setXssProtection('block');
-$misc->setXssProtection('block', 'https://report.example.com'); // Block with a report URI
+$policy->setXssProtection('on');
+$policy->setXssProtection('block');
+$policy->setXssProtection('block', 'https://report.example.com'); // Block with a report URI
 
 // No-sniff
-$misc->setNosniff(true);
+$policy->setNosniff(true);
 
 // Cross-domain policies
-$misc->setPermittedCrossDomainPolicies('none');
+$policy->setPermittedCrossDomainPolicies('none');
 
-$misc->setReportTo(
+$policy->setReportTo(
     'csp-endpoint',          // group
     10886400,                // max_age
     true,                    // include_subdomains
@@ -28,16 +28,16 @@ $misc->setReportTo(
 );
 
 // Structured Integrity-Policy
-$misc->setIntegrityPolicy(
+$policy->setIntegrityPolicy(
     ['script'],                    // blocked-destinations
     ['inline'],                    // sources (optional, defaults to ['inline'])
     ['csp-endpoint','backup']      // endpoints (optional)
 );
 
 // Apply headers
-foreach ($misc->build() as $name => $value) {
+foreach ($policy->build() as $name => $value) {
     header("$name: $value");
 }
 
 // Or simply:
-$misc->send();
+$policy->send();

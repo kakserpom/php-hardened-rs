@@ -1,12 +1,12 @@
 use anyhow::{Result, anyhow};
 use ext_php_rs::zend::Function;
-use ext_php_rs::{php_class, php_impl};
+use ext_php_rs::{php_class, php_const, php_impl};
 use std::collections::HashMap;
 
 /// CORS policy builder for HTTP responses.
 #[php_class]
-#[php(name = "Hardened\\SecurityHeaders\\CrossOrigin\\Cors")]
-pub struct Cors {
+#[php(name = "Hardened\\SecurityHeaders\\CrossOrigin\\ResourceSharing")]
+pub struct ResourceSharing {
     allow_origins: Vec<String>,
     allow_methods: Vec<String>,
     allow_headers: Vec<String>,
@@ -16,7 +16,10 @@ pub struct Cors {
 }
 
 #[php_impl]
-impl Cors {
+impl ResourceSharing {
+    #[php_const]
+    const SELF: &str = "self";
+
     /// Constructs a new CORS policy with default settings (no restrictions).
     ///
     /// # Returns
@@ -158,19 +161,19 @@ impl Cors {
 
 #[cfg(test)]
 mod tests {
-    use super::Cors;
+    use super::ResourceSharing;
     use crate::run_php_example;
 
     #[test]
     fn test_default_policy_empty() {
-        let cp = Cors::__construct();
+        let cp = ResourceSharing::__construct();
         let headers = cp.build();
         assert!(headers.is_empty(), "Expected no headers by default");
     }
 
     #[test]
     fn test_allow_origins_only() {
-        let mut cp = Cors::__construct();
+        let mut cp = ResourceSharing::__construct();
         cp.allow_origins(vec!["https://example.com".to_string(), "*".to_string()]);
         let headers = cp.build();
         assert_eq!(
@@ -184,7 +187,7 @@ mod tests {
 
     #[test]
     fn test_allow_methods_only() {
-        let mut cp = Cors::__construct();
+        let mut cp = ResourceSharing::__construct();
         cp.allow_methods(vec!["GET".to_string(), "POST".to_string()]);
         let headers = cp.build();
         assert_eq!(
@@ -198,7 +201,7 @@ mod tests {
 
     #[test]
     fn test_allow_headers_only() {
-        let mut cp = Cors::__construct();
+        let mut cp = ResourceSharing::__construct();
         cp.allow_headers(vec!["Content-Type".to_string(), "X-Custom".to_string()]);
         let headers = cp.build();
         assert_eq!(
@@ -212,7 +215,7 @@ mod tests {
 
     #[test]
     fn test_allow_credentials_only() {
-        let mut cp = Cors::__construct();
+        let mut cp = ResourceSharing::__construct();
         cp.allow_credentials(true);
         let headers = cp.build();
         assert_eq!(
@@ -226,7 +229,7 @@ mod tests {
 
     #[test]
     fn test_expose_headers_only() {
-        let mut cp = Cors::__construct();
+        let mut cp = ResourceSharing::__construct();
         cp.expose_headers(vec!["X-Exposed".to_string()]);
         let headers = cp.build();
         assert_eq!(
@@ -240,7 +243,7 @@ mod tests {
 
     #[test]
     fn test_max_age_only() {
-        let mut cp = Cors::__construct();
+        let mut cp = ResourceSharing::__construct();
         cp.max_age(3600);
         let headers = cp.build();
         assert_eq!(
@@ -252,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_full_policy_combination() {
-        let mut cp = Cors::__construct();
+        let mut cp = ResourceSharing::__construct();
         cp.allow_origins(vec!["https://foo".to_string()]);
         cp.allow_methods(vec!["GET".to_string()]);
         cp.allow_headers(vec!["X-Test".to_string()]);
@@ -300,7 +303,7 @@ mod tests {
 
     #[test]
     fn php_example() -> anyhow::Result<()> {
-        run_php_example("security-headers/cross-origin/cors")?;
+        run_php_example("security-headers/cross-origin/resource-sharing")?;
         Ok(())
     }
 }

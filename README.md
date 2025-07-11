@@ -5,46 +5,53 @@ essential security utilities for PHP applications. It provides following core cl
 
 1. **Hardened\Hostname** — secure hostname parsing, normalization, and comparison.
 2. **Hardened\Path** — safe, purely-lexical filesystem path handling to prevent directory traversal.
-3. **Hardened\Sanitizers\HtmlSanitizer** — configurable HTML sanitization
-   via [Ammonia](https://github.com/rust-ammonia/ammonia),
    with fine-grained tag, attribute, and URL policy controls.
-4. **Hardened\Rng** — stateless random-data generator: alphanumeric, alphabetic, byte sequences, integer ranges, and
+3. **Hardened\Rng** — stateless random-data generator: alphanumeric, alphabetic, byte sequences, integer ranges, and
    custom Unicode or ASCII sampling.
-5. **Hardened\CsrfProtection** — synchronized CSRF token–cookie protection using AES-GCM, with a PHP-friendly API for
+4. **Hardened\CsrfProtection** — synchronized [CSRF](https://owasp.org/www-community/attacks/csrf) token–cookie
+   protection using AES-GCM, with a PHP-friendly API for
    token/cookie generation, verification, and cookie management.
 
-## Security Headers
+## Sanitizers (`Hardened\Sanitizers`)
+
+1**Hardened\Sanitizers\HtmlSanitizer** — configurable HTML sanitization
+via [Ammonia](https://github.com/rust-ammonia/ammonia),
+
+## Security Headers (`Hardened\SecurityHeaders`)
 
 Currently, we provide builders for several HTTP security headers (namespace `Hardened\SecurityHeaders`):
 
-- **ContentSecurityPolicy** — configure `Content-Security-Policy` directives, keyword sources, hosts, automatic nonces.
-- **Hsts** — configure `Strict-Transport-Security: max-age`, `includeSubDomains`, `preload`.
-- **CorsPolicy** — configure CORS: allowed origins, methods, headers, credentials, exposed headers, preflight cache.
-- **ReferrerPolicy** — set any valid `Referrer-Policy` token and emit header.
-- **PermissionsPolicy** — configure `Permissions-Policy` features, allow or deny per‐feature with allowlists (`*`,
-  `self`, `'src'`, specific origins), build header, or send it.
-- **ContentSecurityPolicy** — builder for HTTP Content-Security-Policy headers; configure
-  directives, keyword sources, hosts, and automatic nonce generation.
-- **Hsts** — builder for HTTP Strict-Transport-Security (HSTS); configure `max-age`,
+- **StrictTransportPolicy** — builder for HTTP Strict-Transport-Security (HSTS); configure `max-age`,
   `includeSubDomains`, and `preload`, then emit the header.
-- **CorsPolicy** — CORS policy builder; configure allowed origins, methods, headers,
-  credentials flag, exposed headers, and preflight cache duration, then emit the necessary headers.
 - **ReferrerPolicy** — Referrer-Policy header builder; initialize with or set any valid policy
   token, build the header value, or send it directly.
-- **Hardened\Rng** — stateless random-data generator: alphanumeric, alphabetic, byte sequences, integer ranges, and
-  custom Unicode or ASCII sampling.
-- **Hardened\CsrfProtection** — synchronized CSRF token–cookie protection using AES-GCM, with a PHP-friendly API for
-  token/cookie generation, verification, and cookie management.
-- **MiscHeaders** — builder for miscellaneous HTTP security headers (`X-Frame-Options`,
+- **Whatnot** — builder for miscellaneous HTTP security headers (`X-Frame-Options`,
   `X-XSS-Protection`, `X-Content-Type-Options`, `X-Permitted-Cross-Domain-Policies`, `Report-To`, `Integrity-Policy`,
   and `Integrity-Policy-Report-Only`); configure via `set…()` methods, build a header map with `build()`, or emit all
   via `send()`.
+
+### Cross Origin policies (`Hardened\SecurityHeaders\CrossOrigin`)
+
+- **ResourceSharing** — configure CORS: allowed origins, methods, headers, credentials, exposed headers,
+  preflight cache.
+- **EmbedderPolicy (Coep)** — configure `Cross-Origin-Embedder-Policy`: choose between `unsafe-none`,
+  `require-corp`, or `credentialless`.
+- **OpenerPolicy (Coop)** — configure `Cross-Origin-Opener-Policy`: e.g. `same-origin`,
+  `same-origin-allow-popups`, or `unsafe-none`.
+- **ResourcePolicy** — configure `Cross-Origin-Resource-Policy`: choose `same-origin`, `same-site`, or
+  `cross-origin`.
+- -**ContentSecurityPolicy** — configure `Content-Security-Policy` directives, keyword sources, hosts, automatic
+  nonces.
+- **ReferrerPolicy** — set any valid `Referrer-Policy` token and emit header.
+- **PermissionsPolicy** — configure `Permissions-Policy` features, allow or deny per‐feature with allowlists (`*`,
+  `self`, `'src'`, specific origins), build header, or send it.
+  directives, keyword sources, hosts, and automatic nonce generation.
 
 **Supported Platforms:** Linux, macOS, Windows (where `ext-php-rs` is available)
 
 ---
 
-## Features
+## Classes
 
 ### Hardened\Hostname
 
@@ -66,209 +73,7 @@ Currently, we provide builders for several HTTP security headers (namespace `Har
     - `$host->subdomainOfUrl(string $url): bool` — URL or Hostname subdomain check.
     - `$host->subdomainOfAnyUrl(array $urls): bool` — any URL or Hostname array.
 
-#### Example
-
-```php
-use Hardened\Hostname;
-
-var_dump(Hostname::fromUrl("https://example.com/php")->equals("eXaMple.com.")); 
-// bool(true)
-var_dump(Hostname::from("zzz.example.com")->subdomainOf("eXaMple.com."));
-// bool(true)
-var_dump(Hostname::from("zzz.example.com")->subdomainOf("example.co.uk"));
-// bool(false)
-```
-
-### Hardened\Path
-
-- Lexical canonicalization: remove `.` and `..`, collapse separators.
-- No filesystem I/O or symlink resolution.
-- Validate that a path stays within a given base.
-- API Highlights:
-    - `Path::from(mixed $path): Path` — parse Zval, string, or Path.
-    - `$path->startsWith(mixed $prefix): bool` — prefix string or Path.
-    - `$path->join(mixed $segment): Path` — append string or Path.
-    - `$path->joinWithin(mixed $segment): Path` — append, canonicalize, and enforce subpath constraint.
-    - `(string)$path` — string representation.
-
-#### Example
-
-```php
-use Hardened\Path;
-
-$path = Path::from("/foo/bar/data/");
-
-var_dump($path->join("zzz")->startsWith($path));
-// bool(true)
-
-var_dump($path->join("zzz")->path());
-// string(17) "/foo/bar/data/zzz"
-
-var_dump($path->join("../zzz")->path());
-// string(12) "/foo/bar/zzz"
-
-var_dump($path->join("../zzz")->startsWith($path));
-// bool(false)
-
-try {
-    var_dump($path->joinWithin("../zzz")); // throws
-} catch (Throwable $e) {
-    echo ";-)" . PHP_EOL;
-}
-
-
-// Create a Path instance
-$path = new Path('/var/www/uploads/photo.JPG');
-
-// Check against a custom list
-var_dump(
-    $path->validateExtension(['png','jpg','jpeg']),  // true
-    $path->validateExtension(['gif','bmp'])          // false
-);
-
-// Built-in helpers
-var_dump(
-    $path->validateExtensionImage(),    // true (jpg)
-    $path->validateExtensionVideo(),    // false
-    $path->validateExtensionAudio(),    // false
-    $path->validateExtensionDocument()  // false
-);
-
-// Another example: a document path
-$doc = new Path('/home/user/report.PDF');
-var_dump($doc->validateExtensionDocument()); // true
-```
-
-### Hardened\Sanitizers\HtmlSanitizer
-
-- Wraps Ammonia `Builder` for fine-grained HTML sanitization.
-- Configuration methods for URL policies, tags, attributes, and filters.
-- Attribute filter callback support.
-
-See [example](examples/sanitizers/html-sanitizer.php).
-
-### Hardened\Rng
-
-- Stateless random-data generator.
-- Static methods to create random alphanumeric or alphabetic strings (`alphanumeric()`, `alphabetic()`).
-- Byte sequences (`bytes()`), integer arrays (`ints()`), and single integers (`int()`) with inclusive ranges.
-- Custom sampling from arbitrary Unicode code points (`customUnicodeChars()`), grapheme clusters (
-  `customUnicodeGraphemes()`), or ASCII sets (`customAscii()`).
-
-See [example](examples/rng.php).
-
-### Hardened\CsrfProtection
-
-- Synchronized token–cookie CSRF protection using AES-GCM.
-- Constructor: `__construct($key, $ttl, $previousTokenValue = null)`.
-- Token & cookie getters: `token()`, `cookie()`.
-- Validation: `verifyToken($token, $cookie = null)` (auto-fetches cookie if omitted).
-- Cookie management: `setCookieName()`, `cookieName()`,
-  `setCookie($expires = null, $path = null, $domain = null, $secure = null, $httponly = null)`.
-
-See [example](examples/csrf-protection.php).
-
-### Hardened\SecurityHeaders\ContentSecurityPolicy
-
-- Builder for HTTP Content-Security-Policy headers.
-- Configure directives (`default-src`, `script-src`, etc.) with keyword tokens and host sources via `setRule()`.
-- Automatically generates nonces for `'nonce-…'` directives.
-- Produces a valid header string with `build()`, and convenience method `send()` to emit it.
-- Retrieve the last-generated nonce with `getNonce()`.
-
-See [example](examples/security-headers/csp.php).
-
-### Hardened\SecurityHeaders\Hsts
-
-- HTTP Strict Transport Security (HSTS) header builder.
-- Configure `max-age`, `includeSubDomains`, and `preload` flags for best‐practice transport security.
-- Build the header string with `build()`, or emit it directly with `send()` (uses PHP `header()`).
-
-See [example](examples/security-headers/hsts.php).
-
-### Hardened\SecurityHeaders\CrossOrigin\Cors
-
-- CORS policy builder for HTTP responses.
-- Configure allowed origins, methods, headers, credentials flag, exposed headers, and preflight cache duration.
-- Build a map of header names → values with `build()`, or emit them directly with `send()`.
-
-See [example](examples/security-headers/cross-origin/cors.php).
-
-### Hardened\SecurityHeaders\CrossOrigin\Coep
-
-- **Cross-Origin-Embedder-Policy** header builder.
-- Supported policies:
-    - `unsafe-none` (default)
-    - `require-corp`
-    - `credentialless`
-- `__construct(?string $policy = null)` initialize with optional policy.
-- `set_policy(string $policy)` change policy; throws on invalid tokens.
-- `build(): string` returns the header value.
-- `send(): void` emits `header("Cross-Origin-Embedder-Policy: …")`.
-
-See [example](examples/security-headers/cross-origin/coep.php).
-
-### Hardened\SecurityHeaders\ReferrerPolicy
-
-- Referrer-Policy header builder for HTTP responses.
-- Initialize with an optional policy token or configure via `setPolicy()`; enforces only valid CSP values.
-- Build the header value with `build()`, or emit it directly with `send()`.
-
-See [example](examples/security-headers/csp.php).
-
-### Hardened\SecurityHeaders\MiscHeaders
-
-- Builder for miscellaneous HTTP security headers:  
-  `X-Frame-Options`, `X-XSS-Protection`, `X-Content-Type-Options`,  
-  `X-Permitted-Cross-Domain-Policies`, `Report-To`, `Integrity-Policy`,  
-  and `Integrity-Policy-Report-Only`.
-- Strongly-typed enums for frame & XSS modes, with optional URIs for “ALLOW-FROM” and reporting.
-- Configure each header with `set…()` methods, then gather with `build()` or emit via `send()`.
-
-See [example](examples/security-headers/misc.php).
-
-### Hardened\SecurityHeaders\PermissionsPolicy
-
-- Builder for the `Permissions-Policy` header.
-- Use `allow(feature, origins)` to enable a feature for a list of origins, or `deny(feature)` for an empty allowlist.
-
-See [example](examples/security-headers/misc.php).
-
----
-
-## Installation
-
-Install with [`cargo-php`](https://github.com/davidcole1340/ext-php-rs):
-
-```bash
-# Install cargo-php if you haven't already
-# (ensures you have the latest cargo-php installer)
-cargo install cargo-php --locked
-
-# Build and install the PHP extension
-cd php-hardened-rs-cdylib
-cargo php install --release --yes
-```
-
-On **macOS**, you may need to set the deployment target and link flags first:
-
-```bash
-export MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | tr -d '
-')
-export RUSTFLAGS="-C link-arg=-undefined -C link-arg=dynamic_lookup"
-```
-
-Enable the extension by adding to your `php.ini`:
-
-```ini
-extension=php_hardened_rs
-```
-
----
-
-## API Reference
-
-### Class `Hardened\Hostname`
+See [example](examples/hostname.php).
 
 | Method                                   | Signature | Description                                           |
 |------------------------------------------|-----------|-------------------------------------------------------|
@@ -286,7 +91,19 @@ extension=php_hardened_rs
 | `subdomainOfUrl(string $url): bool`      | Instance  | Subdomain check from URL.                             |
 | `subdomainOfAnyUrl(array $urls): bool`   | Instance  | Any subdomain from URL or Hostname array.             |
 
-### Class `Hardened\Path`
+### Hardened\Path
+
+- Lexical canonicalization: remove `.` and `..`, collapse separators.
+- No filesystem I/O or symlink resolution.
+- Validate that a path stays within a given base.
+- API Highlights:
+    - `Path::from(mixed $path): Path` — parse Zval, string, or Path.
+    - `$path->startsWith(mixed $prefix): bool` — prefix string or Path.
+    - `$path->join(mixed $segment): Path` — append string or Path.
+    - `$path->joinWithin(mixed $segment): Path` — append, canonicalize, and enforce subpath constraint.
+    - `(string)$path` — string representation.
+
+See [example](examples/path.php).
 
 | Method                                    | Signature | Description                                                                                  |
 |-------------------------------------------|-----------|----------------------------------------------------------------------------------------------|
@@ -306,7 +123,13 @@ extension=php_hardened_rs
 | `validateExtensionAudio(): bool`          | Instance  | Returns `true` if extension is a common audio (`mp3, wav, ogg, flac, aac`).                  |
 | `validateExtensionDocument(): bool`       | Instance  | Returns `true` if extension is a common document (`pdf, doc, docx, xls, xlsx, ppt, pptx`).   |
 
-### Class `Hardened\Sanitizers\HtmlSanitizer`
+### Hardened\Sanitizers\HtmlSanitizer
+
+- Wraps Ammonia `Builder` for fine-grained HTML sanitization.
+- Configuration methods for URL policies, tags, attributes, and filters.
+- Attribute filter callback support.
+
+See [example](examples/sanitizers/html-sanitizer.php).
 
 | Method                                                                      | Signature | Description                                                                                                           |
 |-----------------------------------------------------------------------------|-----------|-----------------------------------------------------------------------------------------------------------------------|
@@ -350,7 +173,15 @@ extension=php_hardened_rs
 | **`rmCleanContentTags(array $tags): void`**                                 | Instance  | Remove already-blacklisted clean-content tags.                                                                        |
 | `isValidUrl(string $url): bool`                                             | Instance  | Checks whether a URL is allowed by the configured scheme whitelist or, for relative URLs, by the relative-URL policy. |
 
-### Class `Hardened\Rng`
+### Hardened\Rng
+
+- Stateless random-data generator.
+- Static methods to create random alphanumeric or alphabetic strings (`alphanumeric()`, `alphabetic()`).
+- Byte sequences (`bytes()`), integer arrays (`ints()`), and single integers (`int()`) with inclusive ranges.
+- Custom sampling from arbitrary Unicode code points (`customUnicodeChars()`), grapheme clusters (
+  `customUnicodeGraphemes()`), or ASCII sets (`customAscii()`).
+
+See [example](examples/rng.php).
 
 | Method                                                       | Signature | Description                                                                                                      |
 |--------------------------------------------------------------|-----------|------------------------------------------------------------------------------------------------------------------|
@@ -366,7 +197,16 @@ extension=php_hardened_rs
 | `chooseWeighted(array $choices): array`                      | static    | Randomly select one `[value, weight]` pair from `$choices` where `weight` is integer; returns `[value, weight]`. |
 | `chooseMultipleWeighted(int $amount, array $choices): array` | static    | Randomly select `$amount` elements from weighted `[value, weight]` pairs (float weight) without replacement.     |
 
-### Class `Hardened\CsrfProtection`
+### Hardened\CsrfProtection
+
+- Synchronized token–cookie [CSRF](https://owasp.org/www-community/attacks/csrf) protection using AES-GCM.
+- Constructor: `__construct($key, $ttl, $previousTokenValue = null)`.
+- Token & cookie getters: `token()`, `cookie()`.
+- Validation: `verifyToken($token, $cookie = null)` (auto-fetches cookie if omitted).
+- Cookie management: `setCookieName()`, `cookieName()`,
+  `setCookie($expires = null, $path = null, $domain = null, $secure = null, $httponly = null)`.
+
+See [example](examples/csrf-protection.php).
 
 | Method                                                                                                                              | Signature | Description                                                                        |
 |-------------------------------------------------------------------------------------------------------------------------------------|-----------|------------------------------------------------------------------------------------|
@@ -378,7 +218,15 @@ extension=php_hardened_rs
 | `cookieName(): string`                                                                                                              | Instance  | Get the current CSRF cookie name (default is `csrf`).                              |
 | `setCookie(?int $expires = null, ?string $path = null, ?string $domain = null, ?bool $secure = null, ?bool $httponly = null): void` | Instance  | Send the CSRF cookie via PHP’s `setcookie()` function using native argument order. |
 
-### Class `Hardened\SecurityHeaders\ContentSecurityPolicy`
+### Hardened\SecurityHeaders\ContentSecurityPolicy
+
+- Builder for HTTP Content-Security-Policy headers.
+- Configure directives (`default-src`, `script-src`, etc.) with keyword tokens and host sources via `setRule()`.
+- Automatically generates nonces for `'nonce-…'` directives.
+- Produces a valid header string with `build()`, and convenience method `send()` to emit it.
+- Retrieve the last-generated nonce with `getNonce()`.
+
+See [example](examples/security-headers/content-security-policy.php).
 
 | Method                                                           | Signature | Description                                                                                                     |
 |------------------------------------------------------------------|-----------|-----------------------------------------------------------------------------------------------------------------|
@@ -390,7 +238,13 @@ extension=php_hardened_rs
 | `getNonce(): ?string`                                            | Instance  | Return the most recently generated nonce (without the `'nonce-'` prefix), or `null` if none has been generated. |
 | `resetNonce(): void`                                             | Instance  | Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.                     |
 
-### Class `Hardened\SecurityHeaders\Hsts`
+### Hardened\SecurityHeaders\StrictTransportSecurity
+
+- HTTP Strict Transport Security (HSTS) header builder.
+- Configure `max-age`, `includeSubDomains`, and `preload` flags for best‐practice transport security.
+- Build the header string with `build()`, or emit it directly with `send()` (uses PHP `header()`).
+
+See [example](examples/security-headers/strict-transport-security.php).
 
 | Method                                  | Signature | Description                                                                                                 |
 |-----------------------------------------|-----------|-------------------------------------------------------------------------------------------------------------|
@@ -401,7 +255,13 @@ extension=php_hardened_rs
 | `build(): string`                       | Instance  | Return the `Strict-Transport-Security` header value, e.g. `"max-age=31536000; includeSubDomains; preload"`. |
 | `send(): void`                          | Instance  | Emit the header via PHP `header()` function.                                                                |
 
-### Class `Hardened\SecurityHeaders\CrossOrigin\Cors`
+### Hardened\SecurityHeaders\CrossOrigin\Cors
+
+- CORS policy builder for HTTP responses.
+- Configure allowed origins, methods, headers, credentials flag, exposed headers, and preflight cache duration.
+- Build a map of header names → values with `build()`, or emit them directly with `send()`.
+
+See [example](examples/security-headers/cross-origin/cors.php).
 
 | Method                                 | Signature                         | Description                                                                   |
 |----------------------------------------|-----------------------------------|-------------------------------------------------------------------------------|
@@ -415,26 +275,97 @@ extension=php_hardened_rs
 | `build(): array`                       | Instance → `array<string,string>` | Return an associative array of header names → values to send.                 |
 | `send(): void`                         | Instance                          | Emit all configured CORS headers via PHP `header()` calls.                    |
 
-### Class `Hardened\SecurityHeaders\CrossOrigin\Coep`
+### Hardened\SecurityHeaders\CrossOrigin\EmbedderPolicy
+
+- **Cross-Origin-Embedder-Policy** header builder.
+- Supported policies:
+    - `unsafe-none` (default)
+    - `require-corp`
+    - `credentialless`
+- `__construct(?string $policy = null)` initialize with optional policy.
+- `set_policy(string $policy)` change policy; throws on invalid tokens.
+- `build(): string` returns the header value.
+- `send(): void` emits `header("Cross-Origin-Embedder-Policy: …")`.
+
+See [example](examples/security-headers/cross-origin/embedder-policy.php).
 
 | Method                                      | Signature           | Description                                                                                                                       |
 |---------------------------------------------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------|
 | `__construct(?string $policy = null): self` | `static`            | Create a new COEP builder, defaults to `"unsafe-none"` if no policy is provided.                                                  |
-| `setPolicy(string $policy): void`           | Instance            | Set the Cross-Origin-Embedder-Policy to one of `"unsafe-none"`, `"require-corp"`, or `"credentialless"`. Throws on invalid token. |
+| `set(string $policy): void`                 | Instance            | Set the Cross-Origin-Embedder-Policy to one of `"unsafe-none"`, `"require-corp"`, or `"credentialless"`. Throws on invalid token. |
 | `build(): string`                           | Instance → `string` | Return the header value, e.g. `"require-corp"`.                                                                                   |
 | `send(): void`                              | Instance            | Emit `Cross-Origin-Embedder-Policy: <value>` via PHP `header()`; errors if `header()` cannot be called.                           |
 
-### Class `Hardened\SecurityHeaders\RefererPolicy`
+See [example](examples/security-headers/cross-origin/embedder-policy.php).
+
+### Hardened\SecurityHeaders\CrossOrigin\OpenerPolicy
+
+- Builder for the `Cross-Origin-Opener-Policy` response header.
+- Supported values:
+    - `unsafe-none` (default)
+    - `same-origin`
+    - `same-origin-allow-popups`
+- Methods:
+    - `__construct(?string $policy = null)` – initialize with an optional policy.
+    - `set(string $policy): void` – change policy at any time.
+    - `build(): string` – returns the policy token (e.g. `"same-origin"`).
+    - `send(): void` – emits `Cross-Origin-Opener-Policy: <value>` via PHP `header()`.
+
+See [example](examples/security-headers/cross-origin/opener-policy.php).
+
+### Hardened\SecurityHeaders\CrossOrigin\ResourcePolicy
+
+* Builder for the `Cross-Origin-Resource-Policy` (CORP) header.
+* Configure one of the standard CORP directives (`same-origin`, `same-site`, `cross-origin`) via constructor or
+  `setPolicy()`.
+* Generate the header value with `build()`, or emit it directly with `send()`.
+
+```php
+// PHP example
+use Hardened\SecurityHeaders\CrossOrigin\ResourcePolicy;
+
+$rp = new ResourcePolicy();              // defaults to "same-origin"
+$rp->setPolicy('cross-origin');          // switch to "cross-origin"
+header('Cross-Origin-Resource-Policy: ' . $rp->build());
+```
+
+See [example](examples/security-headers/cross-origin/resource-policy.php).
+
+#### API Reference
+
+| Method                                | Signature           | Description                                                  |
+|---------------------------------------|---------------------|--------------------------------------------------------------|
+| `__construct(?string $policy = null)` | static              | Instantiate builder; defaults to `"same-origin"` if `null`.  |
+| `setPolicy(string $policy): void`     | Instance            | Set a new CORP token; throws on invalid value.               |
+| `build(): string`                     | Instance → `string` | Return the configured policy token.                          |
+| `send(): void`                        | Instance            | Emit `Cross-Origin-Resource-Policy: <value>` via `header()`. |
+
+### Hardened\SecurityHeaders\ReferrerPolicy
+
+- Referrer-Policy header builder for HTTP responses.
+- Initialize with an optional policy token or configure via `set()`; enforces only valid CSP values.
+- Build the header value with `build()`, or emit it directly with `send()`.
+
+See [example](examples/security-headers/csp.php).
 
 | Method                                | Signature                | Description                                                  |
 |---------------------------------------|--------------------------|--------------------------------------------------------------|
 | `__construct(?string $policy = null)` | static                   | Create builder with default `no-referrer` or given token.    |
-| `setPolicy(string $policy): void`     | Instance                 | Set a new policy token; throws on invalid value.             |
+| `set(string $policy): void`           | Instance                 | Set a new policy token; throws on invalid value.             |
 | `policy(): string`                    | Instance, returns string | Get the current policy token.                                |
 | `build(): string`                     | Instance, returns string | Build the header value to pass to `header()`.                |
 | `send(): void`                        | Instance                 | Emit `Referrer-Policy: <value>` via PHP `header()` function. |
 
-### Class `Hardened\SecurityHeaders\MiscHeaders`
+### Hardened\SecurityHeaders\Whatnot
+
+- Builder for miscellaneous HTTP security headers:  
+  `X-Frame-Options`, `X-XSS-Protection`, `X-Content-Type-Options`,  
+  `X-Permitted-Cross-Domain-Policies`, `Report-To`, `Integrity-Policy`,  
+  and `Integrity-Policy-Report-Only`.
+- Strongly-typed enums for frame & XSS modes, with optional URIs for “ALLOW-FROM” and reporting.
+- Configure each header with `set…()` methods, then gather with `build()` or emit via `send()`.
+
+See [example](examples/security-headers/misc.php).
 
 | Method                                                                                     | Signature                                              | Description                                                                                                      |
 |--------------------------------------------------------------------------------------------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
@@ -448,6 +379,43 @@ extension=php_hardened_rs
 | `setIntegrityPolicyReportOnly(string $policy): void`                                       | Instance                                               | Set `Integrity-Policy-Report-Only` header value.                                                                 |
 | `build(): array<string,string>`                                                            | Instance → associative array of header names to values | Return all configured headers & values.                                                                          |
 | `send(): void`                                                                             | Instance                                               | Emit each header via PHP `header()` calls.                                                                       |
+
+### Hardened\SecurityHeaders\PermissionsPolicy
+
+- Builder for the `Permissions-Policy` header.
+- Use `allow(feature, origins)` to enable a feature for a list of origins, or `deny(feature)` for an empty allowlist.
+
+See [example](examples/security-headers/misc.php).
+
+---
+
+## Installation
+
+Install with [`cargo-php`](https://github.com/davidcole1340/ext-php-rs):
+
+```bash
+# Install cargo-php if you haven't already
+# (ensures you have the latest cargo-php installer)
+cargo install cargo-php --locked
+
+# Build and install the PHP extension
+cd php-hardened-rs-cdylib
+cargo php install --release --yes
+```
+
+On **macOS**, you may need to set the deployment target and link flags first:
+
+```bash
+export MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | tr -d '
+')
+export RUSTFLAGS="-C link-arg=-undefined -C link-arg=dynamic_lookup"
+```
+
+Enable the extension by adding to your `php.ini`:
+
+```ini
+extension=php_hardened_rs
+```
 
 ---
 

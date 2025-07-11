@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-use Hardened\SecurityHeaders\Hsts;
+use Hardened\SecurityHeaders\StrictTransportSecurity;
 
 // Create and configure HSTS
-$hsts = new Hsts();
+$hsts = new StrictTransportSecurity();
 $hsts->maxAge(31536000);            // one year
 $hsts->includeSubDomains(true);     // apply to all subdomains
 $hsts->preload(true);               // request inclusion in browser preload lists

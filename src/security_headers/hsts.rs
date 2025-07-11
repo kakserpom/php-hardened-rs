@@ -6,15 +6,15 @@ use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_impl};
 /// HTTP Strict Transport Security (HSTS) header builder.
 #[php_class]
-#[php(name = "Hardened\\SecurityHeaders\\Hsts")]
-pub struct Hsts {
+#[php(name = "Hardened\\SecurityHeaders\\StrictTransportSecurity")]
+pub struct StrictTransportSecurity {
     max_age: u64,
     include_subdomains: bool,
     preload: bool,
 }
 
 #[php_impl]
-impl Hsts {
+impl StrictTransportSecurity {
     /// Constructs a new HSTS builder with default settings.
     ///
     /// # Returns
@@ -99,39 +99,39 @@ impl Hsts {
 
 #[cfg(test)]
 mod tests {
+    use super::StrictTransportSecurity;
     use crate::run_php_example;
-    use super::Hsts;
 
     #[test]
     fn test_default_build() {
-        let h = Hsts::__construct();
+        let h = StrictTransportSecurity::__construct();
         assert_eq!(h.build(), "max-age=0");
     }
 
     #[test]
     fn test_max_age_only() {
-        let mut h = Hsts::__construct();
+        let mut h = StrictTransportSecurity::__construct();
         h.max_age(31536000);
         assert_eq!(h.build(), "max-age=31536000");
     }
 
     #[test]
     fn test_include_subdomains_only() {
-        let mut h = Hsts::__construct();
+        let mut h = StrictTransportSecurity::__construct();
         h.include_sub_domains(true);
         assert_eq!(h.build(), "max-age=0; includeSubDomains");
     }
 
     #[test]
     fn test_preload_only() {
-        let mut h = Hsts::__construct();
+        let mut h = StrictTransportSecurity::__construct();
         h.preload(true);
         assert_eq!(h.build(), "max-age=0; preload");
     }
 
     #[test]
     fn test_full_directives() {
-        let mut h = Hsts::__construct();
+        let mut h = StrictTransportSecurity::__construct();
         h.max_age(86400);
         h.include_sub_domains(true);
         h.preload(true);
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn php_example() -> anyhow::Result<()> {
-        run_php_example("security-headers/hsts")?;
+        run_php_example("security-headers/strict-transport-security")?;
         Ok(())
     }
 }

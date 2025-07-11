@@ -10,7 +10,7 @@ $rp = new ReferrerPolicy();
 $rp = new ReferrerPolicy('origin-when-cross-origin');
 
 // Override later
-$rp->setPolicy('strict-origin');
+$rp->set('strict-origin');
 
 // Get the header value
 $value = $rp->build();

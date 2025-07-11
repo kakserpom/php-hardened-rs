@@ -53,7 +53,7 @@ impl ReferrerPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if an invalid policy token is provided.
-    fn set_policy(&mut self, policy: &str) -> Result<()> {
+    fn set(&mut self, policy: &str) -> Result<()> {
         let parsed = ReferrerPolicyDirective::from_str(policy)
             .map_err(|_| anyhow!("Invalid Referrer-Policy value: {policy}"))?;
         self.policy = parsed;
@@ -64,7 +64,7 @@ impl ReferrerPolicy {
     ///
     /// # Returns
     /// - `string` the active policy token.
-    fn policy(&self) -> String {
+    fn get(&self) -> String {
         self.policy.to_string()
     }
 
@@ -103,14 +103,14 @@ mod tests {
     fn test_default_policy() {
         let rp = ReferrerPolicy::__construct(None).unwrap();
         // Default should be no-referrer
-        assert_eq!(rp.policy(), "no-referrer");
+        assert_eq!(rp.get(), "no-referrer");
         assert_eq!(rp.build(), "no-referrer");
     }
 
     #[test]
     fn test_construct_with_valid_policy() {
         let rp = ReferrerPolicy::__construct(Some(String::from("origin"))).unwrap();
-        assert_eq!(rp.policy(), "origin");
+        assert_eq!(rp.get(), "origin");
         assert_eq!(rp.build(), "origin");
     }
 
@@ -125,15 +125,15 @@ mod tests {
     #[test]
     fn test_set_policy_valid() {
         let mut rp = ReferrerPolicy::__construct(None).unwrap();
-        rp.set_policy("strict-origin-when-cross-origin").unwrap();
-        assert_eq!(rp.policy(), "strict-origin-when-cross-origin");
+        rp.set("strict-origin-when-cross-origin").unwrap();
+        assert_eq!(rp.get(), "strict-origin-when-cross-origin");
         assert_eq!(rp.build(), "strict-origin-when-cross-origin");
     }
 
     #[test]
     fn test_set_policy_invalid() {
         let mut rp = ReferrerPolicy::__construct(None).unwrap();
-        let err = rp.set_policy("not-a-policy").unwrap_err();
+        let err = rp.set("not-a-policy").unwrap_err();
         let msg = format!("{err}");
         assert!(msg.contains("Invalid Referrer-Policy value"));
     }

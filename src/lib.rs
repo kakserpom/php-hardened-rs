@@ -12,16 +12,17 @@ pub use crate::hostname::Hostname;
 use crate::path::PathObj;
 use crate::rng::Rng;
 use crate::sanitizers::html::HtmlSanitizer;
-use crate::security_headers::cross_origin::cors::Cors;
+use crate::security_headers::cross_origin::embedder_policy::EmbedderPolicy;
+use crate::security_headers::cross_origin::opener_policy::OpenerPolicy;
+use crate::security_headers::cross_origin::resource_sharing::ResourceSharing;
 use crate::security_headers::csp::ContentSecurityPolicy;
-use crate::security_headers::hsts::Hsts;
-use crate::security_headers::misc::MiscHeaders;
+use crate::security_headers::hsts::StrictTransportSecurity;
+use crate::security_headers::whatnot::Whatnot;
 use crate::security_headers::permissions::PermissionsPolicy;
 use crate::security_headers::referrer_policy::ReferrerPolicy;
 use anyhow::{Error, Result};
 use ext_php_rs::prelude::*;
 use ext_php_rs::types::Zval;
-use crate::security_headers::cross_origin::coep::Coep;
 
 #[php_module]
 pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
@@ -32,12 +33,13 @@ pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
         .class::<Rng>()
         .class::<Csrf>()
         .class::<ContentSecurityPolicy>()
-        .class::<Hsts>()
-        .class::<MiscHeaders>()
+        .class::<StrictTransportSecurity>()
+        .class::<Whatnot>()
         .class::<PermissionsPolicy>()
         .class::<ReferrerPolicy>()
-        .class::<Cors>()
-        .class::<Coep>()
+        .class::<ResourceSharing>()
+        .class::<EmbedderPolicy>()
+        .class::<OpenerPolicy>()
 }
 
 fn to_str(path: &Zval) -> Result<String, Error> {

@@ -1,14 +1,16 @@
 use anyhow::anyhow;
+use ext_php_rs::php_const;
 #[cfg(not(test))]
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_impl};
+use php_hardened_macro::php_enum_constants;
 use std::str::FromStr;
 use strum_macros::{Display, EnumString};
 
 /// Allowed values for the `Cross-Origin-Embedder-Policy` header.
 #[derive(EnumString, Display, Debug, Clone, Copy)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
-pub enum CoepPolicy {
+pub enum Policy {
     /// Allows the document to load cross-origin resources without giving explicit permission
     /// through CORS or `Cross-Origin-Resource-Policy`. This is the default.
     UnsafeNone,
@@ -23,13 +25,14 @@ pub enum CoepPolicy {
 
 /// Builder for `Cross-Origin-Embedder-Policy` header.
 #[php_class]
-#[php(name = "Hardened\\SecurityHeaders\\CrossOrigin\\Coep")]
-pub struct Coep {
-    policy: CoepPolicy,
+#[php(name = "Hardened\\SecurityHeaders\\CrossOrigin\\EmbedderPolicy")]
+pub struct EmbedderPolicy {
+    policy: Policy,
 }
 
+#[php_enum_constants((Policy, "src/security_headers/cross_origin/embedder_policy.rs"))]
 #[php_impl]
-impl Coep {
+impl EmbedderPolicy {
     /// Constructs a new COEP builder.
     ///
     /// # Parameters
@@ -41,10 +44,10 @@ impl Coep {
     pub fn __construct(policy: Option<String>) -> anyhow::Result<Self> {
         Ok(Self {
             policy: if let Some(p) = policy {
-                CoepPolicy::from_str(&p)
+                Policy::from_str(&p)
                     .map_err(|_| anyhow!("Invalid Cross-Origin-Embedder-Policy value: {p}"))?
             } else {
-                CoepPolicy::UnsafeNone
+                Policy::UnsafeNone
             },
         })
     }
@@ -56,11 +59,20 @@ impl Coep {
     ///
     /// # Errors
     /// - Throws `Exception` if `policy` is not recognized.
-    pub fn set_policy(&mut self, policy: &str) -> anyhow::Result<()> {
-        self.policy = CoepPolicy::from_str(policy)
+    pub fn set(&mut self, policy: &str) -> anyhow::Result<()> {
+        self.policy = Policy::from_str(policy)
             .map_err(|_| anyhow!("Invalid Cross-Origin-Embedder-Policy value: {policy}"))?;
         Ok(())
     }
+
+    /// Get the current Embedder-Policy value.
+    ///
+    /// # Returns
+    /// - `string` the active policy token.
+    fn get(&self) -> String {
+        self.policy.to_string()
+    }
+
 
     /// Render the header value.
     ///
@@ -93,62 +105,62 @@ impl Coep {
 
 #[cfg(test)]
 mod tests {
-    use super::{Coep, CoepPolicy};
+    use super::{EmbedderPolicy, Policy};
     use crate::run_php_example;
 
     #[test]
     fn default_policy_is_unsafe_none() {
-        let coep = Coep::__construct(None).unwrap();
+        let coep = EmbedderPolicy::__construct(None).unwrap();
         assert_eq!(coep.build(), "unsafe-none");
     }
 
     #[test]
     fn construct_with_valid_policies() {
-        let coep1 = Coep::__construct(Some("require-corp".into())).unwrap();
+        let coep1 = EmbedderPolicy::__construct(Some("require-corp".into())).unwrap();
         assert_eq!(coep1.build(), "require-corp");
 
-        let coep2 = Coep::__construct(Some("credentialless".into())).unwrap();
+        let coep2 = EmbedderPolicy::__construct(Some("credentialless".into())).unwrap();
         assert_eq!(coep2.build(), "credentialless");
 
         // Case‐insensitive
-        let coep3 = Coep::__construct(Some("Require-Corp".into())).unwrap();
+        let coep3 = EmbedderPolicy::__construct(Some("Require-Corp".into())).unwrap();
         assert_eq!(coep3.build(), "require-corp");
     }
 
     #[test]
     fn construct_with_invalid_policy_errors() {
-        let err = Coep::__construct(Some("invalid-token".into()));
+        let err = EmbedderPolicy::__construct(Some("invalid-token".into()));
         assert!(err.is_err());
     }
 
     #[test]
-    fn set_policy_updates_value() {
-        let mut coep = Coep::__construct(None).unwrap();
-        coep.set_policy("require-corp").unwrap();
+    fn set_updates_value() {
+        let mut coep = EmbedderPolicy::__construct(None).unwrap();
+        coep.set("require-corp").unwrap();
         assert_eq!(coep.build(), "require-corp");
 
-        coep.set_policy("credentialless").unwrap();
+        coep.set("credentialless").unwrap();
         assert_eq!(coep.build(), "credentialless");
     }
 
     #[test]
-    fn set_policy_invalid_token_errors() {
-        let mut coep = Coep::__construct(None).unwrap();
-        let err = coep.set_policy("no-such-policy");
+    fn set_invalid_token_errors() {
+        let mut coep = EmbedderPolicy::__construct(None).unwrap();
+        let err = coep.set("no-such-policy");
         assert!(err.is_err());
     }
 
     #[test]
     fn underlying_enum_variants_are_correct() {
         // direct enum usage
-        assert_eq!(CoepPolicy::UnsafeNone.to_string(), "unsafe-none");
-        assert_eq!(CoepPolicy::RequireCorp.to_string(), "require-corp");
-        assert_eq!(CoepPolicy::Credentialless.to_string(), "credentialless");
+        assert_eq!(Policy::UnsafeNone.to_string(), "unsafe-none");
+        assert_eq!(Policy::RequireCorp.to_string(), "require-corp");
+        assert_eq!(Policy::Credentialless.to_string(), "credentialless");
     }
 
     #[test]
     fn php_example() -> anyhow::Result<()> {
-        run_php_example("security-headers/cross-origin/coep")?;
+        run_php_example("security-headers/cross-origin/embedder-policy")?;
         Ok(())
     }
 }

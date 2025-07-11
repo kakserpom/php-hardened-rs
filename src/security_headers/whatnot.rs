@@ -104,8 +104,8 @@ impl IntegrityPolicy {
 /// `X-Permitted-Cross-Domain-Policies`, `Report-To`, `Integrity-Policy`,
 /// and `Integrity-Policy-Report-Only`.
 #[php_class]
-#[php(name = "Hardened\\SecurityHeaders\\MiscHeaders")]
-pub struct MiscHeaders {
+#[php(name = "Hardened\\SecurityHeaders\\Whatnot")]
+pub struct Whatnot {
     frame: Option<(FrameOptions, Option<String>)>,
     xss: Option<(XssProtection, Option<String>)>,
     nosniff: bool,
@@ -116,7 +116,7 @@ pub struct MiscHeaders {
 }
 
 #[php_impl]
-impl MiscHeaders {
+impl Whatnot {
     /// Constructs a new builder with all headers disabled.
     fn __construct() -> Self {
         Self {
@@ -342,20 +342,20 @@ impl MiscHeaders {
 
 #[cfg(test)]
 mod tests {
-    use super::MiscHeaders;
+    use super::Whatnot;
     use crate::run_php_example;
     use std::collections::HashMap;
 
     #[test]
     fn test_default_build_empty() {
-        let m = MiscHeaders::__construct();
+        let m = Whatnot::__construct();
         let headers = m.build();
         assert!(headers.is_empty(), "Expected no headers by default");
     }
 
     #[test]
     fn test_set_frame_options_deny() {
-        let mut m = MiscHeaders::__construct();
+        let mut m = Whatnot::__construct();
         m.set_frame_options("DENY", None).unwrap();
         let headers = m.build();
         assert_eq!(
@@ -366,7 +366,7 @@ mod tests {
 
     #[test]
     fn test_set_frame_options_allow_from() {
-        let mut m = MiscHeaders::__construct();
+        let mut m = Whatnot::__construct();
         m.set_frame_options("ALLOW-FROM", Some(String::from("https://example.com")))
             .unwrap();
         let headers = m.build();
@@ -378,14 +378,14 @@ mod tests {
 
     #[test]
     fn test_set_frame_options_errors() {
-        let mut m = MiscHeaders::__construct();
+        let mut m = Whatnot::__construct();
         assert!(m.set_frame_options("INVALID", None).is_err());
         assert!(m.set_frame_options("ALLOW-FROM", None).is_err());
     }
 
     #[test]
     fn test_set_xss_protection_modes() {
-        let mut m = MiscHeaders::__construct();
+        let mut m = Whatnot::__construct();
         m.set_xss_protection("off", None).unwrap();
         let headers = m.build();
         assert_eq!(
@@ -393,7 +393,7 @@ mod tests {
             Some("0")
         );
 
-        let mut m = MiscHeaders::__construct();
+        let mut m = Whatnot::__construct();
         m.set_xss_protection("on", None).unwrap();
         let headers = m.build();
         assert_eq!(
@@ -401,7 +401,7 @@ mod tests {
             Some("1")
         );
 
-        let mut m = MiscHeaders::__construct();
+        let mut m = Whatnot::__construct();
         m.set_xss_protection("block", None).unwrap();
         let headers = m.build();
         assert_eq!(
@@ -412,7 +412,7 @@ mod tests {
 
     #[test]
     fn test_set_xss_protection_with_report() {
-        let mut m = MiscHeaders::__construct();
+        let mut m = Whatnot::__construct();
         m.set_xss_protection("on", Some(String::from("https://report.com")))
             .unwrap();
         let headers = m.build();
@@ -424,7 +424,7 @@ mod tests {
 
     #[test]
     fn test_set_xss_protection_errors() {
-        let mut m = MiscHeaders::__construct();
+        let mut m = Whatnot::__construct();
         // report_uri only allowed with "on"
         assert!(
             m.set_xss_protection("off", Some(String::from("uri")))
@@ -436,7 +436,7 @@ mod tests {
 
     #[test]
     fn test_set_nosniff() {
-        let mut m = MiscHeaders::__construct();
+        let mut m = Whatnot::__construct();
         m.set_nosniff(true);
         let headers = m.build();
         assert_eq!(
@@ -447,7 +447,7 @@ mod tests {
 
     #[test]
     fn test_set_permitted_cross_domain_policies() {
-        let mut m = MiscHeaders::__construct();
+        let mut m = Whatnot::__construct();
         m.set_permitted_cross_domain_policies("none").unwrap();
         let headers = m.build();
         assert_eq!(
@@ -462,7 +462,7 @@ mod tests {
 
     #[test]
     fn test_set_report_to() {
-        let mut m = MiscHeaders::__construct();
+        let mut m = Whatnot::__construct();
         m.set_report_to("grp", 3600, true, vec!["ep1", "ep2"])
             .unwrap();
         let headers = m.build();
@@ -476,7 +476,7 @@ mod tests {
 
     #[test]
     fn test_set_integrity_policy_report_only() {
-        let mut m = MiscHeaders::__construct();
+        let mut m = Whatnot::__construct();
         m.set_integrity_policy_report_only("policy-value").unwrap();
         let headers = m.build();
         assert_eq!(
@@ -489,7 +489,7 @@ mod tests {
 
     #[test]
     fn test_combined_headers() {
-        let mut m = MiscHeaders::__construct();
+        let mut m = Whatnot::__construct();
         m.set_frame_options("SAMEORIGIN", None).unwrap();
         m.set_xss_protection("on", None).unwrap();
         m.set_nosniff(true);
@@ -516,7 +516,7 @@ mod tests {
 
     #[test]
     fn php_example() -> anyhow::Result<()> {
-        run_php_example("security-headers/misc")?;
+        run_php_example("security-headers/whatnot")?;
         Ok(())
     }
 }

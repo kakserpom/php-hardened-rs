@@ -2,6 +2,7 @@ use anyhow::{Result, anyhow, bail};
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_const, php_impl};
 use fmt::Write;
+use php_hardened_macro::php_enum_constants;
 use rand::distr::Alphanumeric;
 use rand::{Rng, rng};
 use std::collections::BTreeMap;
@@ -97,118 +98,10 @@ pub struct ContentSecurityPolicy {
     pub src_map: BTreeMap<Rule, CspSettings>,
     pub nonce: Option<String>,
 }
+#[php_enum_constants((Keyword, "src/security_headers/csp.rs"))]
+#[php_enum_constants((Rule, "src/security_headers/csp.rs"))]
 #[php_impl]
 impl ContentSecurityPolicy {
-    // CSP directive constants
-    #[php_const]
-    const DEFAULT_SRC: &'static str = "default-src";
-    #[php_const]
-    const SCRIPT_SRC: &'static str = "script-src";
-    #[php_const]
-    const STYLE_SRC: &'static str = "style-src";
-    #[php_const]
-    const IMG_SRC: &'static str = "img-src";
-    #[php_const]
-    const FRAME_ANCESTORS: &'static str = "frame-ancestors";
-    #[php_const]
-    const FONT_SRC: &'static str = "font-src";
-    #[php_const]
-    const CONNECT_SRC: &'static str = "connect-src";
-    #[php_const]
-    const CHILD_SRC: &'static str = "child-src";
-    #[php_const]
-    const MANIFEST_SRC: &'static str = "manifest-src";
-    #[php_const]
-    const MEDIA_SRC: &'static str = "media-src";
-    #[php_const]
-    const OBJECT_SRC: &'static str = "object-src";
-    #[php_const]
-    const PREFETCH_SRC: &'static str = "prefetch-src";
-    #[php_const]
-    const SCRIPT_SRC_ELEM: &'static str = "script-src-elem";
-    #[php_const]
-    const SCRIPT_SRC_ATTR: &'static str = "script-src-attr";
-    #[php_const]
-    const STYLE_SRC_ELEM: &'static str = "style-src-elem";
-    #[php_const]
-    const STYLE_SRC_ATTR: &'static str = "style-src-attr";
-    #[php_const]
-    const WORKER_SRC: &'static str = "worker-src";
-    #[php_const]
-    const BASE_URI: &'static str = "base-uri";
-    #[php_const]
-    const FORM_ACTION: &'static str = "form-action";
-    #[php_const]
-    const SANDBOX: &'static str = "sandbox";
-    #[php_const]
-    const PLUGIN_TYPES: &'static str = "plugin-types";
-    #[php_const]
-    const BLOCK_ALL_MIXED_CONTENT: &'static str = "block-all-mixed-content";
-    #[php_const]
-    const UPGRADE_INSECURE_REQUESTS: &'static str = "upgrade-insecure-requests";
-    #[php_const]
-    const REPORT_URI: &'static str = "report-uri";
-    #[php_const]
-    const REPORT_TO: &'static str = "report-to";
-    #[php_const]
-    const REQUIRE_SRI_FOR: &'static str = "require-sri-for";
-    #[php_const]
-    const TRUSTED_TYPES: &'static str = "trusted-types";
-    #[php_const]
-    const REQUIRE_TRUSTED_TYPES_FOR: &'static str = "require-trusted-types-for";
-
-    // Keywords constants
-    #[php_const]
-    const SELF: &'static str = "self";
-    #[php_const]
-    const NONE: &'static str = "none";
-    #[php_const]
-    const UNSAFE_INLINE: &'static str = "unsafe-inline";
-    #[php_const]
-    const UNSAFE_EVAL: &'static str = "unsafe-eval";
-    #[php_const]
-    const UNSAFE_HASHES: &'static str = "unsafe-hashes";
-    #[php_const]
-    const STRICT_DYNAMIC: &'static str = "strict-dynamic";
-    #[php_const]
-    const NONCE: &'static str = "nonce";
-    #[php_const]
-    const SCRIPT: &'static str = "script";
-    #[php_const]
-    const STYLE: &'static str = "style";
-    #[php_const]
-    const ALLOW_FORMS: &'static str = "allow-forms";
-    #[php_const]
-    const ALLOW_MODALS: &'static str = "allow-modals";
-    #[php_const]
-    const ALLOW_ORIENTATION_LOCK: &'static str = "allow-orientation-lock";
-    #[php_const]
-    const ALLOW_POINTER_LOCK: &'static str = "allow-pointer-lock";
-    #[php_const]
-    const ALLOW_PRESENTATION: &'static str = "allow-presentation";
-    #[php_const]
-    const ALLOW_POPUPS: &'static str = "allow-popups";
-    #[php_const]
-    const ALLOW_POPUPS_TO_ESCAPE_SANDBOX: &'static str = "allow-popups-to-escape-sandbox";
-    #[php_const]
-    const ALLOW_SAME_ORIGIN: &'static str = "allow-same-origin";
-    #[php_const]
-    const ALLOW_SCRIPTS: &'static str = "allow-scripts";
-    #[php_const]
-    const ALLOW_STORAGE_ACCESS_BY_USER_ACTIVATION: &'static str =
-        "allow-storage-access-by-user-activation";
-    #[php_const]
-    const ALLOW_TOP_NAVIGATION_BY_USER_ACTIVATION: &'static str =
-        "allow-top-navigation-by-user-activation";
-    #[php_const]
-    const ALLOW_DUPLICATES: &'static str = "allow-duplicates";
-    #[php_const]
-    const INLINE_SPECULATION_RULES: &'static str = "inline-speculation-rules";
-    #[php_const]
-    const REPORT_SAMPLE: &'static str = "report-sample";
-    #[php_const]
-    const WASM_UNSAFE_EVAL: &'static str = "wasm-unsafe-eval";
-
     /// Constructs a new `ContentSecurityPolicy` builder with no directives set.
     ///
     /// # Returns
@@ -335,8 +228,8 @@ impl ContentSecurityPolicy {
 
 #[cfg(test)]
 mod tests {
-    use crate::run_php_example;
     use super::{ContentSecurityPolicy, Keyword, Rule};
+    use crate::run_php_example;
 
     #[test]
     fn build_empty_policy() {
@@ -413,7 +306,7 @@ mod tests {
 
     #[test]
     fn php_example() -> anyhow::Result<()> {
-        run_php_example("security-headers/csp")?;
+        run_php_example("security-headers/content-security-policy")?;
         Ok(())
     }
 }
