@@ -239,11 +239,11 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
-    fn rm_clean_content_tags(&mut self, tags: Vec<&str>) -> Result<()> {
+    fn rm_clean_content_tags(&mut self, tags: Vec<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.add_clean_content_tags(tags);
+        x.rm_clean_content_tags(tags.iter());
         Ok(())
     }
 
@@ -1086,6 +1086,19 @@ mod tests {
                 None,
             )?,
             "<p>Hello …</p>",
+        );
+
+        let mut s = HtmlSanitizer::default();
+        s.add_tags(vec!["script".into()])?;
+        s.rm_clean_content_tags(vec!["script".into()])?;
+        assert_eq!(
+            s._clean_and_truncate(
+                "<script>unenclosed script contents".into(),
+                20,
+                &[Graphemes, PreserveWords],
+                None,
+            )?,
+            "",
         );
 
         // 1. Set up the sanitizer to allow only <a> and <b> tags

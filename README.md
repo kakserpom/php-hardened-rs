@@ -42,7 +42,7 @@ Currently, we provide builders for several HTTP security headers (namespace `Har
   `same-origin-allow-popups`, or `unsafe-none`.
 - **ResourcePolicy** — configure `Cross-Origin-Resource-Policy`: choose `same-origin`, `same-site`, or
   `cross-origin`.
-- -**ContentSecurityPolicy** — configure `Content-Security-Policy` directives, keyword sources, hosts, automatic
+- **ContentSecurityPolicy** — configure `Content-Security-Policy` directives, keyword sources, hosts, automatic
   nonces.
 - **ReferrerPolicy** — set any valid `Referrer-Policy` token and emit header.
 - **PermissionsPolicy** — configure `Permissions-Policy` features, allow or deny per‐feature with allowlists (`*`,
@@ -140,8 +140,10 @@ See [example](examples/path.php).
     - __default__` unicode` (or `u`) — units of  `$max` will be Unicode code points.
     - `ascii` (or `a`) — units of  `$max` will be bytes. Even this mode doesn't chop Unicode code points in half.
 
-> Open HTML tags will automatically close at all times, but beware that added closing tags may cause the result to
-> flow over `$max` if you are truncating.
+> Open HTML tags will automatically close at all times, but beware that added closing tags may cause the result length
+> to flow over `$max` if you are truncating.
+> `cleanAndTruncate()` is currently meant to be used only with simple user-generated markup, so it is currently
+> is NOT safe to use if you allow HTML tags like `<script>` and `<style>`.
 
 See [example](examples/sanitizers/html.php).
 
@@ -400,7 +402,7 @@ See [example](examples/security-headers/whatnot.php).
 - Builder for the `Permissions-Policy` header.
 - Use `allow(feature, origins)` to enable a feature for a list of origins, or `deny(feature)` for an empty allowlist.
 
-See [example](examples/security-headers/misc.php).
+See [example](examples/security-headers/permissions-policy.php).
 
 ---
 
