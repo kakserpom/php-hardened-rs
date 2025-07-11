@@ -264,8 +264,8 @@ impl Rng {
 #[cfg(test)]
 mod tests {
     use super::Rng;
-    use unicode_segmentation::UnicodeSegmentation;
     use crate::run_php_example;
+    use unicode_segmentation::UnicodeSegmentation;
 
     #[test]
     fn test_alphanumeric() {

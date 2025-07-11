@@ -15,14 +15,14 @@ pub struct PathObj {
 
 impl PathObj {
     #[inline]
-    pub fn _append(&self, path: &str) -> Self {
+    fn _append(&self, path: &str) -> Self {
         Self {
             inner: lexical_canonicalize(self.inner.join(path)),
         }
     }
 
     #[inline]
-    pub fn _append_within(&self, path: &str) -> anyhow::Result<Self> {
+    fn _append_within(&self, path: &str) -> anyhow::Result<Self> {
         let inner = lexical_canonicalize(self.inner.join(path));
         if inner.starts_with(&self.inner) {
             Ok(Self { inner })
@@ -31,7 +31,7 @@ impl PathObj {
         }
     }
 
-    pub fn _starts_with(&self, path: &str) -> bool {
+    fn _starts_with(&self, path: &str) -> bool {
         self.inner.starts_with(path)
     }
 }
@@ -64,7 +64,7 @@ impl PathObj {
     /// # Errors
     /// Throws an exception if conversion from Zval to string fails.
     #[inline]
-    pub fn from(path: &Zval) -> anyhow::Result<Self> {
+    fn from(path: &Zval) -> anyhow::Result<Self> {
         Ok(Self {
             inner: lexical_canonicalize(Path::new(&to_str(path)?)),
         })
@@ -77,7 +77,7 @@ impl PathObj {
     ///
     /// # Errors
     /// Throws an exception if conversion from Zval to string fails.
-    pub fn __construct(path: &Zval) -> anyhow::Result<Self> {
+    fn __construct(path: &Zval) -> anyhow::Result<Self> {
         Self::from(path)
     }
 
@@ -91,7 +91,7 @@ impl PathObj {
     ///
     /// # Errors
     /// Throws an exception if conversion from Zval to string fails.
-    pub fn starts_with(&self, path: &Zval) -> anyhow::Result<bool> {
+    fn starts_with(&self, path: &Zval) -> anyhow::Result<bool> {
         Ok(self.inner.starts_with(to_str(path)?))
     }
 
@@ -105,7 +105,7 @@ impl PathObj {
     ///
     /// # Errors
     /// Throws an exception if conversion from Zval to string fails.
-    pub fn append(&self, path: &Zval) -> anyhow::Result<Self> {
+    fn append(&self, path: &Zval) -> anyhow::Result<Self> {
         Ok(self._append(&to_str(path)?))
     }
 
@@ -116,23 +116,23 @@ impl PathObj {
     ///
     /// # Errors
     /// Throws an exception if conversion from Zval to string fails or if the resulting path is not a subpath.
-    pub fn append_within_base(&self, path: &Zval) -> anyhow::Result<Self> {
+    fn append_within_base(&self, path: &Zval) -> anyhow::Result<Self> {
         self._append_within(&to_str(path)?)
     }
 
-    pub fn set_file_name(&mut self, file_name: &Zval) -> anyhow::Result<Self> {
+    fn set_file_name(&mut self, file_name: &Zval) -> anyhow::Result<Self> {
         let mut inner = self.inner.clone();
         inner.set_file_name(to_str(file_name)?);
         Ok(Self { inner })
     }
 
-    pub fn set_extension(&mut self, file_name: &Zval) -> anyhow::Result<Self> {
+    fn set_extension(&mut self, file_name: &Zval) -> anyhow::Result<Self> {
         let mut inner = self.inner.clone();
         inner.set_extension(to_str(file_name)?);
         Ok(Self { inner })
     }
 
-    pub fn file_name(&self) -> Option<String> {
+    fn file_name(&self) -> Option<String> {
         self.inner
             .file_name()
             .and_then(OsStr::to_str)
@@ -146,14 +146,14 @@ impl PathObj {
     ///
     /// # Errors
     /// Throws an exception if the path cannot be converted to a string.
-    pub fn __to_string(&self) -> anyhow::Result<String> {
+    fn __to_string(&self) -> anyhow::Result<String> {
         self.inner
             .to_str()
             .map(str::to_string)
             .ok_or_else(|| anyhow::anyhow!("Could not convert path to string"))
     }
 
-    pub fn path(&self) -> anyhow::Result<String> {
+    fn path(&self) -> anyhow::Result<String> {
         self.inner
             .to_str()
             .map(str::to_string)
@@ -220,7 +220,7 @@ impl PathObj {
 ///
 /// # Returns
 /// A lexically canonicalized PathBuf.
-pub fn lexical_canonicalize<P: AsRef<Path>>(path: P) -> PathBuf {
+fn lexical_canonicalize<P: AsRef<Path>>(path: P) -> PathBuf {
     let path = path.as_ref();
     let mut stack: Vec<Component> = Vec::new();
 

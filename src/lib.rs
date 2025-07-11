@@ -14,19 +14,19 @@ use crate::rng::Rng;
 use crate::sanitizers::html::HtmlSanitizer;
 use crate::security_headers::cross_origin::embedder_policy::EmbedderPolicy;
 use crate::security_headers::cross_origin::opener_policy::OpenerPolicy;
+use crate::security_headers::cross_origin::resource_policy::ResourcePolicy;
 use crate::security_headers::cross_origin::resource_sharing::ResourceSharing;
 use crate::security_headers::csp::ContentSecurityPolicy;
 use crate::security_headers::hsts::StrictTransportSecurity;
-use crate::security_headers::whatnot::Whatnot;
 use crate::security_headers::permissions::PermissionsPolicy;
 use crate::security_headers::referrer_policy::ReferrerPolicy;
+use crate::security_headers::whatnot::Whatnot;
 use anyhow::{Error, Result};
 use ext_php_rs::prelude::*;
 use ext_php_rs::types::Zval;
-use crate::security_headers::cross_origin::resource_policy::ResourcePolicy;
 
 #[php_module]
-pub fn get_module(module: ModuleBuilder) -> ModuleBuilder {
+fn get_module(module: ModuleBuilder) -> ModuleBuilder {
     module
         .class::<Hostname>()
         .class::<PathObj>()

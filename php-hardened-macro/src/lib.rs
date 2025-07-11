@@ -2,10 +2,7 @@ use heck::ToKebabCase;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    parse_macro_input,
-    punctuated::Punctuated,
-    token::Comma,
-    Expr, ExprLit, ItemEnum, ItemImpl, Lit,
+    parse_macro_input, punctuated::Punctuated, token::Comma, Expr, ExprLit, ItemEnum, ItemImpl, Lit,
 };
 
 /// Inserts `#[php_const] const Variant: &'static str = "variant";` (along with any
@@ -38,7 +35,9 @@ pub fn php_enum_constants(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // 3) Second argument: string literal → file path
     let file_path = match it.next().unwrap() {
-        Expr::Lit(ExprLit { lit: Lit::Str(s), .. }) => s.value(),
+        Expr::Lit(ExprLit {
+            lit: Lit::Str(s), ..
+        }) => s.value(),
         _ => panic!("second argument must be a string literal path"),
     };
 
@@ -48,18 +47,23 @@ pub fn php_enum_constants(attr: TokenStream, item: TokenStream) -> TokenStream {
     // 5) Read & parse the target source file
     let src = std::fs::read_to_string(&file_path)
         .unwrap_or_else(|_| panic!("couldn't read `{}`", file_path));
-    let syntax = syn::parse_file(&src)
-        .unwrap_or_else(|_| panic!("failed to parse `{}`", file_path));
+    let syntax =
+        syn::parse_file(&src).unwrap_or_else(|_| panic!("failed to parse `{}`", file_path));
 
     // 6) Locate the enum and generate consts
     let mut const_items = Vec::new();
     for node in syntax.items {
-        if let syn::Item::Enum(ItemEnum { ident, variants, .. }) = node {
+        if let syn::Item::Enum(ItemEnum {
+            ident, variants, ..
+        }) = node
+        {
             if ident == enum_ident {
                 for variant in variants {
                     let name = &variant.ident;
                     // capture any doc-comments
-                    let docs = variant.attrs.iter()
+                    let docs = variant
+                        .attrs
+                        .iter()
                         .filter(|a| a.path().is_ident("doc"))
                         .cloned();
                     let lit = name.to_string().to_kebab_case();

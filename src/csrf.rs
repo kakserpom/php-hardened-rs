@@ -30,7 +30,7 @@ impl Csrf {
     /// # Exceptions
     /// - Throws `Exception` if key decoding or length validation fails.
     /// - Throws `Exception` if token pair generation fails.
-    pub fn __construct(
+    fn __construct(
         key: &str,
         ttl: i64,
         previous_token_value: Option<String>,
@@ -65,7 +65,7 @@ impl Csrf {
         })
     }
 
-    pub fn generate_key() -> String {
+    fn generate_key() -> String {
         BASE64URL.encode(&rand::random::<[u8; 32]>())
     }
 
@@ -168,7 +168,7 @@ impl Csrf {
     ///
     /// # Exceptions
     /// - Throws `Exception` if the PHP `setcookie()` function cannot be invoked.
-    pub fn set_cookie(
+    fn set_cookie(
         &mut self,
         expires: Option<i64>,
         path: Option<String>,

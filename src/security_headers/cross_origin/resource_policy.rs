@@ -41,7 +41,7 @@ impl ResourcePolicy {
     ///
     /// # Exceptions
     /// - Throws an `Exception` if `policy` cannot be parsed into a valid directive.
-    pub fn __construct(policy: Option<String>) -> Result<Self> {
+    fn __construct(policy: Option<String>) -> Result<Self> {
         let directive = if let Some(s) = policy {
             ResourcePolicyDirective::from_str(&s)
                 .map_err(|_| anyhow!("Invalid Cross-Origin-Resource-Policy value: {}", s))?
@@ -60,7 +60,7 @@ impl ResourcePolicy {
     ///
     /// # Exceptions
     /// - Throws an `Exception` if `policy` cannot be parsed into a valid directive.
-    pub fn set(&mut self, policy: &str) -> Result<()> {
+    fn set(&mut self, policy: &str) -> Result<()> {
         self.policy = ResourcePolicyDirective::from_str(policy)
             .map_err(|_| anyhow!("Invalid Cross-Origin-Resource-Policy value: {}", policy))?;
         Ok(())
@@ -78,7 +78,7 @@ impl ResourcePolicy {
     ///
     /// # Returns
     /// - `string` the configured directive token.
-    pub fn build(&self) -> String {
+    fn build(&self) -> String {
         self.policy.to_string()
     }
 

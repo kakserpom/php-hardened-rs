@@ -3,7 +3,6 @@ use Hardened\Sanitizers\HtmlSanitizer;
 
 $sanitizer = HtmlSanitizer::default();
 $sanitizer->urlRelativeDeny();
-$sanitizer->tags(["a", "p"]);
 $sanitizer->filterStyleProperties(["color", "font-size"]);
 
 var_dump($sanitizer->clean("<a href='../evil'>Click</a><p>"));
@@ -22,3 +21,19 @@ var_dump($sanitizer->isValidUrl("javascript:alert(1)"));
 
 var_dump($sanitizer->isValidUrl("foo"));
 // bool(false)
+
+// Truncate by extended grapheme clusters (default ellipsis)
+var_dump($sanitizer->cleanAndTruncate("<p>你好世界！</p>", 7, 'e'));
+// string(19) "<p>你好世…</p>"
+
+// Truncate by simple graphemes with custom suffix
+var_dump($sanitizer->cleanAndTruncate("<p>Курва<p>!!</p>!</p>", 20, 'g', ' (more)'));
+// Outputs: <p>abcdefghij (more)</p>
+
+// Truncate by characters
+var_dump($sanitizer->cleanAndTruncate("<p>Hello, world!</p>", 10, 'a'));
+// Outputs: <p>12345…</p>
+
+// Truncate by bytes (valid UTF-8 boundary)
+var_dump($sanitizer->cleanAndTruncate("<p>доброеутро</p>", 20, 'u'));
+// Outputs may vary but will not break UTF-8 sequences, e.g.: <p>доброеут…</p>

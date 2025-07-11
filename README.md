@@ -17,7 +17,7 @@ As well as blazingly fast sanitizers, ergonomic builders of HTTP security header
 ## Sanitizers (`Hardened\Sanitizers`)
 
 - **Hardened\Sanitizers\HtmlSanitizer** — configurable HTML sanitization
-  via [Ammonia](https://github.com/rust-ammonia/ammonia),
+  via [Ammonia](https://github.com/rust-ammonia/ammonia). There's also `truncateAndClean()`
 
 ## Security Headers (`Hardened\SecurityHeaders`)
 
@@ -36,9 +36,9 @@ Currently, we provide builders for several HTTP security headers (namespace `Har
 
 - **ResourceSharing** — configure CORS: allowed origins, methods, headers, credentials, exposed headers,
   preflight cache.
-- **EmbedderPolicy (Coep)** — configure `Cross-Origin-Embedder-Policy`: choose between `unsafe-none`,
+- **EmbedderPolicy** — configure `Cross-Origin-Embedder-Policy`: choose between `unsafe-none`,
   `require-corp`, or `credentialless`.
-- **OpenerPolicy (Coop)** — configure `Cross-Origin-Opener-Policy`: e.g. `same-origin`,
+- **OpenerPolicy** — configure `Cross-Origin-Opener-Policy`: e.g. `same-origin`,
   `same-origin-allow-popups`, or `unsafe-none`.
 - **ResourcePolicy** — configure `Cross-Origin-Resource-Policy`: choose `same-origin`, `same-site`, or
   `cross-origin`.
@@ -129,53 +129,64 @@ See [example](examples/path.php).
 
 ### `Hardened\Sanitizers\HtmlSanitizer`
 
-- Wraps Ammonia `Builder` for fine-grained HTML sanitization.
+- Provides a powerful fine-grained HTML sanitization using [Ammonia](https://github.com/rust-ammonia/ammonia).
 - Configuration methods for URL policies, tags, attributes, and filters.
-- Attribute filter callback support.
+- Attribute filter callback support
+- *A built-in truncator:*
+  cleanAndTruncate($html, $max, $flags = ['e'], $etc = '…') is useful when you need to get a snippet of a dynamic HTML
+  content. Length of `$etc` is included in the limit. Supported flags:
+    - `extended-graphemes` (or `e`) — units of `$max` will be Unicode extended grapheme clusters.
+    - `graphemes` (or `g`) — units of `$max` will be Unicode grapheme clusters.
+    - __default__` unicode` (or `u`) — units of  `$max` will be Unicode code points.
+    - `ascii` (or `a`) — units of  `$max` will be bytes. Even this mode doesn't chop Unicode code points in half even.
 
-See [example](examples/sanitizers/html-sanitizer.php).
+> Open HTML tags will automatically close at all times, but beware that added closing tags may cause the result to
+> flow over `$max` if you are truncating.
 
-| Method                                                                      | Description                                                                                                           |
-|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
-| `default(): HtmlSanitizer`                                                  | Construct a sanitizer with default configuration.                                                                     |
-| `urlRelativeDeny(): void`                                                   | Deny all relative URLs in attributes.                                                                                 |
-| `urlRelativePassthrough(): void`                                            | Pass through relative URLs unchanged.                                                                                 |
-| `urlRelativeRewriteWithBase(string $base_url): void`                        | Rewrite relative URLs using the given base URL.                                                                       |
-| `urlRelativeRewriteWithRoot(string $root, string $path): void`              | Rewrite relative URLs using a root URL and path prefix.                                                               |
-| `linkRel(?string $value): void`                                             | Set the `rel` attribute for generated `<a>` tags.                                                                     |
-| `tags(array $tags): void`                                                   | Overwrite the set of allowed tags.                                                                                    |
-| `addTags(array $tags): void`                                                | Add additional allowed tags to the existing whitelist.                                                                |
-| `rmTags(array $tags): void`                                                 | Remove tags from the whitelist.                                                                                       |
-| `addAllowedClasses(string $tag, array $classes): void`                      | Add allowed CSS classes for a specific tag.                                                                           |
-| `rmAllowedClasses(string $tag, array $classes): void`                       | Remove allowed CSS classes from a specific tag.                                                                       |
-| `addTagAttributes(string $tag, array $attributes): void`                    | Add allowed attributes to a specific tag.                                                                             |
-| `rmTagAttributes(string $tag, array $attributes): void`                     | Remove attributes from a specific tag.                                                                                |
-| `addGenericAttributes(array $attributes): void`                             | Add generic attributes to all tags.                                                                                   |
-| `rmGenericAttributes(array $attributes): void`                              | Remove generic attributes from all tags.                                                                              |
-| `addGenericAttributePrefixes(array $prefixes): void`                        | Add prefixes for generic attributes.                                                                                  |
-| `rmGenericAttributePrefixes(array $prefixes): void`                         | Remove prefixes for generic attributes.                                                                               |
-| `clean(string $html): string`                                               | Sanitize the given HTML string.                                                                                       |
-| `urlSchemes(array $schemes): void`                                          | Whitelist URL schemes (e.g., "http", "https").                                                                        |
-| `stripComments(bool $strip): void`                                          | Enable or disable HTML comment stripping.                                                                             |
-| `willStripComments(): bool`                                                 | Return whether HTML comments will be stripped.                                                                        |
-| `idPrefix(?string $prefix): void`                                           | Prefix all `id` attributes with the given string.                                                                     |
-| `filterStyleProperties(array $props): void`                                 | Filter CSS style properties allowed in `style` attributes.                                                            |
-| `setTagAttributeValue(string $tag, string $attribute, string $value): void` | Set single tag attribute value.                                                                                       |
-| `cloneTags(): array`                                                        | Return configured tags as a vector of strings.                                                                        |
-| `cloneCleanContentTags(): array`                                            | Get all configured clean-content tags.                                                                                |
-| `genericAttributes(array $attrs): void`                                     | Bulk overwrite generic attributes.                                                                                    |
-| `genericAttributePrefixes(array $prefixes): void`                           | Bulk overwrite generic attribute prefixes.                                                                            |
-| `addTagAttributeValues(string $tag, string $attr, array $values): void`     | Add tag attribute values.                                                                                             |
-| `rmTagAttributeValues(string $tag, string $attr, array $values): void`      | Remove tag attribute values.                                                                                          |
-| `getSetTagAttributeValue(string $tag, string $attr): ?string`               | Get a single set_tag_attribute_value.                                                                                 |
-| `isUrlRelativeDeny(): bool`                                                 | Check URL relative policy: Deny.                                                                                      |
-| `isUrlRelativePassThrough(): bool`                                          | Check URL relative policy: PassThrough.                                                                               |
-| `isUrlRelativeCustom(): bool`                                               | Check URL relative policy: custom (Rewrite).                                                                          |
-| `attributeFilter(callable $fn): void`                                       | Set attribute filter callback: `(string $element, string $attribute, string $value) -> string \|null`.                |
-| **`cleanContentTags(array $tags): void`**                                   | Sets the tags whose contents will be completely removed from the output.                                              |
-| **`addCleanContentTags(array $tags): void`**                                | Add additional blacklisted clean-content tags without overwriting old ones.                                           |
-| **`rmCleanContentTags(array $tags): void`**                                 | Remove already-blacklisted clean-content tags.                                                                        |
-| `isValidUrl(string $url): bool`                                             | Checks whether a URL is allowed by the configured scheme whitelist or, for relative URLs, by the relative-URL policy. |
+See [example](examples/sanitizers/html.php).
+
+| Method                                                                                      | Description                                                                                                           |
+|---------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| `default(): HtmlSanitizer`                                                                  | Construct a sanitizer with default configuration.                                                                     |
+| `clean(string $html): string`                                                               | Sanitize the given HTML string.                                                                                       |
+| `cleanAndTruncate(string $html, int $max, array[string] $flags, string $etc = '…'): string` | Sanitize HTML and truncate appending `$etc` if truncated.                                                             |
+| `urlRelativeDeny(): void`                                                                   | Deny all relative URLs in attributes.                                                                                 |
+| `urlRelativePassthrough(): void`                                                            | Pass through relative URLs unchanged.                                                                                 |
+| `urlRelativeRewriteWithBase(string $base_url): void`                                        | Rewrite relative URLs using the given base URL.                                                                       |
+| `urlRelativeRewriteWithRoot(string $root, string $path): void`                              | Rewrite relative URLs using a root URL and path prefix.                                                               |
+| `linkRel(?string $value): void`                                                             | Set the `rel` attribute for generated `<a>` tags.                                                                     |
+| `tags(array $tags): void`                                                                   | Overwrite the set of allowed tags.                                                                                    |
+| `addTags(array $tags): void`                                                                | Add additional allowed tags to the existing whitelist.                                                                |
+| `rmTags(array $tags): void`                                                                 | Remove tags from the whitelist.                                                                                       |
+| `addAllowedClasses(string $tag, array $classes): void`                                      | Add allowed CSS classes for a specific tag.                                                                           |
+| `rmAllowedClasses(string $tag, array $classes): void`                                       | Remove allowed CSS classes from a specific tag.                                                                       |
+| `addTagAttributes(string $tag, array $attributes): void`                                    | Add allowed attributes to a specific tag.                                                                             |
+| `rmTagAttributes(string $tag, array $attributes): void`                                     | Remove attributes from a specific tag.                                                                                |
+| `addGenericAttributes(array $attributes): void`                                             | Add generic attributes to all tags.                                                                                   |
+| `rmGenericAttributes(array $attributes): void`                                              | Remove generic attributes from all tags.                                                                              |
+| `addGenericAttributePrefixes(array $prefixes): void`                                        | Add prefixes for generic attributes.                                                                                  |
+| `rmGenericAttributePrefixes(array $prefixes): void`                                         | Remove prefixes for generic attributes.                                                                               |
+| `urlSchemes(array $schemes): void`                                                          | Whitelist URL schemes (e.g., "http", "https").                                                                        |
+| `stripComments(bool $strip): void`                                                          | Enable or disable HTML comment stripping.                                                                             |
+| `willStripComments(): bool`                                                                 | Return whether HTML comments will be stripped.                                                                        |
+| `idPrefix(?string $prefix): void`                                                           | Prefix all `id` attributes with the given string.                                                                     |
+| `filterStyleProperties(array $props): void`                                                 | Filter CSS style properties allowed in `style` attributes.                                                            |
+| `setTagAttributeValue(string $tag, string $attribute, string $value): void`                 | Set single tag attribute value.                                                                                       |
+| `cloneTags(): array`                                                                        | Return configured tags as a vector of strings.                                                                        |
+| `cloneCleanContentTags(): array`                                                            | Get all configured clean-content tags.                                                                                |
+| `genericAttributes(array $attrs): void`                                                     | Bulk overwrite generic attributes.                                                                                    |
+| `genericAttributePrefixes(array $prefixes): void`                                           | Bulk overwrite generic attribute prefixes.                                                                            |
+| `addTagAttributeValues(string $tag, string $attr, array $values): void`                     | Add tag attribute values.                                                                                             |
+| `rmTagAttributeValues(string $tag, string $attr, array $values): void`                      | Remove tag attribute values.                                                                                          |
+| `getSetTagAttributeValue(string $tag, string $attr): ?string`                               | Get a single set_tag_attribute_value.                                                                                 |
+| `isUrlRelativeDeny(): bool`                                                                 | Check URL relative policy: Deny.                                                                                      |
+| `isUrlRelativePassThrough(): bool`                                                          | Check URL relative policy: PassThrough.                                                                               |
+| `isUrlRelativeCustom(): bool`                                                               | Check URL relative policy: custom (Rewrite).                                                                          |
+| `attributeFilter(callable $fn): void`                                                       | Set attribute filter callback: `(string $element, string $attribute, string $value) -> string \|null`.                |
+| **`cleanContentTags(array $tags): void`**                                                   | Sets the tags whose contents will be completely removed from the output.                                              |
+| **`addCleanContentTags(array $tags): void`**                                                | Add additional blacklisted clean-content tags without overwriting old ones.                                           |
+| **`rmCleanContentTags(array $tags): void`**                                                 | Remove already-blacklisted clean-content tags.                                                                        |
+| `isValidUrl(string $url): bool`                                                             | Checks whether a URL is allowed by the configured scheme whitelist or, for relative URLs, by the relative-URL policy. |
 
 ### `Hardened\Rng`
 
@@ -187,19 +198,19 @@ See [example](examples/sanitizers/html-sanitizer.php).
 
 See [example](examples/rng.php).
 
-| Method                                                       | Description                                                                                                      |
-|--------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| `alphanumeric(int $len): string`                             | Generate a random ASCII alphanumeric string of length `$len`.                                                    |
-| `alphabetic(int $len): string`                               | Generate a random ASCII alphabetic string of length `$len`.                                                      |
-| `bytes(int $len): string`                                    | Generate `$len` random bytes and return them as a binary string.                                                 |
-| `ints(int $len, int $low, int $high): array`                 | Generate an array of `$len` random integers in the inclusive range `[$low, $high]`.                              |
-| `int(int $low, int $high): int`                              | Generate a single random integer in the inclusive range `[$low, $high]`.                                         |
-| `customUnicodeChars(int $len, string $chars): string`        | Generate a string of `$len` random Unicode **code points** sampled from the characters in `$chars`.              |
-| `customUnicodeGraphemes(int $len, string $chars): string`    | Generate a string of `$len` random Unicode **grapheme clusters** sampled from the substrings in `$chars`.        |
-| `customAscii(int $len, string $chars): string`               | Generate a string of `$len` random ASCII characters sampled from the bytes in `$chars`.                          |
-| `chooseMultiple(int $amount, array $choices): array`         | Randomly select exactly `$amount` distinct elements from `$choices`; throws if `$amount` exceeds available.      |
-| `chooseWeighted(array $choices): array`                      | Randomly select one `[value, weight]` pair from `$choices` where `weight` is integer; returns `[value, weight]`. |
-| `chooseMultipleWeighted(int $amount, array $choices): array` | Randomly select `$amount` elements from weighted `[value, weight]` pairs (float weight) without replacement.     |
+| Method                                                       | Description                                                                                                        |
+|--------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| `alphanumeric(int $len): string`                             | Generate a random ASCII alphanumeric string of length `$len`.                                                      |
+| `alphabetic(int $len): string`                               | Generate a random ASCII alphabetic string of length `$len`.                                                        |
+| `bytes(int $len): string`                                    | Generate `$len` random bytes and return them as a binary string.                                                   |
+| `ints(int $len, int $low, int $high): array`                 | Generate an array of `$len` random integers in the inclusive range `[$low, $high]`.                                |
+| `int(int $low, int $high): int`                              | Generate a single random integer in the inclusive range `[$low, $high]`.                                           |
+| `customUnicodeChars(int $len, string $chars): string`        | Generate a string of `$len` random Unicode **code points** sampled from the characters in `$chars`.                |
+| `customUnicodeGraphemes(int $len, string $chars): string`    | Generate a string of `$len` random Unicode **extended grapheme clusters** sampled from the substrings in `$chars`. |
+| `customAscii(int $len, string $chars): string`               | Generate a string of `$len` random ASCII characters sampled from the bytes in `$chars`.                            |
+| `chooseMultiple(int $amount, array $choices): array`         | Randomly select exactly `$amount` distinct elements from `$choices`; throws if `$amount` exceeds available.        |
+| `chooseWeighted(array $choices): array`                      | Randomly select one `[value, weight]` pair from `$choices` where `weight` is integer; returns `[value, weight]`.   |
+| `chooseMultipleWeighted(int $amount, array $choices): array` | Randomly select `$amount` elements from weighted `[value, weight]` pairs (float weight) without replacement.       |
 
 ### `Hardened\CsrfProtection`
 

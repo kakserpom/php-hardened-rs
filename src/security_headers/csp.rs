@@ -210,7 +210,7 @@ impl ContentSecurityPolicy {
     /// # Notes
     /// - No errors are thrown.
     #[php(constructor)]
-    pub fn __construct() -> Self {
+    fn __construct() -> Self {
         Self {
             src_map: Default::default(),
             nonce: None,
@@ -238,7 +238,7 @@ impl ContentSecurityPolicy {
     /// # Exceptions
     /// - Throws `Exception` if any array item in `keywords` is not a string.
     /// - Throws `Exception` if `rule` is not a valid CSP directive.
-    pub fn set_rule(
+    fn set_rule(
         &mut self,
         rule: &str,
         keywords: Vec<&str>,
@@ -273,7 +273,7 @@ impl ContentSecurityPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if formatting the header string fails.
-    pub fn build(&mut self) -> Result<String> {
+    fn build(&mut self) -> Result<String> {
         let mut header = String::new();
 
         let mut it = self.src_map.iter().peekable();
@@ -316,7 +316,11 @@ impl ContentSecurityPolicy {
         Ok(header)
     }
 
-    pub fn send(&mut self) -> Result<()> {
+    /// Send the `Content-Security-Policy` header via PHP `header()`.
+    ///
+    /// # Exceptions
+    /// - Throws `Exception` if the PHP `header()` function cannot be invoked.
+    fn send(&mut self) -> Result<()> {
         let _ = Function::try_from_function("header")
             .ok_or_else(|| anyhow::anyhow!("Could not call header()"))?
             .try_call(vec![&format!("content-security-policy: {}", self.build()?)]);
@@ -327,12 +331,12 @@ impl ContentSecurityPolicy {
     ///
     /// # Returns
     /// - `Option<&str>` The raw nonce string (without the `'nonce-'` prefix), or `None` if `build()` has not yet generated one.
-    pub fn get_nonce(&self) -> Option<&str> {
+    fn get_nonce(&self) -> Option<&str> {
         self.nonce.as_deref()
     }
 
     /// Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.
-    pub fn reset_nonce(&mut self) {
+    fn reset_nonce(&mut self) {
         self.nonce = None;
     }
 }

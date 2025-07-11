@@ -14,6 +14,10 @@ use std::sync::{
 };
 #[cfg(not(test))]
 use std::thread;
+#[cfg(not(test))]
+use strum::IntoEnumIterator;
+use strum_macros::{Display, EnumIter, EnumString};
+use unicode_segmentation::UnicodeSegmentation;
 use url::Url;
 
 #[cfg(not(test))]
@@ -57,7 +61,7 @@ impl HtmlSanitizer {
     ///
     /// # Notes
     /// - No exceptions are thrown.
-    pub fn default() -> Self {
+    fn default() -> Self {
         Self {
             inner: Some(Builder::default()),
             #[cfg(not(test))]
@@ -75,7 +79,7 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    pub fn url_relative_deny(&mut self) -> Result<()> {
+    fn url_relative_deny(&mut self) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -95,7 +99,7 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - Throws `Exception` if the sanitizer is not in a valid state.
-    pub fn is_valid_url(&self, url: &str) -> Result<bool> {
+    fn is_valid_url(&self, url: &str) -> Result<bool> {
         let Some(x) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
@@ -113,7 +117,7 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    pub fn url_relative_passthrough(&mut self) -> Result<()> {
+    fn url_relative_passthrough(&mut self) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -129,7 +133,7 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `base_url` is not a valid URL.
-    pub fn url_relative_rewrite_with_base(&mut self, base_url: &str) -> Result<()> {
+    fn url_relative_rewrite_with_base(&mut self, base_url: &str) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -148,7 +152,7 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `root` is not a valid URL.
-    pub fn url_relative_rewrite_with_root(&mut self, root: &str, path: String) -> Result<()> {
+    fn url_relative_rewrite_with_root(&mut self, root: &str, path: String) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -166,7 +170,7 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    pub fn link_rel(&mut self, value: Option<String>) -> Result<()> {
+    fn link_rel(&mut self, value: Option<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -182,7 +186,7 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
-    pub fn tags(&mut self, tags: Vec<String>) -> Result<()> {
+    fn tags(&mut self, tags: Vec<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -199,7 +203,7 @@ impl HtmlSanitizer {
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
     /// - Adding tags which are whitelisted in tags or tag_attributes will cause a panic.
-    pub fn clean_content_tags(&mut self, tags: Vec<String>) -> Result<()> {
+    fn clean_content_tags(&mut self, tags: Vec<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -217,7 +221,7 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
-    pub fn add_clean_content_tags(&mut self, tags: Vec<String>) -> Result<()> {
+    fn add_clean_content_tags(&mut self, tags: Vec<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -235,7 +239,7 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
-    pub fn rm_clean_content_tags(&mut self, tags: Vec<&str>) -> Result<()> {
+    fn rm_clean_content_tags(&mut self, tags: Vec<&str>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -251,7 +255,7 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
-    pub fn add_tags(&mut self, tags: Vec<String>) -> Result<()> {
+    fn add_tags(&mut self, tags: Vec<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -266,7 +270,7 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    pub fn rm_tags(&mut self, tags: Vec<&str>) -> Result<()> {
+    fn rm_tags(&mut self, tags: Vec<&str>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -282,7 +286,7 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    pub fn add_allowed_classes(&mut self, tag: String, classes: Vec<String>) -> Result<()> {
+    fn add_allowed_classes(&mut self, tag: String, classes: Vec<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -298,7 +302,7 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    pub fn rm_allowed_classes(&mut self, tag: &str, classes: Vec<&str>) -> Result<()> {
+    fn rm_allowed_classes(&mut self, tag: &str, classes: Vec<&str>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -314,7 +318,7 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    pub fn add_tag_attributes(&mut self, tag: String, attributes: Vec<String>) -> Result<()> {
+    fn add_tag_attributes(&mut self, tag: String, attributes: Vec<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -330,7 +334,7 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    pub fn rm_tag_attributes(&mut self, tag: &str, classes: Vec<&str>) -> Result<()> {
+    fn rm_tag_attributes(&mut self, tag: &str, classes: Vec<&str>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -344,9 +348,9 @@ impl HtmlSanitizer {
     /// - `attributes`: An array of attribute names to allow.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
+    /// - `Exception` if the sanitizer is not in a valid state.
     /// - `Exception` if `attributes` is not an array.
-    pub fn add_generic_attributes(&mut self, attributes: Vec<String>) -> Result<()> {
+    fn add_generic_attributes(&mut self, attributes: Vec<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -360,8 +364,8 @@ impl HtmlSanitizer {
     /// - `attributes`: An array of attribute names to remove.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn rm_generic_attributes(&mut self, attributes: Vec<&str>) -> Result<()> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn rm_generic_attributes(&mut self, attributes: Vec<&str>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -375,8 +379,8 @@ impl HtmlSanitizer {
     /// - `prefixes`: An array of prefixes to allow.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn add_generic_attribute_prefixes(&mut self, prefixes: Vec<String>) -> Result<()> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn add_generic_attribute_prefixes(&mut self, prefixes: Vec<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -390,8 +394,8 @@ impl HtmlSanitizer {
     /// - `prefixes`: An array of prefixes to remove.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn rm_generic_attribute_prefixes(&mut self, prefixes: Vec<&str>) -> Result<()> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn rm_generic_attribute_prefixes(&mut self, prefixes: Vec<&str>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -409,7 +413,7 @@ impl HtmlSanitizer {
     ///
     /// # Notes
     /// - If an attribute filter is set, it will be invoked for each attribute.
-    pub fn clean(&mut self, html: String) -> Result<String> {
+    fn clean(&mut self, html: String) -> Result<String> {
         let inner = if let Some(x) = self.inner.as_ref() {
             x
         } else {
@@ -468,8 +472,8 @@ impl HtmlSanitizer {
     /// - `schemes`: An array of scheme strings to allow.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn url_schemes(&mut self, schemes: Vec<String>) -> Result<()> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn url_schemes(&mut self, schemes: Vec<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -484,8 +488,8 @@ impl HtmlSanitizer {
     ///    Comments are stripped by default.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn strip_comments(&mut self, strip: bool) -> Result<()> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn strip_comments(&mut self, strip: bool) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -500,7 +504,7 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    pub fn will_strip_comments(&self) -> Result<bool> {
+    fn will_strip_comments(&self) -> Result<bool> {
         let Some(x) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
@@ -513,8 +517,8 @@ impl HtmlSanitizer {
     /// - `prefix`: Optional string prefix to apply.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn id_prefix(&mut self, prefix: Option<String>) -> Result<()> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn id_prefix(&mut self, prefix: Option<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -528,8 +532,8 @@ impl HtmlSanitizer {
     /// - `props`: An array of CSS property names to allow.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn filter_style_properties(&mut self, props: Vec<String>) -> Result<()> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn filter_style_properties(&mut self, props: Vec<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -545,8 +549,8 @@ impl HtmlSanitizer {
     /// - `value`: The value to set.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn set_tag_attribute_value(
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn set_tag_attribute_value(
         &mut self,
         tag: String,
         attribute: String,
@@ -566,8 +570,8 @@ impl HtmlSanitizer {
     /// - `Vec<String>` The list of allowed tag names.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn clone_tags(&self) -> Result<Vec<String>> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn clone_tags(&self) -> Result<Vec<String>> {
         let Some(x) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
@@ -580,8 +584,8 @@ impl HtmlSanitizer {
     /// - `Vec<String>` The list of tags whose content is preserved.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn clone_clean_content_tags(&self) -> Result<Vec<String>> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn clone_clean_content_tags(&self) -> Result<Vec<String>> {
         let Some(x) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
@@ -597,8 +601,8 @@ impl HtmlSanitizer {
     /// - `attrs`: An array of attribute names.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn generic_attributes(&mut self, attrs: Vec<String>) -> Result<()> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn generic_attributes(&mut self, attrs: Vec<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -612,8 +616,8 @@ impl HtmlSanitizer {
     /// - `prefixes`: An array of prefixes.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn generic_attribute_prefixes(&mut self, prefixes: Vec<String>) -> Result<()> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn generic_attribute_prefixes(&mut self, prefixes: Vec<String>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -629,8 +633,8 @@ impl HtmlSanitizer {
     /// - `values`: An array of values to allow.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn add_tag_attribute_values(
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn add_tag_attribute_values(
         &mut self,
         tag: String,
         attr: String,
@@ -651,13 +655,8 @@ impl HtmlSanitizer {
     /// - `values`: An array of values to remove.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn rm_tag_attribute_values(
-        &mut self,
-        tag: &str,
-        attr: &str,
-        values: Vec<&str>,
-    ) -> Result<()> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn rm_tag_attribute_values(&mut self, tag: &str, attr: &str, values: Vec<&str>) -> Result<()> {
         let Some(x) = self.inner.as_mut() else {
             bail!("You cannot do this now");
         };
@@ -675,8 +674,8 @@ impl HtmlSanitizer {
     /// - `Option<String>` The configured value or `None` if unset.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn get_set_tag_attribute_value(&self, tag: &str, attr: &str) -> Result<Option<String>> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn get_set_tag_attribute_value(&self, tag: &str, attr: &str) -> Result<Option<String>> {
         let Some(x) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
@@ -690,8 +689,8 @@ impl HtmlSanitizer {
     /// - `bool` `true` if the policy is Deny.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn is_url_relative_deny(&self) -> Result<bool> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn is_url_relative_deny(&self) -> Result<bool> {
         let Some(x) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
@@ -704,8 +703,8 @@ impl HtmlSanitizer {
     /// - `bool` `true` if the policy is PassThrough.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn is_url_relative_pass_through(&self) -> Result<bool> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn is_url_relative_pass_through(&self) -> Result<bool> {
         let Some(x) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
@@ -718,8 +717,8 @@ impl HtmlSanitizer {
     /// - `bool` `true` if a custom rewrite policy is set.
     ///
     /// # Exceptions
-    /// - `PhpException` if the sanitizer is not in a valid state.
-    pub fn is_url_relative_custom(&self) -> Result<bool> {
+    /// - `Exception` if the sanitizer is not in a valid state.
+    fn is_url_relative_custom(&self) -> Result<bool> {
         let Some(x) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
@@ -733,7 +732,7 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - None.
-    pub fn attribute_filter(&mut self, #[allow(unused_variables)] callable: &_Zval) -> Result<()> {
+    fn attribute_filter(&mut self, #[allow(unused_variables)] callable: &_Zval) -> Result<()> {
         #[cfg(not(test))]
         {
             self.attribute_filter = Some(callable.shallow_clone());
@@ -768,16 +767,232 @@ impl HtmlSanitizer {
         #[cfg(test)]
         panic!("attribute_filter() can not be called from tests");
     }
-}
 
+    /// Sanitize and truncate the given HTML by extended grapheme clusters.
+    ///
+    /// This is a convenience wrapper that ensures no user-perceived character
+    /// (including complex emoji or combined sequences) is split in half.
+    ///
+    /// # Parameters
+    /// - `html`: Raw HTML string to sanitize and truncate.
+    /// - `max_units`: Maximum number of Unicode extended grapheme clusters
+    ///   to retain (including the `etc` suffix).
+    /// - `etc`: Optional suffix (e.g., ellipsis) to append when truncation occurs. Default is …
+    ///
+    /// # Exceptions
+    /// - Throws `Exception` if sanitization or truncation fails.
+    fn clean_and_truncate(
+        &mut self,
+        #[allow(unused_variables)] html: String,
+        #[allow(unused_variables)] max: usize,
+        #[allow(unused_variables)] flags: &_Zval,
+        #[allow(unused_variables)] etc: Option<String>,
+    ) -> Result<String> {
+        #[cfg(not(test))]
+        {
+            let flags = if let Some(array) = flags.array()
+                && array.has_sequential_keys()
+            {
+                array
+                    .into_iter()
+                    .map(|(_, str)| {
+                        let str = str.str().ok_or_else(|| {
+                            anyhow!(
+                                "Incorrect flag: {str:?}. Valid flags are: {:?}",
+                                Flag::iter().map(|f| f.to_string()).collect::<Vec<_>>()
+                            )
+                        })?;
+                        Flag::try_from(str).map_err(|_| anyhow!("Incorrect flag: {str:?}"))
+                    })
+                    .collect::<Result<Vec<Flag>>>()?
+            } else if let Some(str) = flags.str() {
+                vec![Flag::try_from(str).map_err(|_| {
+                    anyhow!(
+                        "Incorrect flag: {str:?}. Valid flags are: {:?}",
+                        Flag::iter().map(|f| f.to_string()).collect::<Vec<_>>()
+                    )
+                })?]
+            } else {
+                bail!("Wrong argument `flags`");
+            };
+            self._clean_and_truncate(html, max, flags.as_slice(), etc)
+        }
+        #[cfg(test)]
+        panic!("clean_and_truncate() can not be called from tests; use _clean_and_truncate()");
+    }
+}
+impl HtmlSanitizer {
+    const TRUNCATE_DEFAULT_ENDING: &'static str = "…";
+
+    /// Sanitize HTML, then truncate it safely to a specified limit without breaking UTF-8, characters, graphemes, or HTML structure.
+    ///
+    /// This method performs three main steps:
+    /// 1. **Sanitization**: Cleans the input HTML using the existing `clean` method, removing disallowed tags and attributes.
+    /// 2. **Truncation**: Computes the correct byte index to truncate based on the chosen `CountBy` mode:
+    ///    - `Bytes`            — ensure valid UTF-8 by backing up to a `char` boundary.
+    ///    - `Characters`       — cut at the boundary of the Nth Unicode scalar (`char`).
+    ///    - `Graphemes`        — cut at the boundary of the Nth user-perceived grapheme cluster.
+    ///    - `ExtendedGraphemes`— similar to `Graphemes`, but includes extended clusters (e.g. emoji sequences).
+    /// 3. **Ellipsis & Resanitize**: Appends the optional `etc` suffix (defaulting to an ellipsis), and re-sanitizes
+    ///    to close any open tags introduced by truncation.
+    ///
+    /// # Parameters
+    /// - `html`:    `String` containing the raw HTML content to sanitize and truncate.
+    /// - `max`:     `usize` maximum number of *units* (bytes, characters, or graphemes) in the final output,
+    ///             including the length of the `etc` suffix.
+    /// - `count_by`: `&CountBy` enum selecting the unit of measurement for `max`.
+    /// - `etc`:     `Option<String>` optional suffix to append when truncation occurs (e.g. ellipsis).
+    ///              Defaults to [`TRUNCATE_DEFAULT_ENDING`].
+    ///
+    /// # Returns
+    /// - `Ok(String)` containing a sanitized, well-formed HTML snippet, no longer than `max` units.
+    /// - `Err(...)` if sanitization fails at any stage.
+    #[inline]
+    fn _clean_and_truncate(
+        &mut self,
+        html: String,
+        max: usize,
+        flags: &[Flag],
+        etc: Option<String>,
+    ) -> Result<String> {
+        let etc = etc.unwrap_or_else(|| Self::TRUNCATE_DEFAULT_ENDING.into());
+        let mut count_by = None;
+        let mut preserve_words = false;
+        for flag in flags {
+            match flag {
+                Flag::ExtendedGraphemes | Flag::Graphemes | Flag::Unicode | Flag::Ascii => {
+                    if let Some(other) = count_by.replace(flag) {
+                        bail!("Conflicting flags: {other} and {flag}");
+                    }
+                }
+                Flag::PreserveWords => {
+                    preserve_words = true;
+                }
+            }
+        }
+        let count_by = count_by.cloned().unwrap_or(Flag::Unicode);
+        // Determine how many “units” of real content we can use,
+        // reserving space for the ending string.
+        let reserved = match count_by {
+            Flag::ExtendedGraphemes => etc.graphemes(true).count(),
+            Flag::Graphemes => etc.graphemes(false).count(),
+            Flag::Unicode => etc.chars().count(),
+            Flag::Ascii => etc.len(),
+            _ => unreachable!(),
+        };
+        let limit = max.saturating_sub(reserved);
+
+        // First sanitize
+        let mut html = self.clean(html)?.to_string();
+
+        #[cfg(test)]
+        println!("first html sanitization: {:?}", html);
+
+        // Compute the byte index up to which to keep content.
+        let mut cut_offset = match count_by {
+            Flag::ExtendedGraphemes => html
+                .grapheme_indices(true)
+                .nth(limit)
+                .map(|(byte_idx, _)| byte_idx)
+                .or(Some(html.len())),
+            Flag::Graphemes => html
+                .grapheme_indices(false)
+                .nth(limit)
+                .map(|(byte_idx, _)| byte_idx)
+                .or(Some(html.len())),
+            Flag::Unicode => {
+                // Count Unicode chars and get byte offset of the Nth char
+                html.char_indices()
+                    .nth(limit)
+                    .map(|(byte_idx, _)| byte_idx)
+                    .or(Some(html.len()))
+            }
+            Flag::Ascii => {
+                // We want at most `limit` bytes, but ensure we cut on a char boundary:
+                let bytes = html.as_bytes();
+                if bytes.len() <= limit {
+                    Some(bytes.len())
+                } else {
+                    // Scan back from `limit` down to the previous UTF-8 boundary:
+                    (0..=limit).rev().find(|&i| html.is_char_boundary(i))
+                }
+            }
+            _ => unreachable!(),
+        };
+
+        if let Some(idx) = cut_offset {
+            for (steps, byte) in html.as_bytes()[..idx].iter().rev().enumerate() {
+                if byte.eq(&b'>') {
+                    break;
+                } else if byte.eq(&b'<') {
+                    let _ = cut_offset.insert(idx - steps - 1);
+                    break;
+                }
+            }
+        }
+
+        if preserve_words {
+            if let Some(idx) = cut_offset {
+                let mut last_boundary = 0;
+                for (byte_idx, _) in html[..idx].split_word_bound_indices() {
+                    last_boundary = byte_idx;
+                }
+                if last_boundary > 0 && last_boundary < idx {
+                    let mut spaces = last_boundary - html[..last_boundary].trim_end().len();
+                    if spaces > 1 {
+                        spaces -= 1;
+                    }
+                    cut_offset = Some(last_boundary - spaces);
+                }
+                #[cfg(test)]
+                println!(
+                    "preserve_words: trimmed to {:?}",
+                    html[..last_boundary].to_string()
+                );
+            }
+        }
+
+        // If we actually need to truncate:
+        if let Some(idx) = cut_offset
+            && idx + etc.len() < html.len()
+        {
+            html.truncate(idx);
+            html.push_str(&etc);
+
+            #[cfg(test)]
+            println!("truncated to {:?}", html);
+
+            // Re-sanitize to close any unenclosed tags introduced by truncation
+            Ok(self.clean(html)?)
+        } else {
+            Ok(html)
+        }
+    }
+}
+#[derive(EnumIter, EnumString, Display, Debug, Clone)]
+#[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
+enum Flag {
+    #[strum(serialize = "e", serialize = "extended-graphemes")]
+    ExtendedGraphemes,
+    #[strum(serialize = "g", serialize = "graphemes")]
+    Graphemes,
+    #[strum(serialize = "u", serialize = "unicode")]
+    Unicode,
+    #[strum(serialize = "a", serialize = "ascii")]
+    Ascii,
+    #[strum(serialize = "pw", serialize = "preserve-words")]
+    PreserveWords,
+}
 #[cfg(test)]
 mod tests {
     use super::HtmlSanitizer;
     use crate::run_php_example;
-    use assertables::{assert_contains, assert_not_contains};
+    use crate::sanitizers::html::Flag::{Ascii, Graphemes, PreserveWords};
+    use anyhow::Result;
+    use assertables::{assert_contains, assert_le, assert_not_contains};
 
     #[test]
-    fn test_strip_comments_toggle_and_clean() -> anyhow::Result<()> {
+    fn test_strip_comments_toggle_and_clean() -> Result<()> {
         let mut s = HtmlSanitizer::default();
         // By default comments are stripped
         assert!(s.will_strip_comments()?);
@@ -795,7 +1010,7 @@ mod tests {
     }
 
     #[test]
-    fn test_is_valid_url_and_relative_policy() -> anyhow::Result<()> {
+    fn test_is_valid_url_and_relative_policy() -> Result<()> {
         let mut s = HtmlSanitizer::default();
         // Absolute http/https/... are allowed by default
         assert!(s.is_valid_url("http://example.com")?);
@@ -819,7 +1034,7 @@ mod tests {
     }
 
     #[test]
-    fn test_url_relative_rewrite_in_clean() -> anyhow::Result<()> {
+    fn test_url_relative_rewrite_in_clean() -> Result<()> {
         let mut s = HtmlSanitizer::default();
         // Rewrite relative using base
         s.url_relative_rewrite_with_base("https://example.com")?;
@@ -830,7 +1045,7 @@ mod tests {
     }
 
     #[test]
-    fn test_id_prefix_applied() -> anyhow::Result<()> {
+    fn test_id_prefix_applied() -> Result<()> {
         let mut s = HtmlSanitizer::default();
         s.add_tag_attributes(String::from("div"), vec![String::from("id")])?;
         s.id_prefix(Some("pre-".to_string()))?;
@@ -841,7 +1056,104 @@ mod tests {
     }
 
     #[test]
-    fn php_example() -> anyhow::Result<()> {
+    fn test_unenclosed_tag() -> Result<()> {
+        let mut s = HtmlSanitizer::default();
+        s.tags(vec![String::from("a"), String::from("b")])?;
+        let html = r#"<a><b>link</a>"#.to_string();
+        let out = s.clean(html)?;
+        assert_contains!(out, r#"<a rel="noopener noreferrer"><b>link</b></a>"#);
+        Ok(())
+    }
+    /// Test that clean_and_truncate removes disallowed tags, preserves allowed ones,
+    /// and truncates the text to the specified length without breaking HTML structure.
+    #[test]
+    fn test_clean_and_truncate() -> Result<()> {
+        assert_not_contains!(
+            HtmlSanitizer::default()._clean_and_truncate(
+                "<p>Курва<p>!!</p>!</p>".into(),
+                20,
+                &[Graphemes],
+                Some(" (more)".into()),
+            )?,
+            "&lt;",
+        );
+
+        assert_eq!(
+            HtmlSanitizer::default()._clean_and_truncate(
+                "<p>Hello     woooooooooorld!</p>".into(),
+                20,
+                &[Graphemes, PreserveWords],
+                None,
+            )?,
+            "<p>Hello …</p>",
+        );
+
+        // 1. Set up the sanitizer to allow only <a> and <b> tags
+        let mut s = HtmlSanitizer::default();
+        s.tags(vec!["a".into(), "b".into(), "p".into()])?;
+
+        assert_eq!(
+            s._clean_and_truncate(
+                "<p>Привет мир</p>".into(),
+                20,
+                &[Graphemes],
+                Some(" (more)".into())
+            )?,
+            "<p>Привет мир</p>"
+        );
+
+        // 2. Example HTML with:
+        //    - a disallowed <script> tag (should be removed)
+        //    - allowed <a> and <b> tags
+        //    - an <i> tag (disallowed—should be stripped, leaving its text)
+        //    - text long enough to require truncation
+        let html = r#"
+            <script>alert("bad")</script>
+            Hello <a href="https://example.com">Example Site</a>!
+            <b>BoldText</b> and <i>ItalicText</i><b>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed \
+do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, \
+quis nostrud exercitation ullamco laboris nisi ut aliquip exea \
+commodo consequat. Duis aute irure dolor in reprehenderit \
+in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\
+Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
+ officia deserunt mollit anim id est laborum.</b>"
+        "#
+                .to_string();
+
+        let max_length = 200;
+
+        // 3. Clean & truncate to 50 characters of text
+        let out = s._clean_and_truncate(html, max_length, &[Ascii], None)?;
+
+        // 4. The output should:
+        //    - Not contain "<script>" or "</script>"
+        //    - Still contain the <a> and <b> elements
+        //    - Have the <i> tags stripped but their text preserved
+        //    - End with the ellipsis "…" to indicate truncation
+        assert!(!out.contains("<script>"));
+        assert_contains!(
+            out,
+            r#"<a href="https://example.com" rel="noopener noreferrer">Example Site</a>"#
+        );
+        assert_contains!(out, "Lorem ipsum dolor sit amet");
+        assert_contains!(out, "ItalicText"); // <i> stripped
+        assert_le!(out.len(), max_length + 10);
+        assert_contains!(out[out.len() - 10..], "…");
+
+        // 5. Ensure no broken tags: count opening vs closing tags for allowed set
+        let open_a = out.matches("<a ").count();
+        let close_a = out.matches("</a>").count();
+        assert_eq!(open_a, close_a, "<a> tags must be balanced");
+
+        let open_b = out.matches("<b>").count();
+        let close_b = out.matches("</b>").count();
+        assert_eq!(open_b, close_b, "<b> tags must be balanced");
+
+        Ok(())
+    }
+
+    #[test]
+    fn php_example() -> Result<()> {
         run_php_example("sanitizers/html")?;
         Ok(())
     }

@@ -42,7 +42,7 @@ impl OpenerPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if the provided token is not one of the allowed values.
-    pub fn __construct(policy: Option<String>) -> anyhow::Result<Self> {
+    fn __construct(policy: Option<String>) -> anyhow::Result<Self> {
         let policy = if let Some(p) = policy {
             Policy::from_str(&p)
                 .map_err(|_| anyhow!("Invalid Cross-Origin-Opener-Policy value: {}", p))?
@@ -60,7 +60,7 @@ impl OpenerPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if the given token is invalid.
-    pub fn set(&mut self, policy: &str) -> anyhow::Result<()> {
+    fn set(&mut self, policy: &str) -> anyhow::Result<()> {
         self.policy = Policy::from_str(policy)
             .map_err(|_| anyhow!("Invalid Cross-Origin-Opener-Policy value: {}", policy))?;
         Ok(())
@@ -70,7 +70,7 @@ impl OpenerPolicy {
     ///
     /// # Returns
     /// - `string` the configured policy, e.g. `"same-origin"`.
-    pub fn build(&self) -> String {
+    fn build(&self) -> String {
         self.policy.to_string()
     }
 
@@ -78,7 +78,7 @@ impl OpenerPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if the PHP `header()` function cannot be invoked.
-    pub fn send(&self) -> anyhow::Result<()> {
+    fn send(&self) -> anyhow::Result<()> {
         Function::try_from_function("header")
             .ok_or_else(|| anyhow!("Could not call header()"))?
             .try_call(vec![&format!(

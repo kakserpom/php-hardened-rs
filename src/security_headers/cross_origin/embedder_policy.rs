@@ -46,7 +46,7 @@ impl EmbedderPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if an invalid token is provided.
-    pub fn __construct(policy: Option<String>) -> anyhow::Result<Self> {
+    fn __construct(policy: Option<String>) -> anyhow::Result<Self> {
         Ok(Self {
             policy: if let Some(p) = policy {
                 Policy::from_str(&p)
@@ -64,7 +64,7 @@ impl EmbedderPolicy {
     ///
     /// # Exceptions
     /// - Throws an `Exception` if `policy` cannot be parsed into a valid directive.
-    pub fn set(&mut self, policy: &str) -> anyhow::Result<()> {
+    fn set(&mut self, policy: &str) -> anyhow::Result<()> {
         self.policy = Policy::from_str(policy)
             .map_err(|_| anyhow!("Invalid Cross-Origin-Embedder-Policy value: {policy}"))?;
         Ok(())
@@ -82,7 +82,7 @@ impl EmbedderPolicy {
     ///
     /// # Returns
     /// - `string`: the currently configured policy token.
-    pub fn build(&self) -> String {
+    fn build(&self) -> String {
         self.policy.to_string()
     }
 

@@ -56,3 +56,4 @@ $multiWeighted = Rng::chooseMultipleWeighted(2, [
 ]);
 var_dump($multiWeighted);
 // Example: array(2) { [0]=> string(1) "B" [1]=> string(1) "C" }
+
