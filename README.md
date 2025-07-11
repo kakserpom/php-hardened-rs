@@ -5,7 +5,8 @@ essential security utilities for PHP applications. It provides following core cl
 
 1. **Hardened\Hostname** — secure hostname parsing, normalization, and comparison.
 2. **Hardened\Path** — safe, purely-lexical filesystem path handling to prevent directory traversal.
-3. **Hardened\Sanitizers\HtmlSanitizer** — configurable HTML sanitization via [Ammonia](https://github.com/rust-ammonia/ammonia),
+3. **Hardened\Sanitizers\HtmlSanitizer** — configurable HTML sanitization
+   via [Ammonia](https://github.com/rust-ammonia/ammonia),
    with fine-grained tag, attribute, and URL policy controls.
 4. **Hardened\Rng** — stateless random-data generator: alphanumeric, alphabetic, byte sequences, integer ranges, and
    custom Unicode or ASCII sampling.
@@ -197,9 +198,9 @@ See [example](examples/security-headers/cross-origin/cors.php).
 
 - **Cross-Origin-Embedder-Policy** header builder.
 - Supported policies:
-  - `unsafe-none` (default)
-  - `require-corp`
-  - `credentialless`
+    - `unsafe-none` (default)
+    - `require-corp`
+    - `credentialless`
 - `__construct(?string $policy = null)` initialize with optional policy.
 - `set_policy(string $policy)` change policy; throws on invalid tokens.
 - `build(): string` returns the header value.
@@ -400,7 +401,7 @@ extension=php_hardened_rs
 | `build(): string`                       | Instance  | Return the `Strict-Transport-Security` header value, e.g. `"max-age=31536000; includeSubDomains; preload"`. |
 | `send(): void`                          | Instance  | Emit the header via PHP `header()` function.                                                                |
 
-### Class `Hardened\SecurityHeaders\CorsPolicy`
+### Class `Hardened\SecurityHeaders\CrossOrigin\Cors`
 
 | Method                                 | Signature                         | Description                                                                   |
 |----------------------------------------|-----------------------------------|-------------------------------------------------------------------------------|
@@ -413,6 +414,15 @@ extension=php_hardened_rs
 | `maxAge(int $seconds): void`           | Instance                          | Set `Access-Control-Max-Age` (in seconds) for caching preflight responses.    |
 | `build(): array`                       | Instance → `array<string,string>` | Return an associative array of header names → values to send.                 |
 | `send(): void`                         | Instance                          | Emit all configured CORS headers via PHP `header()` calls.                    |
+
+### Class `Hardened\SecurityHeaders\CrossOrigin\Coep`
+
+| Method                                      | Signature           | Description                                                                                                                       |
+|---------------------------------------------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| `__construct(?string $policy = null): self` | `static`            | Create a new COEP builder, defaults to `"unsafe-none"` if no policy is provided.                                                  |
+| `setPolicy(string $policy): void`           | Instance            | Set the Cross-Origin-Embedder-Policy to one of `"unsafe-none"`, `"require-corp"`, or `"credentialless"`. Throws on invalid token. |
+| `build(): string`                           | Instance → `string` | Return the header value, e.g. `"require-corp"`.                                                                                   |
+| `send(): void`                              | Instance            | Emit `Cross-Origin-Embedder-Policy: <value>` via PHP `header()`; errors if `header()` cannot be called.                           |
 
 ### Class `Hardened\SecurityHeaders\RefererPolicy`
 
