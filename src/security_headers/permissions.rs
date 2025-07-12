@@ -333,7 +333,7 @@ mod tests {
 
     #[test]
     fn php_example() -> anyhow::Result<()> {
-        run_php_example("security-headers/permissions")?;
+        run_php_example("security-headers/permissions-policy")?;
         Ok(())
     }
 }

@@ -337,15 +337,6 @@ See [example](examples/security-headers/cross-origin/opener-policy.php).
   `setPolicy()`.
 * Generate the header value with `build()`, or emit it directly with `send()`.
 
-```php
-// PHP example
-use Hardened\SecurityHeaders\CrossOrigin\ResourcePolicy;
-
-$rp = new ResourcePolicy();              // defaults to "same-origin"
-$rp->setPolicy('cross-origin');          // switch to "cross-origin"
-header('Cross-Origin-Resource-Policy: ' . $rp->build());
-```
-
 See [example](examples/security-headers/cross-origin/resource-policy.php).
 
 #### API Reference

@@ -3,6 +3,7 @@ use anyhow::anyhow;
 use anyhow::{Result, bail};
 #[cfg(not(test))]
 use ext_php_rs::prelude::ZendCallable;
+use ext_php_rs::types::ZendClassObject;
 #[cfg(not(test))]
 use ext_php_rs::types::Zval;
 use ext_php_rs::{php_class, php_impl};
@@ -38,6 +39,7 @@ pub struct HtmlSanitizer {
     resp_tx: Option<Sender<FilterResponse>>,
     #[cfg(not(test))]
     req_tx: Option<Sender<Option<FilterRequest>>>,
+    pub truncation_is_safe: bool,
 }
 #[cfg(not(test))]
 struct FilterRequest {
@@ -64,6 +66,7 @@ impl HtmlSanitizer {
     fn default() -> Self {
         Self {
             inner: Some(Builder::default()),
+            truncation_is_safe: true,
             #[cfg(not(test))]
             attribute_filter: None,
             #[cfg(not(test))]
@@ -79,12 +82,14 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn url_relative_deny(&mut self) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn url_relative_deny(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.url_relative(UrlRelative::Deny);
-        Ok(())
+        inner.url_relative(UrlRelative::Deny);
+        Ok(self_)
     }
 
     /// Checks whether a URL is valid according to the sanitizer’s configured
@@ -100,14 +105,14 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - Throws `Exception` if the sanitizer is not in a valid state.
     fn is_valid_url(&self, url: &str) -> Result<bool> {
-        let Some(x) = self.inner.as_ref() else {
+        let Some(inner) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
         let url = Url::parse(url);
         Ok(if let Ok(url) = url {
-            x.clone_url_schemes().contains(url.scheme())
+            inner.clone_url_schemes().contains(url.scheme())
         } else if url == Err(url::ParseError::RelativeUrlWithoutBase) {
-            !x.is_url_relative_deny()
+            !inner.is_url_relative_deny()
         } else {
             false
         })
@@ -117,12 +122,14 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn url_relative_passthrough(&mut self) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn url_relative_passthrough(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.url_relative(UrlRelative::PassThrough);
-        Ok(())
+        inner.url_relative(UrlRelative::PassThrough);
+        Ok(self_)
     }
 
     /// Rewrites relative URLs using the given base URL.
@@ -133,14 +140,17 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `base_url` is not a valid URL.
-    fn url_relative_rewrite_with_base(&mut self, base_url: &str) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn url_relative_rewrite_with_base(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        base_url: String,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.url_relative(UrlRelative::RewriteWithBase(
-            Url::parse(base_url).map_err(|err| anyhow!("{err}"))?,
+        inner.url_relative(UrlRelative::RewriteWithBase(
+            Url::parse(base_url.as_str()).map_err(|err| anyhow!("{err}"))?,
         ));
-        Ok(())
+        Ok(self_)
     }
 
     /// Rewrites relative URLs using a root URL and path prefix.
@@ -152,15 +162,19 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `root` is not a valid URL.
-    fn url_relative_rewrite_with_root(&mut self, root: &str, path: String) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn url_relative_rewrite_with_root(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        root: String,
+        path: String,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.url_relative(UrlRelative::RewriteWithRoot {
-            root: Url::parse(root).map_err(|err| anyhow!("{err}"))?,
+        inner.url_relative(UrlRelative::RewriteWithRoot {
+            root: Url::parse(root.as_str()).map_err(|err| anyhow!("{err}"))?,
             path,
         });
-        Ok(())
+        Ok(self_)
     }
 
     /// Sets the `rel` attribute for generated `<a>` tags.
@@ -170,12 +184,15 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn link_rel(&mut self, value: Option<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn link_rel(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        value: Option<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.link_rel(value);
-        Ok(())
+        inner.link_rel(value);
+        Ok(self_)
     }
 
     /// Overwrites the set of allowed tags.
@@ -186,12 +203,15 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
-    fn tags(&mut self, tags: Vec<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn tags(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        tags: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.tags(tags);
-        Ok(())
+        inner.tags(tags);
+        Ok(self_)
     }
 
     /// Sets the tags whose contents will be completely removed from the output.
@@ -203,12 +223,15 @@ impl HtmlSanitizer {
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
     /// - Adding tags which are whitelisted in tags or tag_attributes will cause a panic.
-    fn clean_content_tags(&mut self, tags: Vec<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn clean_content_tags(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        tags: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.clean_content_tags(tags);
-        Ok(())
+        inner.clean_content_tags(tags);
+        Ok(self_)
     }
 
     /// Add additional blacklisted clean-content tags without overwriting old ones.
@@ -221,12 +244,15 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
-    fn add_clean_content_tags(&mut self, tags: Vec<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn add_clean_content_tags(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        tags: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.add_clean_content_tags(tags);
-        Ok(())
+        inner.add_clean_content_tags(tags);
+        Ok(self_)
     }
 
     /// Remove already-blacklisted clean-content tags.
@@ -239,12 +265,15 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
-    fn rm_clean_content_tags(&mut self, tags: Vec<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn rm_clean_content_tags(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        tags: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.rm_clean_content_tags(tags.iter());
-        Ok(())
+        inner.rm_clean_content_tags(tags.iter());
+        Ok(self_)
     }
 
     /// Adds additional allowed tags to the existing whitelist.
@@ -255,12 +284,20 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - Exception if `tags` is not an array.
-    fn add_tags(&mut self, tags: Vec<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn add_tags(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        tags: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        if self_.inner.is_none() {
             bail!("You cannot do this now");
         };
-        x.tags(tags);
-        Ok(())
+        if tags.iter().any(|tag_name| {
+            tag_name.eq_ignore_ascii_case("script") || tag_name.eq_ignore_ascii_case("style")
+        }) {
+            self_.truncation_is_safe = false;
+        }
+        self_.inner.as_mut().unwrap().tags(tags);
+        Ok(self_)
     }
 
     /// Removes tags from the whitelist.
@@ -270,12 +307,19 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn rm_tags(&mut self, tags: Vec<&str>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn rm_tags(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        tags: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.rm_tags(tags);
-        Ok(())
+        inner.rm_tags(tags.iter().map(String::as_str));
+        self_.truncation_is_safe = !self_
+            .clone_clean_content_tags()?
+            .iter()
+            .any(|x| x.eq_ignore_ascii_case("script") || x.eq_ignore_ascii_case("style"));
+        Ok(self_)
     }
 
     /// Adds allowed CSS classes for a specific tag.
@@ -286,12 +330,16 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn add_allowed_classes(&mut self, tag: String, classes: Vec<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn add_allowed_classes(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        tag: String,
+        classes: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.add_allowed_classes(tag, classes);
-        Ok(())
+        inner.add_allowed_classes(tag, classes);
+        Ok(self_)
     }
 
     /// Removes allowed CSS classes from a specific tag.
@@ -302,12 +350,16 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn rm_allowed_classes(&mut self, tag: &str, classes: Vec<&str>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn rm_allowed_classes(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        tag: String,
+        classes: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.rm_allowed_classes(tag, classes);
-        Ok(())
+        inner.rm_allowed_classes(tag.as_str(), classes.iter().map(String::as_str));
+        Ok(self_)
     }
 
     /// Adds allowed attributes to a specific tag.
@@ -318,12 +370,16 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn add_tag_attributes(&mut self, tag: String, attributes: Vec<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn add_tag_attributes(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        tag: String,
+        attributes: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.add_tag_attributes(tag, attributes);
-        Ok(())
+        inner.add_tag_attributes(tag, attributes);
+        Ok(self_)
     }
 
     /// Removes attributes from a specific tag.
@@ -334,12 +390,16 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn rm_tag_attributes(&mut self, tag: &str, classes: Vec<&str>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn rm_tag_attributes(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        tag: String,
+        classes: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.rm_tag_attributes(tag, classes);
-        Ok(())
+        inner.rm_tag_attributes(tag.as_str(), classes.iter().map(String::as_str));
+        Ok(self_)
     }
 
     /// Adds generic attributes to all tags.
@@ -350,12 +410,15 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     /// - `Exception` if `attributes` is not an array.
-    fn add_generic_attributes(&mut self, attributes: Vec<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn add_generic_attributes(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        attributes: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.add_generic_attributes(attributes);
-        Ok(())
+        inner.add_generic_attributes(attributes);
+        Ok(self_)
     }
 
     /// Removes generic attributes from all tags.
@@ -365,12 +428,15 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn rm_generic_attributes(&mut self, attributes: Vec<&str>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn rm_generic_attributes(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        attributes: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.rm_generic_attributes(attributes);
-        Ok(())
+        inner.rm_generic_attributes(attributes.iter().map(String::as_str));
+        Ok(self_)
     }
 
     /// Adds prefixes for generic attributes.
@@ -380,12 +446,15 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn add_generic_attribute_prefixes(&mut self, prefixes: Vec<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn add_generic_attribute_prefixes(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        prefixes: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.add_generic_attribute_prefixes(prefixes);
-        Ok(())
+        inner.add_generic_attribute_prefixes(prefixes);
+        Ok(self_)
     }
 
     /// Removes prefixes for generic attributes.
@@ -395,12 +464,15 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn rm_generic_attribute_prefixes(&mut self, prefixes: Vec<&str>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn rm_generic_attribute_prefixes(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        prefixes: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.rm_generic_attribute_prefixes(prefixes);
-        Ok(())
+        inner.rm_generic_attribute_prefixes(prefixes.iter().map(String::as_str));
+        Ok(self_)
     }
 
     /// Sanitizes the given HTML string, applying any configured attribute filter.
@@ -414,8 +486,8 @@ impl HtmlSanitizer {
     /// # Notes
     /// - If an attribute filter is set, it will be invoked for each attribute.
     fn clean(&mut self, html: String) -> Result<String> {
-        let inner = if let Some(x) = self.inner.as_ref() {
-            x
+        let inner = if let Some(inner) = self.inner.as_ref() {
+            inner
         } else {
             bail!("inner is not available");
         };
@@ -473,12 +545,15 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn url_schemes(&mut self, schemes: Vec<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn url_schemes(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        schemes: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.url_schemes(HashSet::from_iter(schemes));
-        Ok(())
+        inner.url_schemes(HashSet::from_iter(schemes));
+        Ok(self_)
     }
 
     /// Enables or disables HTML comment stripping.
@@ -489,12 +564,15 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn strip_comments(&mut self, strip: bool) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn strip_comments(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        strip: bool,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.strip_comments(strip);
-        Ok(())
+        inner.strip_comments(strip);
+        Ok(self_)
     }
 
     /// Returns whether HTML comments will be stripped.
@@ -505,10 +583,10 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     fn will_strip_comments(&self) -> Result<bool> {
-        let Some(x) = self.inner.as_ref() else {
+        let Some(inner) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
-        Ok(x.will_strip_comments())
+        Ok(inner.will_strip_comments())
     }
 
     /// Prefixes all `id` attributes with the given string.
@@ -518,12 +596,15 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn id_prefix(&mut self, prefix: Option<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn id_prefix(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        prefix: Option<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.id_prefix(prefix);
-        Ok(())
+        inner.id_prefix(prefix);
+        Ok(self_)
     }
 
     /// Filters CSS style properties allowed in `style` attributes.
@@ -533,12 +614,15 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn filter_style_properties(&mut self, props: Vec<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn filter_style_properties(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        props: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.filter_style_properties(props);
-        Ok(())
+        inner.filter_style_properties(props);
+        Ok(self_)
     }
 
     /// Sets a single tag attribute value.
@@ -551,17 +635,17 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     fn set_tag_attribute_value(
-        &mut self,
+        self_: &mut ZendClassObject<HtmlSanitizer>,
         tag: String,
         attribute: String,
         value: String,
-    ) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
         let val_ref: &'static str = Box::leak(Box::new(value));
-        x.set_tag_attribute_value(tag, attribute, val_ref);
-        Ok(())
+        inner.set_tag_attribute_value(tag, attribute, val_ref);
+        Ok(self_)
     }
 
     /// Returns the configured tags as a vector of strings.
@@ -572,10 +656,10 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     fn clone_tags(&self) -> Result<Vec<String>> {
-        let Some(x) = self.inner.as_ref() else {
+        let Some(inner) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
-        Ok(x.clone_tags().into_iter().collect())
+        Ok(inner.clone_tags().into_iter().collect())
     }
 
     /// Gets all configured clean-content tags.
@@ -586,10 +670,10 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     fn clone_clean_content_tags(&self) -> Result<Vec<String>> {
-        let Some(x) = self.inner.as_ref() else {
+        let Some(inner) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
-        Ok(x.clone_clean_content_tags()
+        Ok(inner.clone_clean_content_tags()
             .iter()
             .map(|s| s.to_string())
             .collect())
@@ -602,12 +686,15 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn generic_attributes(&mut self, attrs: Vec<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn generic_attributes(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        attrs: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.generic_attributes(attrs);
-        Ok(())
+        inner.generic_attributes(attrs);
+        Ok(self_)
     }
 
     /// Bulk overwrites generic attribute prefixes.
@@ -617,12 +704,15 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn generic_attribute_prefixes(&mut self, prefixes: Vec<String>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn generic_attribute_prefixes(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        prefixes: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.generic_attribute_prefixes(prefixes);
-        Ok(())
+        inner.generic_attribute_prefixes(prefixes);
+        Ok(self_)
     }
 
     /// Adds tag attribute values.
@@ -635,16 +725,16 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     fn add_tag_attribute_values(
-        &mut self,
+        self_: &mut ZendClassObject<HtmlSanitizer>,
         tag: String,
         attr: String,
         values: Vec<String>,
-    ) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.add_tag_attribute_values(tag, attr, values);
-        Ok(())
+        inner.add_tag_attribute_values(tag, attr, values);
+        Ok(self_)
     }
 
     /// Removes tag attribute values.
@@ -656,12 +746,21 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn rm_tag_attribute_values(&mut self, tag: &str, attr: &str, values: Vec<&str>) -> Result<()> {
-        let Some(x) = self.inner.as_mut() else {
+    fn rm_tag_attribute_values(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        tag: String,
+        attr: String,
+        values: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        x.rm_tag_attribute_values(tag, attr, values);
-        Ok(())
+        inner.rm_tag_attribute_values(
+            tag.as_str(),
+            attr.as_str(),
+            values.iter().map(String::as_str),
+        );
+        Ok(self_)
     }
 
     /// Gets a single tag attribute value setting.
@@ -676,10 +775,10 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     fn get_set_tag_attribute_value(&self, tag: &str, attr: &str) -> Result<Option<String>> {
-        let Some(x) = self.inner.as_ref() else {
+        let Some(inner) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
-        Ok(x.get_set_tag_attribute_value(tag, attr)
+        Ok(inner.get_set_tag_attribute_value(tag, attr)
             .map(|s| s.to_string()))
     }
 
@@ -691,10 +790,10 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     fn is_url_relative_deny(&self) -> Result<bool> {
-        let Some(x) = self.inner.as_ref() else {
+        let Some(inner) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
-        Ok(x.is_url_relative_deny())
+        Ok(inner.is_url_relative_deny())
     }
 
     /// Checks if URL relative policy is PassThrough.
@@ -705,10 +804,10 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     fn is_url_relative_pass_through(&self) -> Result<bool> {
-        let Some(x) = self.inner.as_ref() else {
+        let Some(inner) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
-        Ok(x.is_url_relative_pass_through())
+        Ok(inner.is_url_relative_pass_through())
     }
 
     /// Checks if URL relative policy is custom (Rewrite).
@@ -719,10 +818,10 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
     fn is_url_relative_custom(&self) -> Result<bool> {
-        let Some(x) = self.inner.as_ref() else {
+        let Some(inner) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
-        Ok(x.is_url_relative_custom())
+        Ok(inner.is_url_relative_custom())
     }
 
     /// Sets the attribute filter callback.
@@ -858,6 +957,9 @@ impl HtmlSanitizer {
         let etc = etc.unwrap_or_else(|| Self::TRUNCATE_DEFAULT_ENDING.into());
         let mut count_by = None;
         let mut preserve_words = false;
+        if !self.truncation_is_safe {
+            bail!("Truncation is not safe because you have allowed script/style tags");
+        }
         for flag in flags {
             match flag {
                 Flag::ExtendedGraphemes | Flag::Graphemes | Flag::Unicode | Flag::Ascii => {
@@ -988,8 +1090,11 @@ mod tests {
     use super::HtmlSanitizer;
     use crate::run_php_example;
     use crate::sanitizers::html::Flag::{Ascii, Graphemes, PreserveWords};
-    use anyhow::Result;
+    use ammonia::UrlRelative;
+    use anyhow::{Result, anyhow, bail};
     use assertables::{assert_contains, assert_le, assert_not_contains};
+    use std::collections::HashSet;
+    use url::Url;
 
     #[test]
     fn test_strip_comments_toggle_and_clean() -> Result<()> {
@@ -1001,7 +1106,7 @@ mod tests {
         assert_not_contains!(out, "<!--comment-->");
 
         // Disable stripping
-        s.strip_comments(false)?;
+        s._strip_comments(false)?;
         assert!(!(s.will_strip_comments()?));
         let out2 = s.clean(html)?;
         assert_contains!(out2, "<!--");
@@ -1017,17 +1122,17 @@ mod tests {
         assert!(s.is_valid_url("https://foo/")?);
         assert!(s.is_valid_url("ftp://example.com")?);
 
-        s.url_schemes(vec![String::from("http"), String::from("https")])?;
+        s._url_schemes(vec![String::from("http"), String::from("https")])?;
 
         // Relative without base allowed by default
         assert!(s.is_valid_url("/foo/bar")?);
 
         // Deny relative URLs
-        s.url_relative_deny()?;
+        s._url_relative_deny()?;
         assert!(!s.is_valid_url("/foo")?);
 
         // Pass through relative URLs
-        s.url_relative_passthrough()?;
+        s._url_relative_passthrough()?;
         assert!(s.is_valid_url("/foo")?);
 
         Ok(())
@@ -1037,7 +1142,7 @@ mod tests {
     fn test_url_relative_rewrite_in_clean() -> Result<()> {
         let mut s = HtmlSanitizer::default();
         // Rewrite relative using base
-        s.url_relative_rewrite_with_base("https://example.com")?;
+        s._url_relative_rewrite_with_base("https://example.com")?;
         let html = r#"<a href="/path/to">link</a>"#.to_string();
         let out = s.clean(html)?;
         assert_contains!(out, r#"href="https://example.com/path/to""#);
@@ -1047,8 +1152,8 @@ mod tests {
     #[test]
     fn test_id_prefix_applied() -> Result<()> {
         let mut s = HtmlSanitizer::default();
-        s.add_tag_attributes(String::from("div"), vec![String::from("id")])?;
-        s.id_prefix(Some("pre-".to_string()))?;
+        s._add_tag_attributes(String::from("div"), vec![String::from("id")])?;
+        s._id_prefix(Some("pre-".to_string()))?;
         let html = r#"<div id="one">x</div>"#.to_string();
         let out = s.clean(html)?;
         assert_contains!(out, r#"id="pre-one""#);
@@ -1058,7 +1163,7 @@ mod tests {
     #[test]
     fn test_unenclosed_tag() -> Result<()> {
         let mut s = HtmlSanitizer::default();
-        s.tags(vec![String::from("a"), String::from("b")])?;
+        s._tags(vec![String::from("a"), String::from("b")])?;
         let html = r#"<a><b>link</a>"#.to_string();
         let out = s.clean(html)?;
         assert_contains!(out, r#"<a rel="noopener noreferrer"><b>link</b></a>"#);
@@ -1089,21 +1194,16 @@ mod tests {
         );
 
         let mut s = HtmlSanitizer::default();
-        s.add_tags(vec!["script".into()])?;
-        s.rm_clean_content_tags(vec!["script".into()])?;
-        assert_eq!(
-            s._clean_and_truncate(
-                "<script>unenclosed script contents".into(),
-                20,
-                &[Graphemes, PreserveWords],
-                None,
-            )?,
-            "",
+        s._add_tags(vec!["script".into()])?;
+        s._rm_clean_content_tags(vec!["script".into()])?;
+        assert!(
+            s._clean_and_truncate("<script>unenclosed script contents".into(), 20, &[], None)
+                .is_err()
         );
 
         // 1. Set up the sanitizer to allow only <a> and <b> tags
         let mut s = HtmlSanitizer::default();
-        s.tags(vec!["a".into(), "b".into(), "p".into()])?;
+        s._tags(vec!["a".into(), "b".into(), "p".into()])?;
 
         assert_eq!(
             s._clean_and_truncate(
@@ -1131,12 +1231,14 @@ in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\
 Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
  officia deserunt mollit anim id est laborum.</b>"
         "#
-                .to_string();
+            .to_string();
 
         let max_length = 200;
 
         // 3. Clean & truncate to 50 characters of text
-        let out = s._clean_and_truncate(html, max_length, &[Ascii], None)?;
+        let out = s
+            ._clean_and_truncate(html, max_length, &[Ascii], None)
+            .unwrap();
 
         // 4. The output should:
         //    - Not contain "<script>" or "</script>"
@@ -1169,5 +1271,107 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
     fn php_example() -> Result<()> {
         run_php_example("sanitizers/html")?;
         Ok(())
+    }
+
+    impl HtmlSanitizer {
+        fn _url_relative_passthrough(&mut self) -> Result<()> {
+            let Some(inner) = self.inner.as_mut() else {
+                bail!("You cannot do this now");
+            };
+            inner.url_relative(UrlRelative::PassThrough);
+            Ok(())
+        }
+
+        fn _url_relative_deny(&mut self) -> Result<()> {
+            let Some(inner) = self.inner.as_mut() else {
+                bail!("You cannot do this now");
+            };
+            inner.url_relative(UrlRelative::Deny);
+            Ok(())
+        }
+
+        fn _url_relative_rewrite_with_base(&mut self, base_url: &str) -> Result<()> {
+            let Some(inner) = self.inner.as_mut() else {
+                bail!("You cannot do this now");
+            };
+            inner.url_relative(UrlRelative::RewriteWithBase(
+                Url::parse(base_url).map_err(|err| anyhow!("{err}"))?,
+            ));
+            Ok(())
+        }
+
+        fn _url_relative_rewrite_with_root(&mut self, root: &str, path: String) -> Result<()> {
+            let Some(inner) = self.inner.as_mut() else {
+                bail!("You cannot do this now");
+            };
+            inner.url_relative(UrlRelative::RewriteWithRoot {
+                root: Url::parse(root).map_err(|err| anyhow!("{err}"))?,
+                path,
+            });
+            Ok(())
+        }
+
+        /// Must match add_tags()
+        fn _add_tags(&mut self, tags: Vec<String>) -> Result<()> {
+            let Some(inner) = self.inner.as_mut() else {
+                bail!("You cannot do this now");
+            };
+            if tags
+                .iter()
+                .any(|x| x.eq_ignore_ascii_case("script") || x.eq_ignore_ascii_case("style"))
+            {
+                self.truncation_is_safe = false;
+            }
+            inner.tags(tags);
+            Ok(())
+        }
+
+        fn _rm_clean_content_tags(&mut self, tags: Vec<String>) -> Result<()> {
+            let Some(inner) = self.inner.as_mut() else {
+                bail!("You cannot do this now");
+            };
+            inner.rm_clean_content_tags(tags.iter());
+            Ok(())
+        }
+
+        fn _add_tag_attributes(&mut self, tag: String, attributes: Vec<String>) -> Result<()> {
+            let Some(inner) = self.inner.as_mut() else {
+                bail!("You cannot do this now");
+            };
+            inner.add_tag_attributes(tag, attributes);
+            Ok(())
+        }
+
+        fn _tags(&mut self, tags: Vec<String>) -> Result<()> {
+            let Some(inner) = self.inner.as_mut() else {
+                bail!("You cannot do this now");
+            };
+            inner.tags(tags);
+            Ok(())
+        }
+
+        fn _id_prefix(&mut self, prefix: Option<String>) -> Result<()> {
+            let Some(inner) = self.inner.as_mut() else {
+                bail!("You cannot do this now");
+            };
+            inner.id_prefix(prefix);
+            Ok(())
+        }
+
+        fn _url_schemes(&mut self, schemes: Vec<String>) -> Result<()> {
+            let Some(inner) = self.inner.as_mut() else {
+                bail!("You cannot do this now");
+            };
+            inner.url_schemes(HashSet::from_iter(schemes));
+            Ok(())
+        }
+
+        fn _strip_comments(&mut self, strip: bool) -> Result<()> {
+            let Some(inner) = self.inner.as_mut() else {
+                bail!("You cannot do this now");
+            };
+            inner.strip_comments(strip);
+            Ok(())
+        }
     }
 }

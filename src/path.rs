@@ -15,10 +15,15 @@ pub struct PathObj {
 
 impl PathObj {
     #[inline]
-    fn _append(&self, path: &str) -> Self {
+    fn _from<P: Into<PathBuf>>(path: P) -> Self {
         Self {
-            inner: lexical_canonicalize(self.inner.join(path)),
+            inner: lexical_canonicalize(path.into()),
         }
+    }
+
+    #[inline]
+    fn _append(&self, path: &str) -> Self {
+        Self::_from(self.inner.join(path))
     }
 
     #[inline]
@@ -61,8 +66,8 @@ impl PathObj {
     /// # Parameters
     /// - `path`: The PHP value to convert to a filesystem path.
     ///
-    /// # Errors
-    /// Throws an exception if conversion from Zval to string fails.
+    /// # Exceptions
+    /// - Throws an exception if conversion of `$path` to string fails.
     #[inline]
     fn from(path: &Zval) -> anyhow::Result<Self> {
         Ok(Self {
@@ -75,8 +80,8 @@ impl PathObj {
     /// # Parameters
     /// - `path`: The PHP value to convert to a filesystem path.
     ///
-    /// # Errors
-    /// Throws an exception if conversion from Zval to string fails.
+    /// # Exceptions
+    /// - Throws an exception if conversion from Zval to string fails.
     fn __construct(path: &Zval) -> anyhow::Result<Self> {
         Self::from(path)
     }
@@ -89,8 +94,8 @@ impl PathObj {
     /// # Returns
     /// `true` if this path starts with the given prefix.
     ///
-    /// # Errors
-    /// Throws an exception if conversion from Zval to string fails.
+    /// # Exceptions
+    /// - Throws an exception if conversion from Zval to string fails.
     fn starts_with(&self, path: &Zval) -> anyhow::Result<bool> {
         Ok(self.inner.starts_with(to_str(path)?))
     }
@@ -103,8 +108,8 @@ impl PathObj {
     /// # Returns
     /// A new PathObj representing the joined path.
     ///
-    /// # Errors
-    /// Throws an exception if conversion from Zval to string fails.
+    /// # Exceptions
+    /// - Throws an exception if conversion from Zval to string fails.
     fn append(&self, path: &Zval) -> anyhow::Result<Self> {
         Ok(self._append(&to_str(path)?))
     }
@@ -112,31 +117,47 @@ impl PathObj {
     /// Joins the given path onto this path, canonicalizes it, and ensures it's a subpath.
     ///
     /// # Parameters
-    /// - `path`: The PHP value to join.
+    /// - `path`: string|Path
     ///
-    /// # Errors
-    /// Throws an exception if conversion from Zval to string fails or if the resulting path is not a subpath.
+    /// # Exceptions
+    /// - Throws an exception if `$path` is not a string nor Path
     fn append_within_base(&self, path: &Zval) -> anyhow::Result<Self> {
         self._append_within(&to_str(path)?)
     }
 
-    fn set_file_name(&mut self, file_name: &Zval) -> anyhow::Result<Self> {
+    /// Set the file name component of the path.
+    ///
+    /// # Parameters
+    /// - `fileName`: string
+    fn set_file_name(&mut self, file_name: &str) -> Self {
         let mut inner = self.inner.clone();
-        inner.set_file_name(to_str(file_name)?);
-        Ok(Self { inner })
+        inner.set_file_name(file_name);
+        Self { inner }
     }
 
-    fn set_extension(&mut self, file_name: &Zval) -> anyhow::Result<Self> {
+    /// Set the file name component of the path.
+    ///
+    /// # Parameters
+    /// - `extension`: string
+    fn set_extension(&mut self, extension: &str) -> Self {
         let mut inner = self.inner.clone();
-        inner.set_extension(to_str(file_name)?);
-        Ok(Self { inner })
+        inner.set_extension(extension);
+        Self { inner }
     }
 
+    /// Get the last component of the path.
     fn file_name(&self) -> Option<String> {
         self.inner
             .file_name()
             .and_then(OsStr::to_str)
             .map(str::to_string)
+    }
+
+    /// Get the directory name (similar to `dirname()`).
+    fn parent(&self) -> Option<PathObj> {
+        self.inner.parent().and_then(Path::to_str).map(|x| Self {
+            inner: lexical_canonicalize(Path::new(x)),
+        })
     }
 
     /// Converts the path to its string representation.
@@ -467,6 +488,44 @@ mod tests {
         // extension change
         p.set_extension("md");
         assert_eq!(p.extension(), Some(OsStr::new("md")));
+    }
+
+    #[test]
+    fn test_set_file_name_and_get_file_name() {
+        let mut original = PathObj::_from("dir/old.txt");
+        let changed = original.set_file_name("new.bin");
+        assert_eq!(changed.file_name(), Some("new.bin".to_string()));
+    }
+
+    #[test]
+    fn test_set_extension_and_get_file_name() {
+        let mut original = PathObj::_from("dir/file.txt");
+        let changed = original.set_extension("md");
+        assert_eq!(changed.file_name(), Some("file.md".to_string()));
+    }
+
+    #[test]
+    fn test_file_name_not_none() {
+        let p = PathObj::_from("foo/bar/");
+        assert_eq!(p.file_name(), Some("bar".to_string()));
+    }
+
+    #[test]
+    fn test_parent() {
+        let p = PathObj::_from("foo/bar/baz.txt");
+        let parent = p.parent().unwrap();
+        assert_eq!(
+            parent,
+            PathObj {
+                inner: lexical_canonicalize(PathBuf::from("foo/bar"))
+            }
+        );
+    }
+
+    #[test]
+    fn test_parent_none() {
+        let p = PathObj::_from("");
+        assert!(p.parent().is_none());
     }
 
     #[test]
