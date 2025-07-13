@@ -2,10 +2,10 @@
 use Hardened\Sanitizers\HtmlSanitizer;
 
 $sanitizer = HtmlSanitizer::default();
-$sanitizer->urlRelativeDeny();
-$sanitizer->filterStyleProperties(["color", "font-size"]);
-$sanitizer->setTagAttributeValue('test');
-var_dump($sanitizer->clean("<a href='../evil'>Click</a><p>"));
+var_dump($sanitizer->urlRelativeDeny()
+    ->filterStyleProperties(["color", "font-size"])
+    ->setTagAttributeValue('a', 'target', '_blank')
+    ->clean("<a href='../evil'>Click</a><p>"));
 // "<a rel="noopener noreferrer">Click</a><p></p>"
 
 var_dump($sanitizer->clean(

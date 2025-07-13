@@ -625,12 +625,15 @@ impl HtmlSanitizer {
         Ok(self_)
     }
 
-    fn filter_style_properties(&mut self, props: Vec<String>) -> Result<()> {
-        let Some(inner) = self.inner.as_mut() else {
+    fn filter_style_properties(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        props: Vec<String>,
+    ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
+        let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
         inner.filter_style_properties(props);
-        Ok(())
+        Ok(self_)
     }
 
     /// Sets a single tag attribute value.
@@ -840,18 +843,21 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - None.
-    fn attribute_filter(&mut self, #[allow(unused_variables)] callable: &_Zval) -> Result<()> {
+    fn attribute_filter<'a>(
+        self_: &mut ZendClassObject<HtmlSanitizer>,
+        #[allow(unused_variables)] callable: &_Zval,
+    ) -> Result<()> {
         #[cfg(not(test))]
         {
-            self.attribute_filter = Some(callable.shallow_clone());
+            self_.attribute_filter = Some(callable.shallow_clone());
 
             let (req_tx, req_rx) = channel::<Option<FilterRequest>>();
             let (resp_tx, resp_rx) = channel::<FilterResponse>();
             let resp_rx = Arc::new(Mutex::new(resp_rx));
-            self.req_tx = Some(req_tx.clone());
-            self.req_rx = Some(req_rx);
-            self.resp_tx = Some(resp_tx);
-            let inner = self
+            self_.req_tx = Some(req_tx.clone());
+            self_.req_rx = Some(req_rx);
+            self_.resp_tx = Some(resp_tx);
+            let inner = self_
                 .inner
                 .as_mut()
                 .ok_or_else(|| anyhow!("You cannot do this now"))?;
