@@ -614,7 +614,7 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - `Exception` if the sanitizer is not in a valid state.
-    fn filter_style_properties(
+    fn new_filter_style_properties(
         self_: &mut ZendClassObject<HtmlSanitizer>,
         props: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
@@ -623,6 +623,14 @@ impl HtmlSanitizer {
         };
         inner.filter_style_properties(props);
         Ok(self_)
+    }
+
+    fn filter_style_properties(&mut self, props: Vec<String>) -> Result<()> {
+        let Some(inner) = self.inner.as_mut() else {
+            bail!("You cannot do this now");
+        };
+        inner.filter_style_properties(props);
+        Ok(())
     }
 
     /// Sets a single tag attribute value.
@@ -643,8 +651,7 @@ impl HtmlSanitizer {
         let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        let val_ref: &'static str = Box::leak(Box::new(value));
-        inner.set_tag_attribute_value(tag, attribute, val_ref);
+        inner.set_tag_attribute_value(tag, attribute, value);
         Ok(self_)
     }
 
@@ -673,7 +680,8 @@ impl HtmlSanitizer {
         let Some(inner) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
-        Ok(inner.clone_clean_content_tags()
+        Ok(inner
+            .clone_clean_content_tags()
             .iter()
             .map(|s| s.to_string())
             .collect())
@@ -778,7 +786,8 @@ impl HtmlSanitizer {
         let Some(inner) = self.inner.as_ref() else {
             bail!("You cannot do this now");
         };
-        Ok(inner.get_set_tag_attribute_value(tag, attr)
+        Ok(inner
+            .get_set_tag_attribute_value(tag, attr)
             .map(|s| s.to_string()))
     }
 
