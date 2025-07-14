@@ -22,17 +22,18 @@ use crate::security_headers::hsts::StrictTransportSecurity;
 use crate::security_headers::permissions::PermissionsPolicy;
 use crate::security_headers::referrer_policy::ReferrerPolicy;
 use crate::security_headers::whatnot::Whatnot;
-use crate::shell_command::ShellCommand;
 use anyhow::{Error, Result};
 use ext_php_rs::prelude::*;
 use ext_php_rs::types::Zval;
+#[cfg(test)]
+use std::path::{Path, PathBuf};
 
 #[php_module]
 fn get_module(module: ModuleBuilder) -> ModuleBuilder {
+    let module = shell_command::build(module);
     module
         .class::<Hostname>()
         .class::<PathObj>()
-        .class::<ShellCommand>()
         .class::<HtmlSanitizer>()
         .class::<Rng>()
         .class::<Csrf>()
@@ -60,16 +61,9 @@ fn to_str(path: &Zval) -> Result<String, Error> {
 
 /// Runs the given PHP script via the `php` CLI and returns an error if it fails.
 #[cfg(test)]
-fn run_php_example(name: &str) -> Result<String> {
+fn run_php_file(php_file: PathBuf) -> Result<String> {
     use anyhow::{anyhow, bail};
     use std::process::Command;
-
-    let manifest = std::env::var("CARGO_MANIFEST_DIR")
-        .map_err(|e| anyhow::anyhow!("env CARGO_MANIFEST_DIR: {}", e))?;
-    let php_file = std::path::Path::new(&manifest)
-        .join("examples")
-        .join(format!("{name}.php"));
-
     // Spawn `php -f <script_name>`
     let output = Command::new("php")
         .arg("-f")
@@ -100,4 +94,25 @@ fn run_php_example(name: &str) -> Result<String> {
     }
 
     Ok(String::from_utf8_lossy(&output.stdout).parse()?)
+}
+#[cfg(test)]
+fn run_php_example(name: &str) -> Result<String> {
+    run_php_file(
+        Path::new(
+            &std::env::var("CARGO_MANIFEST_DIR")
+                .map_err(|e| anyhow::anyhow!("env CARGO_MANIFEST_DIR: {}", e))?,
+        )
+        .join(format!("examples/{name}.php")),
+    )
+}
+
+#[cfg(test)]
+fn run_php_test(name: &str) -> Result<String> {
+    run_php_file(
+        Path::new(
+            &std::env::var("CARGO_MANIFEST_DIR")
+                .map_err(|e| anyhow::anyhow!("env CARGO_MANIFEST_DIR: {}", e))?,
+        )
+        .join(format!("tests/{name}.php")),
+    )
 }

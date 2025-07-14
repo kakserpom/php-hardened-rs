@@ -844,13 +844,12 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - None.
     fn attribute_filter<'a>(
-        self_: &mut ZendClassObject<HtmlSanitizer>,
-        #[allow(unused_variables)] callable: &_Zval,
-    ) -> Result<()> {
+        #[allow(unused_variables)] self_: &'a mut ZendClassObject<HtmlSanitizer>,
+        #[allow(unused_variables)] callable: &'a _Zval,
+    ) -> Result<&'a mut ZendClassObject<HtmlSanitizer>> {
         #[cfg(not(test))]
         {
             self_.attribute_filter = Some(callable.shallow_clone());
-
             let (req_tx, req_rx) = channel::<Option<FilterRequest>>();
             let (resp_tx, resp_rx) = channel::<FilterResponse>();
             let resp_rx = Arc::new(Mutex::new(resp_rx));
@@ -876,7 +875,7 @@ impl HtmlSanitizer {
 
                 resp.filtered
             });
-            Ok(())
+            Ok(self_)
         }
         #[cfg(test)]
         panic!("attribute_filter() can not be called from tests");

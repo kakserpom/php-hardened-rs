@@ -6,6 +6,8 @@ essential security utilities for PHP applications. It provides following core cl
 - **Hardened\Hostname** — secure hostname parsing, normalization, and comparison.
 - **Hardened\Path** — safe, purely-lexical filesystem path handling to prevent directory traversal.
   with fine-grained tag, attribute, and URL policy controls.
+- **Hardened\ShellCommand** — secure subprocess launcher: build up a command with arguments, configure timeouts,
+  environment inheritance or overrides, live or captured I/O modes, and execute without shell interpolation.
 - **Hardened\Rng** — stateless random-data generator: alphanumeric, alphabetic, byte sequences, integer ranges, and
   custom Unicode or ASCII sampling. Using [rand](https://crates.io/crates/rand) crate.
 - **Hardened\CsrfProtection** — synchronized [CSRF](https://owasp.org/www-community/attacks/csrf) token–cookie
@@ -126,6 +128,50 @@ See [example](examples/path.php).
 | `validateExtensionVideo(): bool`          | Returns `true` if extension is a common video (`mp4, mov, avi, mkv, webm, flv`).             |
 | `validateExtensionAudio(): bool`          | Returns `true` if extension is a common audio (`mp3, wav, ogg, flac, aac`).                  |
 | `validateExtensionDocument(): bool`       | Returns `true` if extension is a common document (`pdf, doc, docx, xls, xlsx, ppt, pptx`).   |
+
+### `Hardened\ShellCommand`
+
+- Secure subprocess launcher without shell interpolation.
+- Build a command with explicit executable and arguments.
+- Configure timeouts (seconds or milliseconds) and environment inheritance/overrides.
+- Choose I/O modes: ignore, passthrough (print to PHP), or callback per chunk.
+- Entry-points:
+    - `executable()` – start from a specific binary.
+    - `shell()` – use your login shell (`$SHELL` or `/bin/sh`).
+
+| Method                                                 | Description                                                                                                                                                                    |
+|--------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `executable(string $exe): Self`                        | Create a new instance targeting the given executable path (no arguments).                                                                                                      |
+| `__construct(string $exe, array $args = []): Self`     | Same as `executable()` plus initial argument list.                                                                                                                             |
+| `shell(): Self`                                        | Shortcut to `executable(env('SHELL') ?? '/bin/sh')`.                                                                                                                           |
+| `safeFromString(string $cmd): Self`                    | Shell-split safely (handles quotes/escapes, disallows NUL), then configure the command.                                                                                        |
+| `unsafeFromString(string $cmd): Self`                  | Like `shell_exec()`: runs via `/bin/sh -c`, but records top-level commands to detect injection.                                                                                |
+| `arg(string $arg): Self`                               | Append a single argument (no shell interpretation).                                                                                                                            |
+| `passArgs(array $args): Self`                          | Append multiple positional or `--key value` arguments.                                                                                                                         |
+| `setTimeout(int $secs): Self`                          | Set an execution timeout in seconds (process is killed on expiry).                                                                                                             |
+| `setTimeoutMs(int $ms): Self`                          | Set an execution timeout in milliseconds.                                                                                                                                      |
+| `inheritAllEnvs(): Self`                               | Inherit all of the parent process’s environment variables.                                                                                                                     |
+| `inheritEnvs(array $names): Self`                      | Restrict inherited environment variables to this set.                                                                                                                          |
+| `passEnv(string $key, string $val): Self`              | Add or override a single environment variable for the child.                                                                                                                   |
+| `passEnvOnly(array $map): Self`                        | Clear all inherited vars and set only these environment variables.                                                                                                             |
+| `passthroughBoth(): Self`                              | Stream both `stdout` and `stderr` live into PHP output.                                                                                                                        |
+| `passthroughStdout(): Self`                            | Stream `stdout` live into PHP output.                                                                                                                                          |
+| `passthroughStderr(): Self`                            | Stream `stderr` live into PHP output.                                                                                                                                          |
+| `ignoreBoth(): Self`                                   | Discard both `stdout` and `stderr`.                                                                                                                                            |
+| `ignoreStdout(): Self`                                 | Discard `stdout` only.                                                                                                                                                         |
+| `ignoreStderr(): Self`                                 | Discard `stderr` only.                                                                                                                                                         |
+| `pipeCallbackBoth(callable $cb): Self`                 | Invoke the PHP callable for each chunk on both `stdout` and `stderr`.                                                                                                          |
+| `pipeCallbackStdout(callable $cb): Self`               | Invoke the PHP callable for each chunk on `stdout`.                                                                                                                            |
+| `pipeCallbackStderr(callable $cb): Self`               | Invoke the PHP callable for each chunk on `stderr`.                                                                                                                            |
+| `run(?string &$out = null, ?string &$err = null): int` | Execute the command, stream according to configured modes, optionally capture `stdout`/`stderr` into the provided variables, and return exit code (`-1` on timeout or signal). |
+| `topLevelCommands(): ?array`                           | Get the list of top-level command names parsed by `unsafeFromString()`, or `null` if not in unsafe mode.                                                                       |
+
+#### Global Functions
+
+| Function                                                                                   | Description                                                                                                                                                                                                                                                                     |
+|--------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Hardened\shell_exec(string $command, array<string>? $expectedCommands = null): ?string`   | Drop-in replacement for PHP’s `shell_exec()`.  Runs `/bin/sh -c $command`, records the top-level command names, and if you pass an `$expectedCommands` list it will throw on any deviation (to catch injection). Returns the captured stdout (or exit-code string on non-zero). |
+| `Hardened\safe_exec(string $commandLine, array<string,mixed>? $arguments = null): ?string` | Safe alternative that never invokes a shell.  Splits `$commandLine` into tokens, disallows NUL, appends `$arguments`, then spawns directly. Captures stdout into the return string (or exit-code string on non-zero).                                                           |
 
 ### `Hardened\Sanitizers\HtmlSanitizer`
 
