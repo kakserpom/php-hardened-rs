@@ -139,6 +139,8 @@ See [example](examples/path.php).
     - `executable()` – start from a specific binary.
     - `shell()` – use your login shell (`$SHELL` or `/bin/sh`).
 
+See [example](examples/shell-command.php).
+
 | Method                                                 | Description                                                                                                                                                                    |
 |--------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `executable(string $exe): Self`                        | Create a new instance targeting the given executable path (no arguments).                                                                                                      |
