@@ -28,24 +28,49 @@ use ext_php_rs::types::Zval;
 #[cfg(test)]
 use std::path::{Path, PathBuf};
 
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[php_module]
-fn get_module(module: ModuleBuilder) -> ModuleBuilder {
-    let module = shell_command::build(module);
+fn get_module(mut module: ModuleBuilder) -> ModuleBuilder {
+    #[cfg(feature = "shell_command")]
+    {
+        module = shell_command::build(module);
+    }
+    #[cfg(feature = "html_sanitizer")]
+    {
+        module = module.class::<HtmlSanitizer>();
+    }
+    #[cfg(feature = "hostname")]
+    {
+        module = module.class::<Hostname>();
+    }
+    #[cfg(feature = "path")]
+    {
+        module = module.class::<PathObj>();
+    }
+    #[cfg(feature = "rng")]
+    {
+        module = module.class::<Rng>();
+    }
+    #[cfg(feature = "csrf")]
+    {
+        module = module.class::<Csrf>();
+    }
+    #[cfg(feature = "headers")]
+    {
+        module = module.class::<ContentSecurityPolicy>();
+        module = module.class::<StrictTransportSecurity>();
+        module = module.class::<Whatnot>();
+        module = module.class::<PermissionsPolicy>();
+        module = module.class::<ReferrerPolicy>();
+        module = module.class::<ResourceSharing>();
+        module = module.class::<EmbedderPolicy>();
+        module = module.class::<ResourcePolicy>();
+        module = module.class::<OpenerPolicy>();
+    }
     module
-        .class::<Hostname>()
-        .class::<PathObj>()
-        .class::<HtmlSanitizer>()
-        .class::<Rng>()
-        .class::<Csrf>()
-        .class::<ContentSecurityPolicy>()
-        .class::<StrictTransportSecurity>()
-        .class::<Whatnot>()
-        .class::<PermissionsPolicy>()
-        .class::<ReferrerPolicy>()
-        .class::<ResourceSharing>()
-        .class::<EmbedderPolicy>()
-        .class::<ResourcePolicy>()
-        .class::<OpenerPolicy>()
 }
 
 fn to_str(path: &Zval) -> Result<String, Error> {

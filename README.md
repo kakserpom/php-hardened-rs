@@ -68,19 +68,28 @@ cd php-hardened-rs-cdylib
 cargo php install --release --yes
 ```
 
-On **macOS**, you may need to set the deployment target and link flags first:
+All features are enabled by default.
 
-```bash
-export MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | tr -d '
-')
-export RUSTFLAGS="-C link-arg=-undefined -C link-arg=dynamic_lookup"
-```
+If you want to choose what features to include in the build, use `--features`.
+For example, `cargo php install --release --yes --features rng, `
 
-Enable the extension by adding to your `php.ini`:
+| Feature             | Enables                                                                                                                                                                            |
+|---------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **default**         | `mimalloc`, `shell_command`, `html_sanitizer`, `hostname` `path`, `rng`, `csrf`, `headers`                                                                                         |
+| **mimalloc**        | Use [mimalloc](https://docs.rs/mimalloc/latest/mimalloc/index.html) allocator.                                                                                                     |
+| **shell\_command**  | Safe subprocess API & `Hardened\ShellCommand`                                                                                                                                      |
+| **html\_sanitizer** | The `Hardened\HtmlSanitizer` wrapper around [Ammonia](https://github.com/rust-ammonia/ammonia)                                                                                     |
+| **hostname**        | The `Hardened\Hostname` utility                                                                                                                                                    |
+| **path**            | The `Hardened\Path` utility                                                                                                                                                        |
+| **rng**             | The `Hardened\Rng` random-data generator                                                                                                                                           |
+| **csrf**            | The `Hardened\CsrfProtection` module (requires [`csrf`](https://docs.rs/csrf/latest/mimalloc/index.html), [`data-encoding`](https://docs.rs/csrf/latest/data-encoding/index.html)) |
+| **headers**         | All security headers (`CSP`, `HSTS`, `CORS`, etc.) (requires `trim-in-place`, `serde_json`)                                                                                        |
 
-```ini
-extension=php_hardened_rs
-```
+> On **macOS**, you may need to set the deployment target and link flags first:
+> ```bash
+> export MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | tr -d '')
+> export RUSTFLAGS="-C link-arg=-undefined -C link-arg=dynamic_lookup"
+> ```
 
 ## API
 
