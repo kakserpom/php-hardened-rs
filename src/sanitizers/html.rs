@@ -950,12 +950,12 @@ impl HtmlSanitizer {
     ///    to close any open tags introduced by truncation.
     ///
     /// # Parameters
-    /// - `html`:    `String` containing the raw HTML content to sanitize and truncate.
-    /// - `max`:     `usize` maximum number of *units* (bytes, characters, or graphemes) in the final output,
-    ///             including the length of the `etc` suffix.
+    /// - `html`: `String` containing the raw HTML content to sanitize and truncate.
+    /// - `max`: `usize` maximum number of *units* (bytes, characters, or graphemes) in the final output,
+    ///    including the length of the `etc` suffix.
     /// - `count_by`: `&CountBy` enum selecting the unit of measurement for `max`.
-    /// - `etc`:     `Option<String>` optional suffix to append when truncation occurs (e.g. ellipsis).
-    ///              Defaults to [`TRUNCATE_DEFAULT_ENDING`].
+    /// - `etc`:  `Option<String>` optional suffix to append when truncation occurs (e.g. ellipsis).
+    ///    Defaults to [`TRUNCATE_DEFAULT_ENDING`].
     ///
     /// # Returns
     /// - `Ok(String)` containing a sanitized, well-formed HTML snippet, no longer than `max` units.
@@ -1002,7 +1002,7 @@ impl HtmlSanitizer {
         let mut html = self.clean(html)?.to_string();
 
         #[cfg(test)]
-        println!("first html sanitization: {:?}", html);
+        println!("first html sanitization: {html:?}");
 
         // Compute the byte index up to which to keep content.
         let mut cut_offset = match count_by {
@@ -1076,7 +1076,7 @@ impl HtmlSanitizer {
             html.push_str(&etc);
 
             #[cfg(test)]
-            println!("truncated to {:?}", html);
+            println!("truncated to {html:?}");
 
             // Re-sanitize to close any unenclosed tags introduced by truncation
             Ok(self.clean(html)?)

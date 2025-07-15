@@ -11,7 +11,7 @@ use std::env;
 use std::io::Read;
 use std::time::{Duration, Instant};
 
-use crate::shell_command::PipeMode::{CallbackMode, IgnoreMode, PassthroughMode};
+use crate::shell_command::PipeMode::{Callback, Ignore, Passthrough};
 use anyhow::Result;
 use ext_php_rs::builders::ModuleBuilder;
 use libc::{F_GETFL, F_SETFL, O_NONBLOCK, fcntl};
@@ -39,9 +39,9 @@ pub struct ShellCommand {
 
 #[derive(Debug)]
 enum PipeMode {
-    IgnoreMode,
-    PassthroughMode,
-    CallbackMode(Zval),
+    Ignore,
+    Passthrough,
+    Callback(Zval),
 }
 
 #[php_impl]
@@ -92,8 +92,8 @@ impl ShellCommand {
     fn passthrough_both(
         self_: &mut ZendClassObject<ShellCommand>,
     ) -> &mut ZendClassObject<ShellCommand> {
-        self_.err_pipe_mode = PassthroughMode;
-        self_.out_pipe_mode = PassthroughMode;
+        self_.err_pipe_mode = Passthrough;
+        self_.out_pipe_mode = Passthrough;
         self_
     }
 
@@ -101,7 +101,7 @@ impl ShellCommand {
     fn passthrough_stdout(
         self_: &mut ZendClassObject<ShellCommand>,
     ) -> &mut ZendClassObject<ShellCommand> {
-        self_.out_pipe_mode = PassthroughMode;
+        self_.out_pipe_mode = Passthrough;
         self_
     }
 
@@ -109,7 +109,7 @@ impl ShellCommand {
     fn passthrough_stderr(
         self_: &mut ZendClassObject<ShellCommand>,
     ) -> &mut ZendClassObject<ShellCommand> {
-        self_.err_pipe_mode = PassthroughMode;
+        self_.err_pipe_mode = Passthrough;
         self_
     }
 
@@ -117,8 +117,8 @@ impl ShellCommand {
     fn ignore_both(
         self_: &mut ZendClassObject<ShellCommand>,
     ) -> &mut ZendClassObject<ShellCommand> {
-        self_.err_pipe_mode = IgnoreMode;
-        self_.out_pipe_mode = IgnoreMode;
+        self_.err_pipe_mode = Ignore;
+        self_.out_pipe_mode = Ignore;
         self_
     }
 
@@ -126,7 +126,7 @@ impl ShellCommand {
     fn ignore_stdout(
         self_: &mut ZendClassObject<ShellCommand>,
     ) -> &mut ZendClassObject<ShellCommand> {
-        self_.out_pipe_mode = IgnoreMode;
+        self_.out_pipe_mode = Ignore;
         self_
     }
 
@@ -134,7 +134,7 @@ impl ShellCommand {
     fn ignore_stderr(
         self_: &mut ZendClassObject<ShellCommand>,
     ) -> &mut ZendClassObject<ShellCommand> {
-        self_.err_pipe_mode = IgnoreMode;
+        self_.err_pipe_mode = Ignore;
         self_
     }
 
@@ -145,8 +145,8 @@ impl ShellCommand {
         self_: &'a mut ZendClassObject<ShellCommand>,
         callable: &Zval,
     ) -> &'a mut ZendClassObject<ShellCommand> {
-        self_.err_pipe_mode = CallbackMode(callable.shallow_clone());
-        self_.out_pipe_mode = CallbackMode(callable.shallow_clone());
+        self_.err_pipe_mode = Callback(callable.shallow_clone());
+        self_.out_pipe_mode = Callback(callable.shallow_clone());
         self_
     }
 
@@ -155,7 +155,7 @@ impl ShellCommand {
         self_: &'a mut ZendClassObject<ShellCommand>,
         callable: &Zval,
     ) -> &'a mut ZendClassObject<ShellCommand> {
-        self_.out_pipe_mode = CallbackMode(callable.shallow_clone());
+        self_.out_pipe_mode = Callback(callable.shallow_clone());
         self_
     }
 
@@ -164,7 +164,7 @@ impl ShellCommand {
         self_: &'a mut ZendClassObject<ShellCommand>,
         callable: &Zval,
     ) -> &'a mut ZendClassObject<ShellCommand> {
-        self_.err_pipe_mode = CallbackMode(callable.shallow_clone());
+        self_.err_pipe_mode = Callback(callable.shallow_clone());
         self_
     }
 
@@ -396,7 +396,7 @@ impl ShellCommand {
         for seg in &cmds {
             let parts = shell_words::split(seg)
                 .map_err(|e| anyhow!("failed to parse segment `{}`: {}", seg, e))?;
-            if let Some(first) = parts.get(0) {
+            if let Some(first) = parts.first() {
                 top_level_commands.push(first.clone());
             }
         }
@@ -419,8 +419,8 @@ impl ShellCommand {
             args: Vec::new(),
             timeout: None,
             pass_env: Default::default(),
-            out_pipe_mode: IgnoreMode,
-            err_pipe_mode: IgnoreMode,
+            out_pipe_mode: Ignore,
+            err_pipe_mode: Ignore,
             inherit_env: None,
             top_level_commands: None,
         }
@@ -474,7 +474,7 @@ impl ShellCommand {
         cmd.args(&self.args);
         if let Some(inherit_env) = self.inherit_env.as_ref() {
             cmd.env_clear();
-            cmd.envs(env::vars().filter(|&(ref k, _)| inherit_env.contains(k)));
+            cmd.envs(env::vars().filter(|(k, _)| inherit_env.contains(k)));
         }
         cmd.envs(self.pass_env.iter());
         cmd.stdout(Stdio::piped());
@@ -536,22 +536,22 @@ impl ShellCommand {
                 return Err(anyhow!("select failed"));
             }
             if ready == 0 {
-                let _ = child
+                child
                     .kill()
                     .map_err(|e| anyhow!("Failed to kill on timeout: {e}"))?;
                 return Ok(-1);
             }
 
-            if unsafe { libc::FD_ISSET(out_fd, &mut rfds) } {
+            if unsafe { libc::FD_ISSET(out_fd, &rfds) } {
                 match out.read(&mut buf) {
                     Ok(0) => {}
                     Ok(n) => {
                         match &self.out_pipe_mode {
-                            IgnoreMode => {}
-                            PassthroughMode => {
+                            Ignore => {}
+                            Passthrough => {
                                 php_print!("{}", String::from_utf8_lossy(&buf[..n]));
                             }
-                            CallbackMode(callback) => {
+                            Callback(callback) => {
                                 ZendCallable::new(callback)
                                     .map_err(|err| anyhow!("{err}"))?
                                     .try_call(vec![&String::from_utf8_lossy(&buf[..n]).to_string()])
@@ -559,23 +559,23 @@ impl ShellCommand {
                             }
                         }
                         if let Some(s) = stdout_buf.as_mut() {
-                            s.push_str(&*String::from_utf8_lossy(&buf[..n]));
+                            s.push_str(&String::from_utf8_lossy(&buf[..n]));
                         }
                     }
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
                     Err(e) => return Err(anyhow!("{e}")),
                 }
             }
-            if unsafe { libc::FD_ISSET(err_fd, &mut rfds) } {
+            if unsafe { libc::FD_ISSET(err_fd, &rfds) } {
                 match err.read(&mut buf) {
                     Ok(0) => {}
                     Ok(n) => {
                         match &self.err_pipe_mode {
-                            IgnoreMode => {}
-                            PassthroughMode => {
+                            Ignore => {}
+                            Passthrough => {
                                 php_print!("{}", String::from_utf8_lossy(&buf[..n]));
                             }
-                            CallbackMode(callback) => {
+                            Callback(callback) => {
                                 ZendCallable::new(callback)
                                     .map_err(|err| anyhow!("{err}"))?
                                     .try_call(vec![&String::from_utf8_lossy(&buf[..n]).to_string()])
@@ -583,7 +583,7 @@ impl ShellCommand {
                             }
                         }
                         if let Some(s) = stderr_buf.as_mut() {
-                            s.push_str(&*String::from_utf8_lossy(&buf[..n]));
+                            s.push_str(&String::from_utf8_lossy(&buf[..n]));
                         }
                     }
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
@@ -591,7 +591,7 @@ impl ShellCommand {
                 }
             }
 
-            if let Some(_) = child.try_wait().map_err(|e| anyhow!("{e}"))? {
+            if child.try_wait().map_err(|e| anyhow!("{e}"))?.is_some() {
                 break;
             }
         }
@@ -638,22 +638,21 @@ pub(crate) fn build(module: ModuleBuilder) -> ModuleBuilder {
 /// - Throws `Exception` if parsing fails, an unexpected top-level command is detected, or command execution fails.
 pub fn shell_exec(command: &str, expected_commands: Option<Vec<String>>) -> Result<Option<Zval>> {
     let mut self_ = ShellCommand::shell_from_string(command)?;
-    match (expected_commands, &self_.top_level_commands) {
-        (Some(expected_commands), Some(top_level_commands)) => {
-            for top_level_command in top_level_commands.into_iter() {
-                if !expected_commands.contains(&top_level_command) {
-                    bail!(
-                        "Unexpected top-level command: {top_level_command:?}.
+    if let (Some(expected_commands), Some(top_level_commands)) =
+        (expected_commands, &self_.top_level_commands)
+    {
+        for top_level_command in top_level_commands.iter() {
+            if !expected_commands.contains(top_level_command) {
+                bail!(
+                    "Unexpected top-level command: {top_level_command:?}.
     Possible injection attempt. Requires investigation.
     Full argument value {command:?}
     Expected top-level commands: {expected_commands:?}
                         "
-                    );
-                }
+                );
             }
         }
-        _ => {}
-    };
+    }
     let mut out = Zval::new();
     let code = self_.run(Some(&mut out), None)?;
     if code != 0 {
