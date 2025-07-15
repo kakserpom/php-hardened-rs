@@ -18,12 +18,12 @@ $csrf = new CsrfProtection($key, $ttl);
 //
 // 2) Send the cookie to the client
 //
-$csrf->setCookie(
-    /* expires: */ time() + $ttl,
-    /* path:    */ '/',
-    /* domain:  */ '',      // default: current host
-    /* secure:  */ true,    // only over HTTPS
-    /* httponly:*/ true     // inaccessible to JavaScript
+$csrf->sendCookie(
+    expires:  time() + $ttl,
+    path:     '/',
+    domain:   '',      // default: current host
+    secure:   true,    // only over HTTPS
+    httponly: true     // inaccessible to JavaScript
 );
 
 //

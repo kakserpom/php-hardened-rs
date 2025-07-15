@@ -509,7 +509,7 @@ var_dump($multiWeighted);
 - Token & cookie getters: `token()`, `cookie()`.
 - Validation: `verifyToken($token, $cookie = null)` (auto-fetches cookie if omitted).
 - Cookie management: `setCookieName()`, `cookieName()`,
-  `setCookie($expires = null, $path = null, $domain = null, $secure = null, $httponly = null)`.
+  `sendCookie($expires = null, $path = null, $domain = null, $secure = null, $httponly = null)`.
 
 <details>
 <summary>Example</summary>
@@ -532,12 +532,12 @@ $csrf = new CsrfProtection($key, $ttl);
 //
 // 2) Send the cookie to the client
 //
-$csrf->setCookie(
-    /* expires: */ time() + $ttl,
-    /* path:    */ '/',
-    /* domain:  */ '',      // default: current host
-    /* secure:  */ true,    // only over HTTPS
-    /* httponly:*/ true     // inaccessible to JavaScript
+$csrf->sendCookie(
+    expires:  time() + $ttl,
+    path:     '/',
+    domain:   '',      // default: current host
+    secure:   true,    // only over HTTPS
+    httponly: true     // inaccessible to JavaScript
 );
 
 //
@@ -585,15 +585,15 @@ try {
 
 <details><summary>API Reference</summary>
 
-| Method                                                                                                                              | Description                                                                        |
-|-------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
-| `__construct(string $key, int $ttl, ?string $previousTokenValue = null): void`                                                      | Initialize a CSRF protection instance.                                             |
-| `verifyToken(string $token, ?string $cookie = null): void`                                                                          | Validate the given token & cookie pair.                                            |
-| `cookie(): string`                                                                                                                  | Return the Base64URL-encoded CSRF cookie value to send via `Set-Cookie`.           |
-| `token(): string`                                                                                                                   | Return the Base64URL-encoded CSRF token value to embed in forms or headers.        |
-| `setCookieName(string $name): void`                                                                                                 | Override the name used for the CSRF cookie.                                        |
-| `cookieName(): string`                                                                                                              | Get the current CSRF cookie name (default is `csrf`).                              |
-| `setCookie(?int $expires = null, ?string $path = null, ?string $domain = null, ?bool $secure = null, ?bool $httponly = null): void` | Send the CSRF cookie via PHP’s `setcookie()` function using native argument order. |
+| Method                                                                                                                               | Description                                                                        |
+|--------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
+| `__construct(string $key, int $ttl, ?string $previousTokenValue = null): void`                                                       | Initialize a CSRF protection instance.                                             |
+| `verifyToken(string $token, ?string $cookie = null): void`                                                                           | Validate the given token & cookie pair.                                            |
+| `cookie(): string`                                                                                                                   | Return the Base64URL-encoded CSRF cookie value to send via `Set-Cookie`.           |
+| `token(): string`                                                                                                                    | Return the Base64URL-encoded CSRF token value to embed in forms or headers.        |
+| `setCookieName(string $name): void`                                                                                                  | Override the name used for the CSRF cookie.                                        |
+| `cookieName(): string`                                                                                                               | Get the current CSRF cookie name (default is `csrf`).                              |
+| `sendCookie(?int $expires = null, ?string $path = null, ?string $domain = null, ?bool $secure = null, ?bool $httponly = null): void` | Send the CSRF cookie via PHP’s `setcookie()` function using native argument order. |
 
 </details>
 

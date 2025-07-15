@@ -168,7 +168,7 @@ impl Csrf {
     ///
     /// # Exceptions
     /// - Throws `Exception` if the PHP `setcookie()` function cannot be invoked.
-    fn set_cookie(
+    fn send_cookie(
         &mut self,
         expires: Option<i64>,
         path: Option<String>,
