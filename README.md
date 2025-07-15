@@ -1018,7 +1018,7 @@ $policy->send();
 - Use `allow(feature, origins)` to enable a feature for a list of origins, or `deny(feature)` for an empty allowlist.
 
 <details>
-<summary>API Reference</summary>
+<summary>Example</summary>
 
 ```php
 use Hardened\SecurityHeaders\PermissionsPolicy;
