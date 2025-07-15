@@ -40,10 +40,10 @@ impl Rng {
     /// - `len`: Number of bytes to generate.
     ///
     /// # Returns
-    /// - `Ok(Binary<u8>)` containing `len` random bytes.
+    /// - `string` containing `len` random bytes.
     ///
-    /// # Errors
-    /// - Returns `Err` if the uniform distribution for `u8` cannot be created.
+    /// # Exceptions
+    /// - Throws an exception if the uniform distribution for `u8` cannot be created.
     fn bytes(len: usize) -> anyhow::Result<Binary<u8>> {
         Ok(Binary::from(
             rng()
@@ -56,19 +56,19 @@ impl Rng {
     /// Generate a vector of random integers in the inclusive range `[low, high]`.
     ///
     /// # Parameters
-    /// - `len`: Number of integers to generate.
+    /// - `n`: Number of integers to generate.
     /// - `low`: Lower bound (inclusive).
     /// - `high`: Upper bound (inclusive).
     ///
     /// # Returns
-    /// - `Ok(Vec<i64>)` of length `len`.
+    /// - `array[int; n]` — array of random values within bounds
     ///
-    /// # Errors
-    /// - Returns `Err` if the range is invalid (e.g. `low > high`) or distribution creation fails.
-    fn ints(len: usize, low: i64, high: i64) -> anyhow::Result<Vec<i64>> {
+    /// # Exceptions
+    /// - Throws an exception if the range is invalid (e.g. `low > high`) or distribution creation fails.
+    fn ints(n: usize, low: i64, high: i64) -> anyhow::Result<Vec<i64>> {
         Ok(rng()
             .sample_iter(Uniform::new_inclusive(low, high)?)
-            .take(len)
+            .take(n)
             .collect::<Vec<_>>())
     }
 
@@ -79,10 +79,10 @@ impl Rng {
     /// - `high`: Upper bound (inclusive).
     ///
     /// # Returns
-    /// - `Ok(i64)` random value.
+    /// - `int` — random value within bounds
     ///
-    /// # Errors
-    /// - Returns `Err` if `low > high` or if distribution creation fails.
+    /// # Exceptions
+    /// - Throws an exception if the range is invalid (e.g. `low > high`) or distribution creation fails.
     fn int(low: i64, high: i64) -> anyhow::Result<i64> {
         if low > high {
             bail!("low must not be greater than high")
@@ -97,17 +97,20 @@ impl Rng {
     /// - `chars`: A string whose `char` elements form the sampling pool.
     ///
     /// # Returns
-    /// - `String` of length `len`, or an empty string if `chars` is empty.
-    fn custom_unicode_chars(len: usize, chars: &str) -> String {
-        if chars.is_empty() {
-            return String::new();
-        }
+    /// - `string` of length `len`, or an empty string if `chars` is empty.
+    ///
+    /// # Exceptions
+    /// - Throws an exception if `char` does not contain at least one Unicode character.
+    fn custom_unicode_chars(len: usize, chars: &str) -> anyhow::Result<String> {
         let unicode_chars = chars.chars().collect::<Vec<_>>();
-        rng()
+        if unicode_chars.is_empty() {
+            bail!("chars must contain at least one Unicode character");
+        }
+        Ok(rng()
             .sample_iter(Uniform::new_inclusive(0, unicode_chars.len() - 1).unwrap())
             .take(len)
             .map(|n| unicode_chars[n])
-            .collect()
+            .collect())
     }
 
     /// Sample random Unicode grapheme clusters from the given string.
@@ -117,14 +120,14 @@ impl Rng {
     /// - `chars`: A string whose grapheme clusters form the sampling pool.
     ///
     /// # Returns
-    /// - `Ok(String)` of concatenated grapheme clusters, or an empty string if none are found.
+    /// - `string` of length `len`, or an empty string if `chars` is empty.
     ///
-    /// # Errors
-    /// - Returns `Err` if the grapheme index distribution cannot be created.
+    /// # Exceptions
+    /// - Throws an exception if `char` does not contain at least one Unicode grapheme.
     fn custom_unicode_graphemes(len: usize, chars: &str) -> anyhow::Result<String> {
         let graphemes = chars.graphemes(true).collect::<Vec<&str>>();
         if graphemes.is_empty() {
-            return Ok(String::new());
+            bail!("chars must contain at least one Unicode character");
         }
         Ok(rng()
             .sample_iter(Uniform::new_inclusive(0, graphemes.len() - 1)?)
@@ -141,17 +144,19 @@ impl Rng {
     ///
     /// # Returns
     /// - `String` of length `len`, or an empty string if `chars` is empty.
-    fn custom_ascii(len: usize, chars: &str) -> String {
+    ///
+    /// # Exceptions
+    /// - Throws an exception if `char` does not contain at least one byte.
+    fn custom_ascii(len: usize, chars: &str) -> anyhow::Result<String> {
         let chars = chars.as_bytes();
         if chars.is_empty() {
-            return String::new();
+            bail!("chars must contain at least one byte");
         }
-        let range = Uniform::new_inclusive(0, chars.len() - 1).unwrap();
-        rng()
-            .sample_iter(range)
+        Ok(rng()
+            .sample_iter(Uniform::new_inclusive(0, chars.len() - 1)?)
             .take(len)
             .map(|n| chars[n] as char)
-            .collect()
+            .collect())
     }
 
     /// Randomly selects one element from the given list.
@@ -300,11 +305,10 @@ mod tests {
     #[test]
     fn test_custom_unicode_chars() {
         let pool = "абв";
-        let s = Rng::custom_unicode_chars(5, pool);
+        let s = Rng::custom_unicode_chars(5, pool).unwrap();
         assert_eq!(s.chars().count(), 5);
         assert!(s.chars().all(|c| pool.contains(c)));
-        let empty = Rng::custom_unicode_chars(5, "");
-        assert!(empty.is_empty());
+        assert!(Rng::custom_unicode_chars(5, "").is_err());
     }
 
     #[test]
@@ -316,18 +320,16 @@ mod tests {
         for g in s.graphemes(true) {
             assert!(graphemes.contains(&g));
         }
-        let empty = Rng::custom_unicode_graphemes(3, "").unwrap();
-        assert!(empty.is_empty());
+        assert!(Rng::custom_unicode_graphemes(3, "").is_err());
     }
 
     #[test]
     fn test_custom_ascii() {
         let pool = "ABC";
-        let s = Rng::custom_ascii(6, pool);
+        let s = Rng::custom_ascii(6, pool).unwrap();
         assert_eq!(s.len(), 6);
         assert!(s.chars().all(|c| pool.contains(c)));
-        let empty = Rng::custom_ascii(4, "");
-        assert!(empty.is_empty());
+        assert!(Rng::custom_ascii(4, "").is_err());
     }
 
     #[test]

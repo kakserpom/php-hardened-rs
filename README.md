@@ -942,7 +942,7 @@ $rp->send();
   `X-Frame-Options`, `X-XSS-Protection`, `X-Content-Type-Options`,  
   `X-Permitted-Cross-Domain-Policies`, `Report-To`, `Integrity-Policy`,  
   and `Integrity-Policy-Report-Only`.
-- Strongly-typed enums for frame & XSS modes, with optional URIs for “ALLOW-FROM” and reporting.
+- Strongly-typed enums for frame & XSS modes, with optional URIs for `ALLOW-FROM` and reporting.
 - Configure each header with `set…()` methods, then gather with `build()` or emit via `send()`.
 
 <details>
