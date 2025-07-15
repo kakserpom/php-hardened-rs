@@ -77,7 +77,22 @@ Currently, we provide builders for several HTTP security headers (namespace `Har
     - `$host->subdomainOfUrl(string $url): bool` — URL or Hostname subdomain check.
     - `$host->subdomainOfAnyUrl(array $urls): bool` — any URL or Hostname array.
 
-See [example](examples/hostname.php).
+<details><summary>Example</summary>
+
+```php
+
+var_dump(Hostname::fromUrl("https://example.com/php")->equals("eXaMple.com."));
+// bool(true)
+var_dump(Hostname::from("zzz.example.com")->subdomainOf("eXaMple.com."));
+// bool(true)
+var_dump(Hostname::from("zzz.example.com")->subdomainOf("example.co.uk"));
+// bool(false)
+
+```
+
+</details>
+
+<details><summary>API Reference</summary>
 
 | Method                                   | Description                                           |
 |------------------------------------------|-------------------------------------------------------|
@@ -95,6 +110,8 @@ See [example](examples/hostname.php).
 | `subdomainOfUrl(string $url): bool`      | Subdomain check from URL.                             |
 | `subdomainOfAnyUrl(array $urls): bool`   | Any subdomain from URL or Hostname array.             |
 
+</details>
+
 ### `Hardened\Path`
 
 - Lexical canonicalization: remove `.` and `..`, collapse separators.
@@ -109,7 +126,56 @@ See [example](examples/hostname.php).
 
 Note that `Path` is immutable.
 
-See [example](examples/path.php).
+<details><summary>Example</summary>
+
+```php
+use Hardened\Path;
+
+$path = Path::from("/foo/bar/data/");
+
+var_dump($path->append("zzz")->startsWith($path));
+// bool(true)
+
+var_dump($path->append("zzz")->path());
+// string(17) "/foo/bar/data/zzz"
+
+var_dump($path->append("../zzz")->path());
+// string(12) "/foo/bar/zzz"
+
+var_dump($path->append("../zzz")->startsWith($path));
+// bool(false)
+
+try {
+    var_dump($path->appendWithin("../zzz")); // throws
+} catch (Throwable $e) {
+    echo ";-)" . PHP_EOL;
+}
+
+
+// Create a Path instance
+$path = new Path('/var/www/uploads/photo.JPG');
+
+// Check against a custom list
+var_dump(
+    $path->validateExtension(['png','jpg','jpeg']),  // true
+    $path->validateExtension(['gif','bmp'])          // false
+);
+
+// Built-in helpers
+var_dump(
+    $path->validateExtensionImage(),    // true (jpg)
+    $path->validateExtensionVideo(),    // false
+    $path->validateExtensionAudio(),    // false
+    $path->validateExtensionDocument()  // false
+);
+
+// Another example: a document path
+$doc = new Path('/home/user/report.PDF');
+var_dump($doc->validateExtensionDocument()); // true
+```
+
+</details>
+<details><summary>API Reference</summary>
 
 | Method                                    | Description                                                                                  |
 |-------------------------------------------|----------------------------------------------------------------------------------------------|
@@ -129,6 +195,7 @@ See [example](examples/path.php).
 | `validateExtensionAudio(): bool`          | Returns `true` if extension is a common audio (`mp3, wav, ogg, flac, aac`).                  |
 | `validateExtensionDocument(): bool`       | Returns `true` if extension is a common document (`pdf, doc, docx, xls, xlsx, ppt, pptx`).   |
 
+</details>
 ### `Hardened\ShellCommand`
 
 - Secure subprocess launcher without shell interpolation.
@@ -139,7 +206,36 @@ See [example](examples/path.php).
     - `executable()` – start from a specific binary.
     - `shell()` – use your login shell (`$SHELL` or `/bin/sh`).
 
-See [example](examples/shell-command.php).
+<details><summary>Example</summary>
+
+```php
+use Hardened\ShellCommand;
+
+// 1) Basic builder:
+$cmd = new ShellCommand('ls');
+$cmd->passArg('-la');
+$cmd->setTimeout(5);                // seconds
+$cmd->inheritEnvs(['PATH', 'HOME']);
+$cmd->passEnv('FOO', 'bar');
+$cmd->passthroughStdout();          // print live
+$cmd->pipeCallbackStderr(function($chunk) { /* handle stderr chunks */ });
+
+// 2) Run and capture both streams internally:
+$code = $cmd->run($stdoutVar, $stderrVar);
+// $stdoutVar and $stderrVar now contain full output, $code is exit code.
+
+// 3) One-line helpers:
+$result = Hardened\shell_exec('echo hello', ['echo']);
+// Enforces top-level command 'echo' only, returns output or exit code.
+
+$args = ['status', '--short'];
+$result2 = Hardened\safe_exec('git', $args);
+// Spawns `git status --short` without any shell interpretation.
+```
+
+</details>
+
+<details><summary>API Reference</summary>
 
 | Method                                                 | Description                                                                                                                                                                    |
 |--------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -168,20 +264,19 @@ See [example](examples/shell-command.php).
 | `run(?string &$out = null, ?string &$err = null): int` | Execute the command, stream according to configured modes, optionally capture `stdout`/`stderr` into the provided variables, and return exit code (`-1` on timeout or signal). |
 | `topLevelCommands(): ?array`                           | Get the list of top-level command names parsed by `unsafeFromString()`, or `null` if not in unsafe mode.                                                                       |
 
-#### Global Functions
-
 | Function                                                                                   | Description                                                                                                                                                                                                                                                                     |
 |--------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `Hardened\shell_exec(string $command, array<string>? $expectedCommands = null): ?string`   | Drop-in replacement for PHP’s `shell_exec()`.  Runs `/bin/sh -c $command`, records the top-level command names, and if you pass an `$expectedCommands` list it will throw on any deviation (to catch injection). Returns the captured stdout (or exit-code string on non-zero). |
 | `Hardened\safe_exec(string $commandLine, array<string,mixed>? $arguments = null): ?string` | Safe alternative that never invokes a shell.  Splits `$commandLine` into tokens, disallows NUL, appends `$arguments`, then spawns directly. Captures stdout into the return string (or exit-code string on non-zero).                                                           |
 
+</details>
 ### `Hardened\Sanitizers\HtmlSanitizer`
 
 - Provides a powerful fine-grained HTML sanitization using [Ammonia](https://github.com/rust-ammonia/ammonia).
 - Configuration methods for URL policies, tags, attributes, and filters.
 - Attribute filter callback support
 - *A built-in truncator:*
-  cleanAndTruncate($html, $max, $flags = ['e'], $etc = '…') is useful when you need to get a snippet of a dynamic HTML
+  `cleanAndTruncate($html, $max, $flags = ['e'], $etc = '…')` is useful when you need to get a snippet of a dynamic HTML
   content. Length of `$etc` is included in the limit. Supported flags:
     - `extended-graphemes` (or `e`) — units of `$max` will be Unicode extended grapheme clusters.
     - `graphemes` (or `g`) — units of `$max` will be Unicode grapheme clusters.
@@ -193,7 +288,54 @@ See [example](examples/shell-command.php).
 > `cleanAndTruncate()` is currently meant to be used only with simple user-generated markup, so it is currently
 > is NOT safe to use if you allow HTML tags like `<script>` and `<style>`.
 
-See [example](examples/sanitizers/html.php).
+
+<details>
+<summary>Example</summary>
+
+```php
+use Hardened\Sanitizers\HtmlSanitizer;
+
+$sanitizer = HtmlSanitizer::default();
+var_dump($sanitizer->urlRelativeDeny()
+    ->filterStyleProperties(["color", "font-size"])
+    ->setTagAttributeValue('a', 'target', '_blank')
+    ->clean("<a href='../evil'>Click</a><p>"));
+// "<a rel="noopener noreferrer">Click</a><p></p>"
+
+var_dump($sanitizer->clean(
+  "<a href='https://github.com/' style='font-size: 12px; color: red; font-weight: bold;'>Click</a>"
+));
+// "<a href="https://github.com/" style="font-size:12px;color:red" rel="noopener noreferrer">Click</a>"
+
+var_dump($sanitizer->isValidUrl("https://github.com"));
+// bool(true)
+
+var_dump($sanitizer->isValidUrl("javascript:alert(1)"));
+// bool(false)
+
+var_dump($sanitizer->isValidUrl("foo"));
+// bool(false)
+
+// Truncate by extended grapheme clusters (default ellipsis)
+var_dump($sanitizer->cleanAndTruncate("<p>你好世界！</p>", 7, 'e'));
+// string(19) "<p>你好世…</p>"
+
+// Truncate by simple graphemes with custom suffix
+var_dump($sanitizer->cleanAndTruncate("<p>Курва<p>!!</p>!</p>", 20, 'g', ' (more)'));
+// Outputs: <p>abcdefghij (more)</p>
+
+// Truncate by characters
+var_dump($sanitizer->cleanAndTruncate("<p>Hello, world!</p>", 10, 'a'));
+// Outputs: <p>12345…</p>
+
+// Truncate by bytes (valid UTF-8 boundary)
+var_dump($sanitizer->cleanAndTruncate("<p>доброеутро</p>", 20, 'u'));
+// Outputs may vary but will not break UTF-8 sequences, e.g.: <p>доброеут…</p>
+```
+
+</details>
+
+<details><summary>API Reference</summary>
 
 | Method                                                                                      | Description                                                                                                           |
 |---------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
@@ -238,6 +380,8 @@ See [example](examples/sanitizers/html.php).
 | **`rmCleanContentTags(array $tags): void`**                                                 | Remove already-blacklisted clean-content tags.                                                                        |
 | `isValidUrl(string $url): bool`                                                             | Checks whether a URL is allowed by the configured scheme whitelist or, for relative URLs, by the relative-URL policy. |
 
+</details>
+
 ### `Hardened\Rng`
 
 - Stateless random-data generator.
@@ -246,7 +390,72 @@ See [example](examples/sanitizers/html.php).
 - Custom sampling from arbitrary Unicode code points (`customUnicodeChars()`), grapheme clusters (
   `customUnicodeGraphemes()`), or ASCII sets (`customAscii()`).
 
-See [example](examples/rng.php).
+<details>
+<summary>Example</summary>
+
+```php
+use Hardened\Rng;
+
+// Random alphanumeric string of length 10
+var_dump(Rng::alphanumeric(10));
+// Example: string(10) "sR571dnuYv"
+
+// 32 random bytes (binary data)
+var_dump(Rng::bytes(32));
+// Example: string(32) "\x8F\xA3\xC1\x7E\x09…"
+
+// 3 random integers between 0 and 100
+var_dump(Rng::ints(3, 0, 100));
+// Example: array(3) { [0]=> int(42) [1]=> int(7) [2]=> int(89) }
+
+// A single random integer between 0 and 100
+var_dump(Rng::int(0, 100));
+// Example: int(84)
+
+// 10 random Unicode code‐points sampled from "Абвгд"
+var_dump(Rng::customUnicodeChars(10, "Абвгд"));
+// Example: string(20) "ддббАгАбдб"
+
+// 10 random ASCII characters sampled from "AbcDef"
+var_dump(Rng::customAscii(10, "AbcDef"));
+// Example: string(10) "AbAAefDDfc"
+
+// 4 random Unicode grapheme clusters from the emoji set
+var_dump(Rng::customUnicodeGraphemes(4, "🙈🙉🙊"));
+// Example: string(16) "🙊🙈🙉🙊"
+
+// Randomly pick one element
+$choice = Rng::choose(['apple', 'banana', 'cherry']);
+var_dump($choice);
+// Example: string(6) "banana"
+
+// Pick 2 distinct elements
+$multiple = Rng::chooseMultiple(2, ['red','green','blue','yellow']);
+var_dump($multiple);
+// Example: array(2) { [0]=> string(5) "green" [1]=> string(4) "blue" }
+
+// Weighted pick (integer weights)
+$weighted = Rng::chooseWeighted([
+    ['gold',  5],
+    ['silver', 3],
+    ['bronze',1],
+]);
+var_dump($weighted);
+// Example: array(2) { [0]=> string(4) "gold" [1]=> int(5) }
+
+// Pick 2 elements from weighted set (float weights)
+$multiWeighted = Rng::chooseMultipleWeighted(2, [
+    ['A', 0.1],
+    ['B', 0.7],
+    ['C', 0.2],
+]);
+var_dump($multiWeighted);
+// Example: array(2) { [0]=> string(1) "B" [1]=> string(1) "C" }
+```
+
+</details>
+
+<details><summary>API Reference</summary>
 
 | Method                                                       | Description                                                                                                        |
 |--------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
@@ -262,6 +471,8 @@ See [example](examples/rng.php).
 | `chooseWeighted(array $choices): array`                      | Randomly select one `[value, weight]` pair from `$choices` where `weight` is integer; returns `[value, weight]`.   |
 | `chooseMultipleWeighted(int $amount, array $choices): array` | Randomly select `$amount` elements from weighted `[value, weight]` pairs (float weight) without replacement.       |
 
+</details>
+
 ### `Hardened\CsrfProtection`
 
 - Synchronized token–cookie [CSRF](https://owasp.org/www-community/attacks/csrf) protection using AES-GCM.
@@ -271,7 +482,79 @@ See [example](examples/rng.php).
 - Cookie management: `setCookieName()`, `cookieName()`,
   `setCookie($expires = null, $path = null, $domain = null, $secure = null, $httponly = null)`.
 
-See [example](examples/csrf-protection.php).
+<details>
+<summary>Example</summary>
+
+```php
+use Hardened\CsrfProtection;
+
+//
+// 1) Initialization
+//
+$key = '7sVldqnZoPUIY7wWp1We-mbaZ5SAoe04QXUFiNnwJFE=';  // must decode to 32 bytes
+$ttl = 3600;                              // token lifetime in seconds
+
+// If you have a previous token (for rotation), pass it as third argument:
+// $previous = $_COOKIE['csrf'] ?? null;
+// $csrf = new CsrfProtection($key, $ttl, $previous);
+
+$csrf = new CsrfProtection($key, $ttl);
+
+//
+// 2) Send the cookie to the client
+//
+$csrf->setCookie(
+    /* expires: */ time() + $ttl,
+    /* path:    */ '/',
+    /* domain:  */ '',      // default: current host
+    /* secure:  */ true,    // only over HTTPS
+    /* httponly:*/ true     // inaccessible to JavaScript
+);
+
+//
+// 3) Embed the CSRF token in your form or AJAX request
+//
+$token = $csrf->token();  // Base64URL-encoded token string
+?>
+<!doctype html>
+<html>
+  <body>
+    <form method="POST" action="submit.php">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($token, \ENT_QUOTES) ?>">
+      <!-- other form fields… -->
+      <button type="submit">Submit Securely</button>
+    </form>
+  </body>
+</html>
+<?php
+
+return;
+//
+// 4) On form submission (submit.php):
+//
+
+try {
+    // Reconstruct with same key/ttl and pass previous cookie if rotating:
+    $csrf = new CsrfProtection($key, $ttl, $_COOKIE['csrf'] ?? null);
+
+    // Verify the token against the cookie
+    $csrf->verifyToken(
+        /* token value from form: */ $_POST['csrf_token'] ?? '',
+        /* cookie value: */         $_COOKIE['csrf']     ?? null
+    );
+
+    // If we get here, CSRF check passed
+    echo "CSRF validated — proceed with action.";
+} catch (\Exception $e) {
+    // Invalid or expired token
+    http_response_code(403);
+    echo "CSRF validation failed: " . htmlspecialchars($e->getMessage());
+}
+```
+
+</details>
+
+<details><summary>API Reference</summary>
 
 | Method                                                                                                                              | Description                                                                        |
 |-------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
@@ -283,6 +566,8 @@ See [example](examples/csrf-protection.php).
 | `cookieName(): string`                                                                                                              | Get the current CSRF cookie name (default is `csrf`).                              |
 | `setCookie(?int $expires = null, ?string $path = null, ?string $domain = null, ?bool $secure = null, ?bool $httponly = null): void` | Send the CSRF cookie via PHP’s `setcookie()` function using native argument order. |
 
+</details>
+
 ### `Hardened\SecurityHeaders\ContentSecurityPolicy`
 
 - Builder for HTTP Content-Security-Policy headers.
@@ -291,7 +576,70 @@ See [example](examples/csrf-protection.php).
 - Produces a valid header string with `build()`, and convenience method `send()` to emit it.
 - Retrieve the last-generated nonce with `getNonce()`.
 
-See [example](examples/security-headers/content-security-policy.php).
+<details>
+<summary>Example</summary>
+
+```php
+use Hardened\SecurityHeaders\ContentSecurityPolicy;
+
+// Create a new CSP builder
+$policy = new ContentSecurityPolicy();
+
+// default-src 'self' *.site.tld blob:
+$policy->setRule(
+    ContentSecurityPolicy::DEFAULT_SRC,
+    [ContentSecurityPolicy::SELF],
+    ['*.site.tld', 'blob:']
+);
+
+// script-src 'self' 'nonce-…' https://cdn.site.tld/js
+$policy->setRule(
+    ContentSecurityPolicy::SCRIPT_SRC,
+    [ContentSecurityPolicy::SELF, ContentSecurityPolicy::NONCE],
+    ['https://cdn.site.tld/js']
+);
+
+// style-src 'self' 'nonce-…' https://fonts.googleapis.com
+$policy->setRule(
+    ContentSecurityPolicy::STYLE_SRC,
+    [ContentSecurityPolicy::SELF, ContentSecurityPolicy::NONCE],
+    ['https://fonts.googleapis.com']
+);
+
+// img-src 'self' data: *.images.site.tld
+$policy->setRule(
+    ContentSecurityPolicy::IMG_SRC,
+    [ContentSecurityPolicy::SELF],
+    ['data:', '*.images.site.tld']
+);
+
+// connect-src 'self' https://api.site.tld
+$policy->setRule(
+    ContentSecurityPolicy::CONNECT_SRC,
+    [ContentSecurityPolicy::SELF],
+    ['https://api.site.tld']
+);
+
+// frame-ancestors 'none'
+$policy->setRule(
+    ContentSecurityPolicy::FRAME_ANCESTORS,
+    [],        // no keywords
+    []         // empty list => effectively 'none'
+);
+
+// Build and display the value
+var_dump($policy->build());
+
+// Get and display the nonce
+var_dump($policy->getNonce());
+
+// Build and send the header
+$policy->send();
+```
+
+</details>
+
+<details><summary>API Reference</summary>
 
 | Method                                                           | Description                                                                                                     |
 |------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
@@ -303,13 +651,40 @@ See [example](examples/security-headers/content-security-policy.php).
 | `getNonce(): ?string`                                            | Return the most recently generated nonce (without the `'nonce-'` prefix), or `null` if none has been generated. |
 | `resetNonce(): void`                                             | Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.                     |
 
+</details>
+
 ### `Hardened\SecurityHeaders\StrictTransportSecurity`
 
 - HTTP Strict Transport Security (HSTS) header builder.
 - Configure `max-age`, `includeSubDomains`, and `preload` flags for best‐practice transport security.
 - Build the header string with `build()`, or emit it directly with `send()` (uses PHP `header()`).
 
-See [example](examples/security-headers/strict-transport-security.php).
+<details>
+<summary>Example</summary>
+
+```php
+use Hardened\SecurityHeaders\StrictTransportSecurity;
+
+// Create and configure HSTS
+$hsts = new StrictTransportSecurity();
+$hsts->maxAge(31536000);            // one year
+$hsts->includeSubDomains(true);     // apply to all subdomains
+$hsts->preload(true);               // request inclusion in browser preload lists
+
+// Get header value
+$value = $hsts->build();
+// e.g. "max-age=31536000; includeSubDomains; preload"
+
+// Send header to client
+header('Strict-Transport-Security: ' . $value);
+
+// Or simply:
+$hsts->send();
+```
+
+</details>
+
+<details><summary>API Reference</summary>
 
 | Method                                  | Description                                                                                                 |
 |-----------------------------------------|-------------------------------------------------------------------------------------------------------------|
@@ -320,39 +695,92 @@ See [example](examples/security-headers/strict-transport-security.php).
 | `build(): string`                       | Return the `Strict-Transport-Security` header value, e.g. `"max-age=31536000; includeSubDomains; preload"`. |
 | `send(): void`                          | Emit the header via PHP `header()` function.                                                                |
 
+</details>
 ### `Hardened\SecurityHeaders\CrossOrigin\ResourceSharing`
 
 - CORS policy builder for HTTP responses.
 - Configure allowed origins, methods, headers, credentials flag, exposed headers, and preflight cache duration.
 - Build a map of header names → values with `build()`, or emit them directly with `send()`.
 
-See [example](examples/security-headers/cross-origin/resource-sharing.php).
+<details>
+<summary>Example</summary>
 
-| Method                                  | Description                                                                   |
-|-----------------------------------------|-------------------------------------------------------------------------------|
-| `__construct()`                         | Initialize with no restrictions (empty lists, credentials=false, max\_age=0). |
-| `allowOrigins(array $origins): void`    | Set `Access-Control-Allow-Origin` values (e.g. `['*']` or specific domains).  |
-| `allowMethods(array $methods): void`    | Set `Access-Control-Allow-Methods` values (e.g. `['GET','POST']`).            |
-| `allowHeaders(array $headers): void`    | Set `Access-Control-Allow-Headers` values (e.g. `['Content-Type']`).          |
-| `allowCredentials(bool $enable): void`  | Enable `Access-Control-Allow-Credentials: true` when `$enable` is `true`.     |
-| `exposeHeaders(array $headers): void`   | Set `Access-Control-Expose-Headers` values for response exposure to client.   |
-| `maxAge(int $seconds): void`            | Set `Access-Control-Max-Age` (in seconds) for caching preflight responses.    |
-| `build(): array`                      ` | Return an associative array of header names → values to send.                 |
-| `send(): void`                          | Emit all configured CORS headers via PHP `header()` calls.                    |
+```php
+use Hardened\SecurityHeaders\CrossOrigin\ResourceSharing;
+
+$policy = new ResourceSharing();
+
+// Allow specific origins or use ['*'] for wildcard
+$policy->allowOrigins(['https://example.com', 'https://api.example.com', ResourceSharing::SELF]);
+
+// Permit HTTP methods
+$policy->allowMethods(['GET', 'POST', 'OPTIONS']);
+
+// Permit request headers
+$policy->allowHeaders(['Content-Type', 'Authorization']);
+
+// Allow cookies/auth credentials
+$policy->allowCredentials(true);
+
+// Expose custom response headers to the browser
+$policy->exposeHeaders(['X-Custom-Header']);
+
+// Cache preflight response for 3600 seconds
+$policy->maxAge(3600);
+
+// Apply headers manually
+foreach ($policy->build() as $name => $value) {
+header("$name: $value");
+}
+
+// Or simply:
+$policy->send();
+
+```
+
+</details>
+
+<details><summary>API Reference</summary>
+
+| Method                                 | Description                                                                   |
+|----------------------------------------|-------------------------------------------------------------------------------|
+| `__construct()`                        | Initialize with no restrictions (empty lists, credentials=false, max\_age=0). |
+| `allowOrigins(array $origins): void`   | Set `Access-Control-Allow-Origin` values (e.g. `['*']` or specific domains).  |
+| `allowMethods(array $methods): void`   | Set `Access-Control-Allow-Methods` values (e.g. `['GET','POST']`).            |
+| `allowHeaders(array $headers): void`   | Set `Access-Control-Allow-Headers` values (e.g. `['Content-Type']`).          |
+| `allowCredentials(bool $enable): void` | Enable `Access-Control-Allow-Credentials: true` when `$enable` is `true`.     |
+| `exposeHeaders(array $headers): void`  | Set `Access-Control-Expose-Headers` values for response exposure to client.   |
+| `maxAge(int $seconds): void`           | Set `Access-Control-Max-Age` (in seconds) for caching preflight responses.    |
+| `build(): array`                       | Return an associative array of header names → values to send.                 |
+| `send(): void`                         | Emit all configured CORS headers via PHP `header()` calls.                    |
+
+</details>
 
 ### Hardened\SecurityHeaders\CrossOrigin\EmbedderPolicy
 
 - **Cross-Origin-Embedder-Policy** header builder.
-- Supported policies:
-    - `unsafe-none` (default)
-    - `require-corp`
-    - `credentialless`
-- `__construct(?string $policy = null)` initialize with optional policy.
-- `set_policy(string $policy)` change policy; throws on invalid tokens.
-- `build(): string` returns the header value.
-- `send(): void` emits `header("Cross-Origin-Embedder-Policy: …")`.
 
-See [example](examples/security-headers/cross-origin/embedder-policy.php).
+<details>
+<summary>Example</summary>
+
+```php
+use Hardened\SecurityHeaders\CrossOrigin\EmbedderPolicy;
+
+$policy = new EmbedderPolicy(); // defaults to "unsafe-none"
+echo $policy->build(); // outputs "unsafe-none"
+
+$policy = new EmbedderPolicy("require-corp");
+$policy->set(EmbedderPolicy::CREDENTIALLESS);
+echo $policy->build(); // "credentialless"
+
+$policy->send(); // sends header
+
+```
+
+</details>
+
+<details>
+<summary>API Reference</summary>
 
 | Method                                      | Description                                                                                                                       |
 |---------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
@@ -361,22 +789,39 @@ See [example](examples/security-headers/cross-origin/embedder-policy.php).
 | `build(): string`                           | Return the header value, e.g. `"require-corp"`.                                                                                   |
 | `send(): void`                              | Emit `Cross-Origin-Embedder-Policy: <value>` via PHP `header()`; errors if `header()` cannot be called.                           |
 
-See [example](examples/security-headers/cross-origin/embedder-policy.php).
+</details>
 
-### Hardened\SecurityHeaders\CrossOrigin\OpenerPolicy
+### `Hardened\SecurityHeaders\CrossOrigin\OpenerPolicy`
 
-- Builder for the `Cross-Origin-Opener-Policy` response header.
-- Supported values:
-    - `unsafe-none` (default)
-    - `same-origin`
-    - `same-origin-allow-popups`
-- Methods:
-    - `__construct(?string $policy = null)` – initialize with an optional policy.
-    - `set(string $policy): void` – change policy at any time.
-    - `build(): string` – returns the policy token (e.g. `"same-origin"`).
-    - `send(): void` – emits `Cross-Origin-Opener-Policy: <value>` via PHP `header()`.
+- **Cross-Origin-Opener-Policy** header builder.
 
-See [example](examples/security-headers/cross-origin/opener-policy.php).
+<details>
+<summary>API Reference</summary>
+
+| Method                                | Returns  | Description                                                                              |
+|---------------------------------------|----------|------------------------------------------------------------------------------------------|
+| `__construct(?string $policy = null)` | `self`   | Initialize builder with optional policy (defaults to `unsafe-none`).                     |
+| `set(string $policy): void`           | `void`   | Change the policy to one of `unsafe-none`, `same-origin`, or `same-origin-allow-popups`. |
+| `build(): string`                     | `string` | Get the current policy token (e.g. `"same-origin"`).                                     |
+| `send(): void`                        | `void`   | Emit the header `Cross-Origin-Opener-Policy: <value>` via PHP `header()`.                |
+
+</details>
+
+<details>
+<summary>Example</summary>
+
+```php
+use Hardened\SecurityHeaders\CrossOrigin\OpenerPolicy;
+
+// 2) Opener policy: isolate this window from cross-origin windows
+$policy = new OpenerPolicy('same-origin'); // initialize directly to "same-origin"
+$policy->send(); // emits header internally
+
+// 3) Or build() yourself:
+echo $policy->build(); // "require-corp"
+```
+
+</details>
 
 ### Hardened\SecurityHeaders\CrossOrigin\ResourcePolicy
 
@@ -385,9 +830,25 @@ See [example](examples/security-headers/cross-origin/opener-policy.php).
   `setPolicy()`.
 * Generate the header value with `build()`, or emit it directly with `send()`.
 
-See [example](examples/security-headers/cross-origin/resource-policy.php).
+<details>
+<summary>Example</summary>
 
-#### API Reference
+```php
+use Hardened\SecurityHeaders\CrossOrigin\ResourcePolicy;
+
+$policy = new ResourcePolicy();                   // default "same-origin"
+echo $policy->build();                            // "same-origin"
+
+$policy->set('cross-origin');
+header('Cross-Origin-Resource-Policy: ' . $policy->build());
+// or
+$policy->send();
+```
+
+</details>
+
+<details>
+<summary>API Reference</summary>
 
 | Method                                | Description                                                  |
 |---------------------------------------|--------------------------------------------------------------|
@@ -396,13 +857,44 @@ See [example](examples/security-headers/cross-origin/resource-policy.php).
 | `build(): string`                     | Return the configured policy token.                          |
 | `send(): void`                        | Emit `Cross-Origin-Resource-Policy: <value>` via `header()`. |
 
+</details>
+
 ### Hardened\SecurityHeaders\ReferrerPolicy
 
 - Referrer-Policy header builder for HTTP responses.
 - Initialize with an optional policy token or configure via `set()`; enforces only valid CSP values.
 - Build the header value with `build()`, or emit it directly with `send()`.
 
-See [example](examples/security-headers/referrer-policy.php).
+<details>
+<summary>Example</summary>
+
+```php
+use Hardened\SecurityHeaders\ReferrerPolicy;
+
+// Default policy (no-referrer)
+$rp = new ReferrerPolicy();
+
+// Specify initial policy
+$rp = new ReferrerPolicy('origin-when-cross-origin');
+
+// Override later
+$rp->set('strict-origin');
+
+// Get the header value
+$value = $rp->build();
+// e.g. "strict-origin"
+
+// Send the header
+header('Referrer-Policy: ' . $value);
+
+// Or simply:
+$rp->send();
+```
+
+</details>
+
+<details>
+<summary>API Reference</summary>
 
 | Method                                | Description                                                  |
 |---------------------------------------|--------------------------------------------------------------|
@@ -411,6 +903,8 @@ See [example](examples/security-headers/referrer-policy.php).
 | `policy(): string`                    | Get the current policy token.                                |
 | `build(): string`                     | Build the header value to pass to `header()`.                |
 | `send(): void`                        | Emit `Referrer-Policy: <value>` via PHP `header()` function. |
+
+</details>
 
 ### Hardened\SecurityHeaders\Whatnot
 
@@ -421,7 +915,57 @@ See [example](examples/security-headers/referrer-policy.php).
 - Strongly-typed enums for frame & XSS modes, with optional URIs for “ALLOW-FROM” and reporting.
 - Configure each header with `set…()` methods, then gather with `build()` or emit via `send()`.
 
-See [example](examples/security-headers/whatnot.php).
+<details>
+
+<summary>Example</summary>
+
+```php
+use Hardened\SecurityHeaders\Whatnot;
+
+$policy = new Whatnot();
+
+// Frame options
+$policy->setFrameOptions('DENY');
+$policy->setFrameOptions('ALLOW-FROM', 'https://example.com');
+
+// XSS protection
+$policy->setXssProtection('on');
+$policy->setXssProtection('block');
+$policy->setXssProtection('block', 'https://report.example.com'); // Block with a report URI
+
+// No-sniff
+$policy->setNosniff(true);
+
+// Cross-domain policies
+$policy->setPermittedCrossDomainPolicies('none');
+
+$policy->setReportTo(
+    'csp-endpoint',          // group
+    10886400,                // max_age
+    true,                    // include_subdomains
+    ['primary', 'backup']    // endpoints
+);
+
+// Structured Integrity-Policy
+$policy->setIntegrityPolicy(
+    ['script'],                    // blocked-destinations
+    ['inline'],                    // sources (optional, defaults to ['inline'])
+    ['csp-endpoint','backup']      // endpoints (optional)
+);
+
+// Apply headers
+foreach ($policy->build() as $name => $value) {
+    header("$name: $value");
+}
+
+// Or simply:
+$policy->send();
+```
+
+</details>
+
+<details>
+<summary>API Reference</summary>
 
 | Method                                                                                     | Description                                                                                                     |
 |--------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
@@ -436,12 +980,63 @@ See [example](examples/security-headers/whatnot.php).
 | `build(): array<string,string>`                                                            | Return all configured headers & values as an associative array of header names to values.                       |
 | `send(): void`                                                                             | Emit each header via PHP `header()` calls.                                                                      |
 
+</details>
+
 ### Hardened\SecurityHeaders\PermissionsPolicy
 
 - Builder for the `Permissions-Policy` header.
 - Use `allow(feature, origins)` to enable a feature for a list of origins, or `deny(feature)` for an empty allowlist.
 
-See [example](examples/security-headers/permissions-policy.php).
+<details>
+<summary>API Reference</summary>
+
+```php
+use Hardened\SecurityHeaders\PermissionsPolicy;
+
+// 1) Instantiate the builder
+$policy = new PermissionsPolicy();
+
+// 2) Allow features with specific allowlists:
+//    - geolocation: only same-origin and https://api.example.com
+$policy->allow(
+    PermissionsPolicy::GEOLOCATION,
+    [ PermissionsPolicy::ORIGIN_SELF, 'https://api.example.com' ]
+);
+
+//    - sync-xhr: only the “src” allowlist token
+$policy->allow(
+    PermissionsPolicy::BLUETOOTH,
+    [ PermissionsPolicy::ORIGIN_SRC ]
+);
+
+// 3) Deny features entirely (empty allowlist):
+//    - camera
+$policy->deny(PermissionsPolicy::CAMERA);
+
+//    - microphone
+$policy->deny(PermissionsPolicy::MICROPHONE);
+
+// 4) Build the header value and emit it
+header('Permissions-Policy: ' . $policy->build());
+
+//—or— use the convenience send() method
+// $policy->send();
+```
+
+</details>
+
+<details>
+<summary>API Reference</summary>
+
+| Method                                         | Description                                                                                                                                                                  |
+|------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `__construct(?array $features = null)`         | Initialize the builder, optionally pre‑populating a map of feature ⇒ allowlist entries (each allowlist is `string[]`).                                                       |
+| `set(string $feature, array $allowlist): void` | Define or override the allowlist for a given feature. Valid allowlist entries are: `'*'`, `''` (empty), `'self'`, `'src'`, or specific origins like `'https://example.com'`. |
+| `unset(string $feature): void`                 | Remove a feature so that it will not appear in the final header.                                                                                                             |
+| `build(): string`                              | Render the header value, e.g. `geolocation=(self "https://maps.example.com"), fullscreen=(*)`.                                                                               |
+| `send(): void`                                 | Emit `Permissions-Policy: <value>` via PHP `header()` calls.                                                                                                                 |
+
+</details>
 
 ---
 
