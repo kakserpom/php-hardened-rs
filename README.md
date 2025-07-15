@@ -196,6 +196,7 @@ var_dump($doc->validateExtensionDocument()); // true
 | `validateExtensionDocument(): bool`       | Returns `true` if extension is a common document (`pdf, doc, docx, xls, xlsx, ppt, pptx`).   |
 
 </details>
+
 ### `Hardened\ShellCommand`
 
 - Secure subprocess launcher without shell interpolation.
@@ -270,6 +271,7 @@ $result2 = Hardened\safe_exec('git', $args);
 | `Hardened\safe_exec(string $commandLine, array<string,mixed>? $arguments = null): ?string` | Safe alternative that never invokes a shell.  Splits `$commandLine` into tokens, disallows NUL, appends `$arguments`, then spawns directly. Captures stdout into the return string (or exit-code string on non-zero).                                                           |
 
 </details>
+
 ### `Hardened\Sanitizers\HtmlSanitizer`
 
 - Provides a powerful fine-grained HTML sanitization using [Ammonia](https://github.com/rust-ammonia/ammonia).
@@ -696,6 +698,7 @@ $hsts->send();
 | `send(): void`                          | Emit the header via PHP `header()` function.                                                                |
 
 </details>
+
 ### `Hardened\SecurityHeaders\CrossOrigin\ResourceSharing`
 
 - CORS policy builder for HTTP responses.
