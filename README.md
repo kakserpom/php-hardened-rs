@@ -52,9 +52,35 @@ Cross-Origin policy builders:
   `self`, `'src'`, specific origins), build header, or send it.
   directives, keyword sources, hosts, and automatic nonce generation.
 
+## Installation
+
 **Supported Platforms:** Linux, macOS, Windows (where `ext-php-rs` is available)
 
----
+Install with [`cargo-php`](https://github.com/davidcole1340/ext-php-rs):
+
+```bash
+# Install cargo-php if you haven't already
+# (ensures you have the latest cargo-php installer)
+cargo install cargo-php --locked
+
+# Build and install the PHP extension
+cd php-hardened-rs-cdylib
+cargo php install --release --yes
+```
+
+On **macOS**, you may need to set the deployment target and link flags first:
+
+```bash
+export MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | tr -d '
+')
+export RUSTFLAGS="-C link-arg=-undefined -C link-arg=dynamic_lookup"
+```
+
+Enable the extension by adding to your `php.ini`:
+
+```ini
+extension=php_hardened_rs
+```
 
 ## API
 
@@ -1041,36 +1067,6 @@ header('Permissions-Policy: ' . $policy->build());
 | `send(): void`                                 | Emit `Permissions-Policy: <value>` via PHP `header()` calls.                                                                                                                 |
 
 </details>
-
----
-
-## Installation
-
-Install with [`cargo-php`](https://github.com/davidcole1340/ext-php-rs):
-
-```bash
-# Install cargo-php if you haven't already
-# (ensures you have the latest cargo-php installer)
-cargo install cargo-php --locked
-
-# Build and install the PHP extension
-cd php-hardened-rs-cdylib
-cargo php install --release --yes
-```
-
-On **macOS**, you may need to set the deployment target and link flags first:
-
-```bash
-export MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | tr -d '
-')
-export RUSTFLAGS="-C link-arg=-undefined -C link-arg=dynamic_lookup"
-```
-
-Enable the extension by adding to your `php.ini`:
-
-```ini
-extension=php_hardened_rs
-```
 
 ---
 
