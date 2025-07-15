@@ -1,7 +1,7 @@
 # php-hardened-rs
 
 A PHP extension powered by **Rust** 🦀 and [ext-php-rs](https://github.com/davidcole1340/ext-php-rs), delivering
-essential security utilities for PHP applications. It provides following core classes:
+essential security utilities for PHP applications. It features the following core classes:
 
 - **Hardened\Hostname** — secure hostname parsing, normalization, and comparison.
 - **Hardened\Path** — safe, purely-lexical filesystem path handling to prevent directory traversal.
@@ -14,40 +14,41 @@ essential security utilities for PHP applications. It provides following core cl
   protection using AES-GCM, with a PHP-friendly API for
   token/cookie generation, verification, and cookie management. Using [csrf](https://crates.io/crates/csrf) crate.
 
-As well as blazingly fast sanitizers, ergonomic builders of HTTP security headers (including cross-origin policies).
-
-## Sanitizers (`Hardened\Sanitizers`)
+As well as blazingly fast sanitizers:
 
 - **Hardened\Sanitizers\HtmlSanitizer** — configurable HTML sanitization
-  via [Ammonia](https://github.com/rust-ammonia/ammonia). There's also `truncateAndClean()`
+  via [Ammonia](https://github.com/rust-ammonia/ammonia). There's also `truncateAndClean()` for safe HTML truncation.
 
-## Security Headers (`Hardened\SecurityHeaders`)
+Ergonomic builders of HTTP security headers:
 
-Currently, we provide builders for several HTTP security headers (namespace `Hardened\SecurityHeaders`):
-
-- **StrictTransportPolicy** — builder for HTTP Strict-Transport-Security (HSTS); configure `max-age`,
+- **Hardened\SecurityHeaders\StrictTransportPolicy** — builder for HTTP Strict-Transport-Security (HSTS); configure
+  `max-age`,
   `includeSubDomains`, and `preload`, then emit the header.
-- **ReferrerPolicy** — Referrer-Policy header builder; initialize with or set any valid policy
+- **Hardened\SecurityHeaders\ReferrerPolicy** — Referrer-Policy header builder; initialize with or set any valid policy
   token, build the header value, or send it directly.
-- **Whatnot** — builder for miscellaneous HTTP security headers (`X-Frame-Options`,
+- **Hardened\SecurityHeaders\Whatnot** — builder for miscellaneous HTTP security headers (`X-Frame-Options`,
   `X-XSS-Protection`, `X-Content-Type-Options`, `X-Permitted-Cross-Domain-Policies`, `Report-To`, `Integrity-Policy`,
   and `Integrity-Policy-Report-Only`); configure via `set…()` methods, build a header map with `build()`, or emit all
   via `send()`.
 
-### Cross Origin policies (`Hardened\SecurityHeaders\CrossOrigin`)
+Cross-Origin policy builders:
 
-- **ResourceSharing** — configure CORS: allowed origins, methods, headers, credentials, exposed headers,
+- **Hardened\SecurityHeaders\CrossOrigin\ResourceSharing** — configure CORS: allowed origins, methods, headers,
+  credentials, exposed headers,
   preflight cache.
-- **EmbedderPolicy** — configure `Cross-Origin-Embedder-Policy`: choose between `unsafe-none`,
+- **Hardened\SecurityHeaders\CrossOrigin\EmbedderPolicy** — configure `Cross-Origin-Embedder-Policy`: choose between
+  `unsafe-none`,
   `require-corp`, or `credentialless`.
-- **OpenerPolicy** — configure `Cross-Origin-Opener-Policy`: e.g. `same-origin`,
+- **Hardened\SecurityHeaders\CrossOrigin\OpenerPolicy** — configure `Cross-Origin-Opener-Policy`: e.g. `same-origin`,
   `same-origin-allow-popups`, or `unsafe-none`.
-- **ResourcePolicy** — configure `Cross-Origin-Resource-Policy`: choose `same-origin`, `same-site`, or
+- **Hardened\SecurityHeaders\CrossOrigin\ResourcePolicy** — configure `Cross-Origin-Resource-Policy`: choose
+  `same-origin`, `same-site`, or
   `cross-origin`.
 - **ContentSecurityPolicy** — configure `Content-Security-Policy` directives, keyword sources, hosts, automatic
   nonces.
-- **ReferrerPolicy** — set any valid `Referrer-Policy` token and emit header.
-- **PermissionsPolicy** — configure `Permissions-Policy` features, allow or deny per‐feature with allowlists (`*`,
+- **Hardened\SecurityHeaders\CrossOrigin\ReferrerPolicy** — set any valid `Referrer-Policy` token and emit header.
+- **Hardened\SecurityHeaders\CrossOrigin\PermissionsPolicy** — configure `Permissions-Policy` features, allow or deny
+  per‐feature with allowlists (`*`,
   `self`, `'src'`, specific origins), build header, or send it.
   directives, keyword sources, hosts, and automatic nonce generation.
 
@@ -55,7 +56,7 @@ Currently, we provide builders for several HTTP security headers (namespace `Har
 
 ---
 
-## Classes
+## API
 
 ### `Hardened\Hostname`
 
