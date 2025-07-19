@@ -28,6 +28,7 @@ use ext_php_rs::types::Zval;
 #[cfg(test)]
 use std::path::{Path, PathBuf};
 
+#[cfg(not(debug_assertions))]
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
