@@ -1,12 +1,12 @@
 #[warn(clippy::pedantic)]
 #[allow(clippy::used_underscore_items)]
-mod csrf;
-mod hostname;
-mod path;
-mod rng;
-mod sanitizers;
-mod security_headers;
-mod shell_command;
+pub mod csrf;
+pub mod hostname;
+pub mod path;
+pub mod rng;
+pub mod sanitizers;
+pub mod security_headers;
+pub mod shell_command;
 
 use crate::csrf::Csrf;
 pub use crate::hostname::Hostname;

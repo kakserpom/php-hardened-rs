@@ -32,6 +32,7 @@ path = []
 rng = ["dep:rand"]
 csrf = ["dep:csrf", "dep:data-encoding"]
 headers = ["dep:trim-in-place", "dep:serde_json"]
+test = []
 
 [dev-dependencies]
 assertables = "9.8.0"

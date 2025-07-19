@@ -1,29 +1,29 @@
 use ammonia::{Builder, UrlRelative};
 use anyhow::anyhow;
 use anyhow::{Result, bail};
-#[cfg(not(test))]
+#[cfg(not(any(test, feature = "test")))]
 use ext_php_rs::prelude::ZendCallable;
 use ext_php_rs::types::ZendClassObject;
-#[cfg(not(test))]
+#[cfg(not(any(test, feature = "test")))]
 use ext_php_rs::types::Zval;
 use ext_php_rs::{php_class, php_impl};
 use std::collections::HashSet;
-#[cfg(not(test))]
+#[cfg(not(any(test, feature = "test")))]
 use std::sync::{
     Arc, Mutex,
     mpsc::{Receiver, Sender, channel},
 };
-#[cfg(not(test))]
+#[cfg(not(any(test, feature = "test")))]
 use std::thread;
-#[cfg(not(test))]
+#[cfg(not(any(test, feature = "test")))]
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter, EnumString};
 use unicode_segmentation::UnicodeSegmentation;
 use url::Url;
 
-#[cfg(not(test))]
+#[cfg(not(any(test, feature = "test")))]
 type _Zval = Zval;
-#[cfg(test)]
+#[cfg(any(test, feature = "test"))]
 type _Zval = str;
 #[php_class]
 #[php(name = "Hardened\\Sanitizers\\HtmlSanitizer")]
@@ -31,31 +31,32 @@ type _Zval = str;
 /// Allows customized sanitization through PHP method calls.
 pub struct HtmlSanitizer {
     inner: Option<Builder>,
-    #[cfg(not(test))]
+    #[cfg(not(any(test, feature = "test")))]
     attribute_filter: Option<Zval>,
-    #[cfg(not(test))]
+    #[cfg(not(any(test, feature = "test")))]
     req_rx: Option<Receiver<Option<FilterRequest>>>,
-    #[cfg(not(test))]
+    #[cfg(not(any(test, feature = "test")))]
     resp_tx: Option<Sender<FilterResponse>>,
-    #[cfg(not(test))]
+    #[cfg(not(any(test, feature = "test")))]
     req_tx: Option<Sender<Option<FilterRequest>>>,
     pub truncation_is_safe: bool,
 }
-#[cfg(not(test))]
+#[cfg(not(any(test, feature = "test")))]
 struct FilterRequest {
     element: String,
     attribute: String,
     value: String,
 }
 
-#[cfg(not(test))]
+#[cfg(not(any(test, feature = "test")))]
 struct FilterResponse {
     filtered: Option<String>,
 }
 
 #[php_impl]
 impl HtmlSanitizer {
-    #[inline]
+    const TRUNCATE_DEFAULT_ENDING: &'static str = "…";
+
     /// Constructs a sanitizer with default configuration.
     ///
     /// # Returns
@@ -63,17 +64,18 @@ impl HtmlSanitizer {
     ///
     /// # Notes
     /// - No exceptions are thrown.
-    fn default() -> Self {
+    #[inline]
+    pub fn default() -> Self {
         Self {
             inner: Some(Builder::default()),
             truncation_is_safe: true,
-            #[cfg(not(test))]
+            #[cfg(not(any(test, feature = "test")))]
             attribute_filter: None,
-            #[cfg(not(test))]
+            #[cfg(not(any(test, feature = "test")))]
             req_rx: None,
-            #[cfg(not(test))]
+            #[cfg(not(any(test, feature = "test")))]
             resp_tx: None,
-            #[cfg(not(test))]
+            #[cfg(not(any(test, feature = "test")))]
             req_tx: None,
         }
     }
@@ -485,17 +487,17 @@ impl HtmlSanitizer {
     ///
     /// # Notes
     /// - If an attribute filter is set, it will be invoked for each attribute.
-    fn clean(&mut self, html: String) -> Result<String> {
+    pub fn clean(&mut self, html: String) -> Result<String> {
         let inner = if let Some(inner) = self.inner.as_ref() {
             inner
         } else {
             bail!("inner is not available");
         };
 
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test"))]
         return Ok(inner.clean(&html).to_string());
 
-        #[cfg(not(test))]
+        #[cfg(not(any(test, feature = "test")))]
         {
             let Some(filter) = self.attribute_filter.as_ref() else {
                 return Ok(inner.clean(&html).to_string());
@@ -847,7 +849,7 @@ impl HtmlSanitizer {
         #[allow(unused_variables)] self_: &'a mut ZendClassObject<HtmlSanitizer>,
         #[allow(unused_variables)] callable: &'a _Zval,
     ) -> Result<&'a mut ZendClassObject<HtmlSanitizer>> {
-        #[cfg(not(test))]
+        #[cfg(not(any(test, feature = "test")))]
         {
             self_.attribute_filter = Some(callable.shallow_clone());
             let (req_tx, req_rx) = channel::<Option<FilterRequest>>();
@@ -877,7 +879,7 @@ impl HtmlSanitizer {
             });
             Ok(self_)
         }
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test"))]
         panic!("attribute_filter() can not be called from tests");
     }
 
@@ -894,14 +896,14 @@ impl HtmlSanitizer {
     ///
     /// # Exceptions
     /// - Throws `Exception` if sanitization or truncation fails.
-    fn clean_and_truncate(
+    pub fn clean_and_truncate(
         &mut self,
         #[allow(unused_variables)] html: String,
         #[allow(unused_variables)] max: usize,
         #[allow(unused_variables)] flags: &_Zval,
         #[allow(unused_variables)] etc: Option<String>,
     ) -> Result<String> {
-        #[cfg(not(test))]
+        #[cfg(not(any(test, feature = "test")))]
         {
             let flags = if let Some(array) = flags.array()
                 && array.has_sequential_keys()
@@ -930,13 +932,11 @@ impl HtmlSanitizer {
             };
             self._clean_and_truncate(html, max, flags.as_slice(), etc)
         }
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test"))]
         panic!("clean_and_truncate() can not be called from tests; use _clean_and_truncate()");
     }
 }
 impl HtmlSanitizer {
-    const TRUNCATE_DEFAULT_ENDING: &'static str = "…";
-
     /// Sanitize HTML, then truncate it safely to a specified limit without breaking UTF-8, characters, graphemes, or HTML structure.
     ///
     /// This method performs three main steps:
@@ -961,7 +961,7 @@ impl HtmlSanitizer {
     /// - `Ok(String)` containing a sanitized, well-formed HTML snippet, no longer than `max` units.
     /// - `Err(...)` if sanitization fails at any stage.
     #[inline]
-    fn _clean_and_truncate(
+    pub fn _clean_and_truncate(
         &mut self,
         html: String,
         max: usize,
@@ -1087,7 +1087,7 @@ impl HtmlSanitizer {
 }
 #[derive(EnumIter, EnumString, Display, Debug, Clone)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
-enum Flag {
+pub enum Flag {
     #[strum(serialize = "e", serialize = "extended-graphemes")]
     ExtendedGraphemes,
     #[strum(serialize = "g", serialize = "graphemes")]

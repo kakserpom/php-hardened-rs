@@ -1079,6 +1079,56 @@ header('Permissions-Policy: ' . $policy->build());
 
 ---
 
+## Performance
+
+Only `Hardened\Sanitizers\HtmlSanitizer` is covered with benchmarks as of this moment.
+
+### Rust benchmark suite
+
+Command:
+
+```shell
+cargo bench --features test
+```
+
+M1 Max results:
+
+```
+html_sanitizer_10kb     time:   [188.64 µs 189.33 µs 190.09 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  4 (4.00%) high mild
+  2 (2.00%) high severe
+  
+html_sanitizer_truncate_10k_to_5kb_in_ascii_mode
+                        time:   [294.66 µs 298.40 µs 303.62 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+```
+
+### PHP benchmarks
+
+Run:
+
+```shell
+cd benches
+curl -s https://raw.githubusercontent.com/composer/getcomposer.org/f3108f64b4e1c1ce6eb462b159956461592b3e3e/web/installer | php -- --quiet
+./composer.phar require phpbench/phpbench ezyang/htmlpurifier --dev
+./vendor/bin/phpbench run benchmark.php
+```
+
+M1 Max results:
+
+```
+    \HtmlSanitizerBenchmark
+
+    benchHtmlSanitizer10kb..................I0 - Mo192.069μs (±0.00%)
+    benchEzyangHtmlPurifier10kb.............I0 - Mo2.650ms (±0.00%)
+```
+
+As you can see, `Hardened\Sanitizers\HtmlSanitizer` (effectively [Ammonia](https://github.com/rust-ammonia/ammonia))
+runs 13.7 times faster than the widely used [htmlpurifier](https://github.com/ezyang/htmlpurifier) written in PHP.
+
 ## Running Tests
 
 ```bash
