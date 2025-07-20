@@ -18,6 +18,8 @@ As well as blazingly fast sanitizers:
 
 - **Hardened\Sanitizers\HtmlSanitizer** — configurable HTML sanitization
   via [Ammonia](https://github.com/rust-ammonia/ammonia). There's also `truncateAndClean()` for safe HTML truncation.
+- **Hardened\Sanitizers\File\ArchiveSanitizer** — sanitization against ZIP/RAR bombs.
+- **Hardened\Sanitizers\File\PngSanitizer** — sanitization against PNG bombs.
 
 Ergonomic builders of HTTP security headers:
 
@@ -73,17 +75,18 @@ All features are enabled by default.
 If you want to choose what features to include in the build, use `--features`.
 For example, `cargo php install --release --yes --features rng, `
 
-| Feature             | Enables                                                                                                                                                                            |
-|---------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **default**         | `mimalloc`, `shell_command`, `html_sanitizer`, `hostname` `path`, `rng`, `csrf`, `headers`                                                                                         |
-| **mimalloc**        | Use [mimalloc](https://docs.rs/mimalloc/latest/mimalloc/index.html) allocator.                                                                                                     |
-| **shell\_command**  | Safe subprocess API & `Hardened\ShellCommand`                                                                                                                                      |
-| **html\_sanitizer** | The `Hardened\HtmlSanitizer` wrapper around [Ammonia](https://github.com/rust-ammonia/ammonia)                                                                                     |
-| **hostname**        | The `Hardened\Hostname` utility                                                                                                                                                    |
-| **path**            | The `Hardened\Path` utility                                                                                                                                                        |
-| **rng**             | The `Hardened\Rng` random-data generator                                                                                                                                           |
-| **csrf**            | The `Hardened\CsrfProtection` module (requires [`csrf`](https://docs.rs/csrf/latest/mimalloc/index.html), [`data-encoding`](https://docs.rs/csrf/latest/data-encoding/index.html)) |
-| **headers**         | All security headers (`CSP`, `HSTS`, `CORS`, etc.) (requires `trim-in-place`, `serde_json`)                                                                                        |
+| Feature              | Enables                                                                                                                                                                            |
+|----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **default**          | `mimalloc`, `shell_command`, `html_sanitizer`, `hostname` `path`, `rng`, `csrf`, `headers`                                                                                         |
+| **mimalloc**         | Use [mimalloc](https://docs.rs/mimalloc/latest/mimalloc/index.html) allocator.                                                                                                     |
+| **shell\_command**   | Safe subprocess API & `Hardened\ShellCommand`                                                                                                                                      |
+| **html\_sanitizer**  | The `Hardened\Sanitizers\HtmlSanitizer` wrapper around [Ammonia](https://github.com/rust-ammonia/ammonia)                                                                          |
+| **file\_sanitizers** | File sanitizers. `Hardened\Sanitizers\File\Archive` and `Hardened\Sanitizers\File\Png`                                                                                             |
+| **hostname**         | The `Hardened\Hostname` utility                                                                                                                                                    |
+| **path**             | The `Hardened\Path` utility                                                                                                                                                        |
+| **rng**              | The `Hardened\Rng` random-data generator                                                                                                                                           |
+| **csrf**             | The `Hardened\CsrfProtection` module (requires [`csrf`](https://docs.rs/csrf/latest/mimalloc/index.html), [`data-encoding`](https://docs.rs/csrf/latest/data-encoding/index.html)) |
+| **headers**          | All security headers (`CSP`, `HSTS`, `CORS`, etc.) (requires `trim-in-place`, `serde_json`)                                                                                        |
 
 > On **macOS**, you may need to set the deployment target and link flags first:
 > ```bash
@@ -416,6 +419,80 @@ var_dump($sanitizer->cleanAndTruncate("<p>доброеутро</p>", 20, 'u'));
 | **`addCleanContentTags(array $tags): void`**                                                | Add additional blacklisted clean-content tags without overwriting old ones.                                           |
 | **`rmCleanContentTags(array $tags): void`**                                                 | Remove already-blacklisted clean-content tags.                                                                        |
 | `isValidUrl(string $url): bool`                                                             | Checks whether a URL is allowed by the configured scheme whitelist or, for relative URLs, by the relative-URL policy. |
+
+</details>
+
+### `Hardened\Sanitizers\File\Archive`
+
+* Detects “decompression bombs” in ZIP and RAR archives.
+* **ZIP**: sums all central‑directory uncompressed sizes and compares against the first local‑header uncompressed size.
+* **RAR**: checks the first entry’s unpacked size versus total compressed size (default 1000× ratio).
+* On detection or any file/format error, throws an exception; otherwise returns normally.
+
+<details>
+<summary>Example</summary>
+
+```php
+<?php
+use Hardened\Sanitizers\File\Archive;
+
+try {
+    // If neither a ZIP nor RAR bomb is found, this returns void
+    Archive::defuse('/path/to/archive.zip');
+    echo "Archive looks safe\n";
+} catch (Exception $e) {
+    // On bomb detection or parse error
+    echo "Bomb detected or error: ", $e->getMessage(), "\n";
+}
+
+try {
+    // You can equally defuse a RAR file
+    Archive::defuse('/path/to/archive.rar');
+    echo "RAR safe\n";
+} catch (Exception $e) {
+    echo "RAR bomb or error: ", $e->getMessage(), "\n";
+}
+```
+
+</details>
+
+<details><summary>API Reference</summary>
+
+| Method                       | Description                                                                                                |
+|------------------------------|------------------------------------------------------------------------------------------------------------|
+| `defuse(string $path): void` | Inspect the given file at `$path` as ZIP or RAR. Throws if a “bomb” is detected or on any I/O/parse error. |
+
+</details>
+
+### `Hardened\Sanitizers\File\PngSanitizer`
+
+* Detects “PNG bombs”—images whose IHDR dimensions are unreasonably large (>10000 px).
+* Reads only the PNG signature and IHDR chunk; no full decode.
+* On detection or any I/O/format error, throws an exception; otherwise returns normally.
+
+<details>
+<summary>Example</summary>
+
+```php
+<?php
+use Hardened\Sanitizers\File\PngSanitizer;
+
+try {
+    // Throws if width or height > 10000 or IHDR missing/invalid
+    PngSanitizer::defuse('/tmp/huge.png');
+    echo "PNG is safe\n";
+} catch (Exception $e) {
+    echo "PNG bomb or error: ", $e->getMessage(), "\n";
+}
+```
+
+</details>
+
+<details><summary>API Reference</summary>
+
+| Method                       | Description                                                                                                                  |
+|------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| `defuse(string $path): void` | Inspect the file at `$path`. Throws if it’s a valid PNG with width>10000 or height>10000, or if the IHDR chunk is malformed. |
 
 </details>
 

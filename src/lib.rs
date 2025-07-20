@@ -12,7 +12,6 @@ use crate::csrf::Csrf;
 pub use crate::hostname::Hostname;
 use crate::path::PathObj;
 use crate::rng::Rng;
-use crate::sanitizers::html::HtmlSanitizer;
 use crate::security_headers::cross_origin::embedder_policy::EmbedderPolicy;
 use crate::security_headers::cross_origin::opener_policy::OpenerPolicy;
 use crate::security_headers::cross_origin::resource_policy::ResourcePolicy;
@@ -35,13 +34,10 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[php_module]
 fn get_module(mut module: ModuleBuilder) -> ModuleBuilder {
+    module = sanitizers::build(module);
     #[cfg(feature = "shell_command")]
     {
         module = shell_command::build(module);
-    }
-    #[cfg(feature = "html_sanitizer")]
-    {
-        module = module.class::<HtmlSanitizer>();
     }
     #[cfg(feature = "hostname")]
     {

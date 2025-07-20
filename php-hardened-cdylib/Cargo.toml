@@ -4,7 +4,19 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-php-hardened = { path = ".."}
+php-hardened = { path = ".." }
+
+[features]
+default = ["mimalloc", "shell_command", "html_sanitizer", "hostname", "path", "rng", "csrf", "headers"]
+mimalloc = ["php-hardened/mimalloc"]
+shell_command = ["php-hardened/shell_command"]
+html_sanitizer = ["php-hardened/html_sanitizer"]
+hostname = ["php-hardened/hostname"]
+path = ["php-hardened/path"]
+rng = ["php-hardened/rng"]
+csrf = ["php-hardened/csrf"]
+headers = ["php-hardened/headers"]
+
 
 [lib]
 crate-type = ["cdylib"]
