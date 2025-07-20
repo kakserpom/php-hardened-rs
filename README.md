@@ -323,9 +323,8 @@ $result2 = Hardened\safe_exec('git', $args);
 
 > Open HTML tags will automatically close at all times, but beware that added closing tags may cause the result length
 > to flow over `$max` if you are truncating.
-> `cleanAndTruncate()` is currently meant to be used only with simple user-generated markup, so it is currently
-> is NOT safe to use if you allow HTML tags like `<script>` and `<style>`.
-
+> The current `cleanAndTruncate()` implementation is NOT safe to use if you allow dangerous block tags like `<script>`
+> and `<style>`, so an exception will be thrown.
 
 <details>
 <summary>Example</summary>
@@ -1082,6 +1081,7 @@ header('Permissions-Policy: ' . $policy->build());
 ## Performance
 
 Only `Hardened\Sanitizers\HtmlSanitizer` is covered with benchmarks as of this moment.
+`HtmlSanitizer::cleanAndTruncate()` may call `clean()` an extra time to deal with unenclosed tags.
 
 ### Rust benchmark suite
 
