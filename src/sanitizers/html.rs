@@ -61,11 +61,8 @@ impl HtmlSanitizer {
     ///
     /// # Returns
     /// - HtmlSanitizer A new sanitizer instance.
-    ///
-    /// # Notes
-    /// - No exceptions are thrown.
     #[inline]
-    pub fn default() -> Self {
+    pub fn _default() -> Self {
         Self {
             inner: Some(Builder::default()),
             truncation_is_safe: true,
@@ -78,6 +75,14 @@ impl HtmlSanitizer {
             #[cfg(not(any(test, feature = "test")))]
             req_tx: None,
         }
+    }
+
+    /// Constructs a sanitizer with default configuration.
+    ///
+    /// # Returns
+    /// - HtmlSanitizer A new sanitizer instance.
+    fn __construct() -> Self {
+        Self::_default()
     }
 
     /// Denies all relative URLs in attributes.
@@ -1112,7 +1117,7 @@ mod tests {
 
     #[test]
     fn test_strip_comments_toggle_and_clean() -> Result<()> {
-        let mut s = HtmlSanitizer::default();
+        let mut s = HtmlSanitizer::_default();
         // By default comments are stripped
         assert!(s.will_strip_comments()?);
         let html = "<div><!--comment--><p>text</p></div>".to_string();
@@ -1130,7 +1135,7 @@ mod tests {
 
     #[test]
     fn test_is_valid_url_and_relative_policy() -> Result<()> {
-        let mut s = HtmlSanitizer::default();
+        let mut s = HtmlSanitizer::_default();
         // Absolute http/https/... are allowed by default
         assert!(s.is_valid_url("http://example.com")?);
         assert!(s.is_valid_url("https://foo/")?);
@@ -1154,7 +1159,7 @@ mod tests {
 
     #[test]
     fn test_url_relative_rewrite_in_clean() -> Result<()> {
-        let mut s = HtmlSanitizer::default();
+        let mut s = HtmlSanitizer::_default();
         // Rewrite relative using base
         s._url_relative_rewrite_with_base("https://example.com")?;
         let html = r#"<a href="/path/to">link</a>"#.to_string();
@@ -1165,7 +1170,7 @@ mod tests {
 
     #[test]
     fn test_id_prefix_applied() -> Result<()> {
-        let mut s = HtmlSanitizer::default();
+        let mut s = HtmlSanitizer::_default();
         s._add_tag_attributes(String::from("div"), vec![String::from("id")])?;
         s._id_prefix(Some("pre-".to_string()))?;
         let html = r#"<div id="one">x</div>"#.to_string();
@@ -1176,7 +1181,7 @@ mod tests {
 
     #[test]
     fn test_unenclosed_tag() -> Result<()> {
-        let mut s = HtmlSanitizer::default();
+        let mut s = HtmlSanitizer::_default();
         s._tags(vec![String::from("a"), String::from("b")])?;
         let html = r#"<a><b>link</a>"#.to_string();
         let out = s.clean(html)?;
@@ -1188,7 +1193,7 @@ mod tests {
     #[test]
     fn test_clean_and_truncate() -> Result<()> {
         assert_not_contains!(
-            HtmlSanitizer::default()._clean_and_truncate(
+            HtmlSanitizer::_default()._clean_and_truncate(
                 "<p>Курва<p>!!</p>!</p>".into(),
                 20,
                 &[Graphemes],
@@ -1198,7 +1203,7 @@ mod tests {
         );
 
         assert_eq!(
-            HtmlSanitizer::default()._clean_and_truncate(
+            HtmlSanitizer::_default()._clean_and_truncate(
                 "<p>Hello     woooooooooorld!</p>".into(),
                 20,
                 &[Graphemes, PreserveWords],
@@ -1207,7 +1212,7 @@ mod tests {
             "<p>Hello …</p>",
         );
 
-        let mut s = HtmlSanitizer::default();
+        let mut s = HtmlSanitizer::_default();
         s._add_tags(vec!["script".into()])?;
         s._rm_clean_content_tags(vec!["script".into()])?;
         assert!(
@@ -1216,7 +1221,7 @@ mod tests {
         );
 
         // 1. Set up the sanitizer to allow only <a> and <b> tags
-        let mut s = HtmlSanitizer::default();
+        let mut s = HtmlSanitizer::_default();
         s._tags(vec!["a".into(), "b".into(), "p".into()])?;
 
         assert_eq!(

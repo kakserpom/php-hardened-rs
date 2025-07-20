@@ -15,7 +15,7 @@ fn bench_htmlsanitizer(c: &mut Criterion) {
     }
 
     let payload10kb = payload(10 * 1024);
-    let mut html_sanitizer = HtmlSanitizer::default();
+    let mut html_sanitizer = HtmlSanitizer::_default();
     c.bench_function("html_sanitizer_10kb", |b| {
         b.iter(|| {
             let _ = black_box(html_sanitizer.clean(payload10kb.clone()).unwrap());
