@@ -1199,12 +1199,14 @@ M1 Max results:
 ```
     \HtmlSanitizerBenchmark
 
-    benchHtmlSanitizer10kb..................I0 - Mo192.069μs (±0.00%)
-    benchEzyangHtmlPurifier10kb.............I0 - Mo2.650ms (±0.00%)
+    benchHtmlSanitizer10kb..................I0 - Mo193.671μs (±0.00%)
+    benchEzyangHtmlPurifier10kb.............I0 - Mo2.605ms (±0.00%)
+    benchTidy10kb...........................I0 - Mo544.090μs (±0.00%)
 ```
 
 As you can see, `Hardened\Sanitizers\HtmlSanitizer` (effectively [Ammonia](https://github.com/rust-ammonia/ammonia))
-runs 13.7 times faster than the widely used [htmlpurifier](https://github.com/ezyang/htmlpurifier) written in PHP.
+runs 13.7 times faster than the widely used [htmlpurifier](https://github.com/ezyang/htmlpurifier) written in PHP and
+2.8 times faster than [tidy](https://www.php.net/manual/en/book.tidy.php) (a library written in C).
 
 ## Running Tests
 

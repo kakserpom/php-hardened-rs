@@ -7,7 +7,7 @@ edition = "2024"
 ammonia = { git = "https://github.com/kakserpom/ammonia.git", branch = "owned", optional = true }
 #ammonia = {path = "ammonia"}
 anyhow = "1.0.98"
-ext-php-rs = { git = "https://github.com/davidcole1340/ext-php-rs.git", branch = "master", features = ["anyhow"] }
+ext-php-rs = { git = "https://github.com/kakserpom/ext-php-rs", branch = "pending_mrs", features = ["anyhow"] }
 url = { version = "2.5.4", optional = true }
 rand = { version = "0.9", optional = true }
 strum = { version = "0.27.1", features = ["derive", "strum_macros"] }
