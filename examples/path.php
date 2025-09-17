@@ -1,7 +1,7 @@
 <?php
 use Hardened\Path;
 
-$path = Path::from("/foo/bar/data/");
+$path = Path::from("/foo/bar/data");
 
 var_dump($path->append("zzz")->startsWith($path));
 // bool(true)
