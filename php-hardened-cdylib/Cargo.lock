@@ -121,7 +121,7 @@ dependencies = [
  "bitflags",
  "cexpr",
  "clang-sys",
- "itertools",
+ "itertools 0.13.0",
  "log",
  "prettyplease",
  "proc-macro2",
@@ -570,7 +570,7 @@ dependencies = [
 [[package]]
 name = "ext-php-rs"
 version = "0.14.2"
-source = "git+https://github.com/kakserpom/ext-php-rs?branch=pending_mrs#0d385a4c4b116adca89a1bde2bf78042b75578fc"
+source = "git+https://github.com/davidcole1340/ext-php-rs.git?branch=master#b9728f49b1eb5b15a1a1e6f5f060832ce6928718"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -589,12 +589,11 @@ dependencies = [
 [[package]]
 name = "ext-php-rs-derive"
 version = "0.11.2"
-source = "git+https://github.com/kakserpom/ext-php-rs?branch=pending_mrs#0d385a4c4b116adca89a1bde2bf78042b75578fc"
+source = "git+https://github.com/davidcole1340/ext-php-rs.git?branch=master#b9728f49b1eb5b15a1a1e6f5f060832ce6928718"
 dependencies = [
- "anyhow",
  "convert_case",
  "darling",
- "lazy_static",
+ "itertools 0.14.0",
  "proc-macro2",
  "quote",
  "syn",
@@ -939,6 +938,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -963,12 +971,6 @@ dependencies = [
  "once_cell",
  "wasm-bindgen",
 ]
-
-[[package]]
-name = "lazy_static"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "libbz2-rs-sys"

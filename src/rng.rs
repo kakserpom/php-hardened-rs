@@ -107,7 +107,7 @@ impl Rng {
             bail!("chars must contain at least one Unicode character");
         }
         Ok(rng()
-            .sample_iter(Uniform::new_inclusive(0, unicode_chars.len() - 1).unwrap())
+            .sample_iter(Uniform::new_inclusive(0, unicode_chars.len() - 1)?)
             .take(len)
             .map(|n| unicode_chars[n])
             .collect())
