@@ -6,12 +6,14 @@ use std::ffi::OsStr;
 use std::path::Component;
 use std::path::{Path, PathBuf};
 
+type HasEscaped = bool;
+
 #[php_class]
 #[php(name = "Hardened\\Path")]
 #[derive(Debug)]
 pub struct PathObj {
     inner: PathBuf,
-    escaped: bool,
+    escaped: HasEscaped,
 }
 
 impl PathObj {
@@ -246,8 +248,9 @@ impl PathObj {
 /// - `path`: The path to normalize.
 ///
 /// # Returns
-/// A lexically normalized PathBuf.
-fn normalize_lexically<P: AsRef<Path>>(path: P) -> (PathBuf, bool) {
+/// A lexically normalized PathBuf and a `HasEscaped` boolean which indicates if the path cannot be
+/// safely joined to create a sub-path.
+fn normalize_lexically<P: AsRef<Path>>(path: P) -> (PathBuf, HasEscaped) {
     let path = path.as_ref();
     let mut stack: Vec<Component> = Vec::new();
     let mut escaped = false;
