@@ -266,7 +266,10 @@ fn normalize_lexically<P: AsRef<Path>>(path: P) -> (PathBuf, bool) {
                         // If at root or prefix, ignore `..`
                         Component::RootDir | Component::Prefix(_) => {}
                         // Otherwise (relative excess `..`), preserve it
-                        _ => stack.push(component),
+                        _ => {
+                            stack.push(component);
+                            escaped = true;
+                        }
                     }
                 } else {
                     // No previous segment, keep `..`
@@ -489,13 +492,13 @@ mod tests {
         };
         // join
         assert!(base._join("sub/child").eq("root/dir/sub/child"));
-        // join_within valid
+        // join_subpath valid
         assert!(base._join_subpath("docs").unwrap().eq("root/dir/docs"));
-        assert!(base._join_subpath("../dir").unwrap().eq("root/dir"));
 
-        // join_within disallowed
+        // join_subpath disallowed
         assert!(base._join_subpath("../outside").is_err());
         assert!(base._join_subpath("../dirzzz").is_err());
+        assert!(base._join_subpath("../dir").is_err());
     }
 
     #[test]
