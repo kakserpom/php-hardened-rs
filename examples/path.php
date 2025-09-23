@@ -1,6 +1,5 @@
 <?php
 use Hardened\Path;
-
 var_dump((string) Path::from("test")->join('/zzz'));
 
 $path = Path::from("/foo/bar/data");
@@ -18,11 +17,10 @@ var_dump($path->join("../zzz")->startsWith($path));
 // bool(false)
 
 try {
-    var_dump($path->joinSubpath("../test/zzz")); // throws
+    echo $path->joinSubpath("/test/zzz") . PHP_EOL;
 } catch (Throwable $e) {
     echo $e->getMessage() . PHP_EOL;
 }
-
 
 // Create a Path instance
 $path = new Path('/var/www/uploads/photo.JPG');

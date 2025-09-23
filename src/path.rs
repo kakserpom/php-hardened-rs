@@ -30,7 +30,7 @@ impl PathObj {
     fn _join_subpath(&self, path: &str) -> anyhow::Result<Self> {
         let (path, escaped) = normalize_lexically(path);
         if escaped {
-            Err(anyhow!("Subpath is escaping"))
+            Err(anyhow!("Sub-path is escaping"))
         } else {
             Ok(Self::_from(self.inner.join(path)))
         }
@@ -277,8 +277,11 @@ fn normalize_lexically<P: AsRef<Path>>(path: P) -> (PathBuf, bool) {
                     escaped = true;
                 }
             }
-            Component::Normal(_) | Component::RootDir | Component::Prefix(_) => {
-                // Retain normal segments, root, and prefix
+            Component::RootDir | Component::Prefix(_) => {
+                stack.push(component);
+                escaped = true;
+            }
+            Component::Normal(_) => {
                 stack.push(component);
             }
         }
