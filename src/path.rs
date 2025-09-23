@@ -261,23 +261,17 @@ fn normalize_lexically<P: AsRef<Path>>(path: P) -> (PathBuf, HasEscaped) {
             }
             Component::ParentDir => {
                 // Attempt to pop the last normal segment
-                if let Some(last) = stack.last() {
-                    match last {
-                        Component::Normal(_) => {
-                            stack.pop();
-                        }
-                        // If at root or prefix, ignore `..`
-                        Component::RootDir | Component::Prefix(_) => {}
-                        // Otherwise (relative excess `..`), preserve it
-                        _ => {
-                            stack.push(component);
-                            escaped = true;
-                        }
+                match stack.last() {
+                    Some(Component::Normal(_)) => {
+                        stack.pop();
                     }
-                } else {
-                    // No previous segment, keep `..`
-                    stack.push(component);
-                    escaped = true;
+                    // If at root or prefix, ignore `..`
+                    Some(Component::RootDir) | Some(Component::Prefix(_)) => {}
+                    // Otherwise (relative excess `..`), preserve it
+                    _ => {
+                        stack.push(component);
+                        escaped = true;
+                    }
                 }
             }
             Component::RootDir | Component::Prefix(_) => {
