@@ -897,7 +897,7 @@ impl HtmlSanitizer {
     /// - `html`: Raw HTML string to sanitize and truncate.
     /// - `max_units`: Maximum number of Unicode extended grapheme clusters
     ///   to retain (including the `etc` suffix).
-    /// - `etc`: Optional suffix (e.g., ellipsis) to append when truncation occurs. Default is …
+    /// - `etc`: Optional suffix (e.g., ellipsis) to join when truncation occurs. Default is …
     ///
     /// # Exceptions
     /// - Throws `Exception` if sanitization or truncation fails.
@@ -951,7 +951,7 @@ impl HtmlSanitizer {
     ///    - `Characters`       — cut at the boundary of the Nth Unicode scalar (`char`).
     ///    - `Graphemes`        — cut at the boundary of the Nth user-perceived grapheme cluster.
     ///    - `ExtendedGraphemes`— similar to `Graphemes`, but includes extended clusters (e.g. emoji sequences).
-    /// 3. **Ellipsis & Resanitize**: Appends the optional `etc` suffix (defaulting to an ellipsis), and re-sanitizes
+    /// 3. **Ellipsis & Resanitize**: joins the optional `etc` suffix (defaulting to an ellipsis), and re-sanitizes
     ///    to close any open tags introduced by truncation.
     ///
     /// # Parameters
@@ -959,7 +959,7 @@ impl HtmlSanitizer {
     /// - `max`: `usize` maximum number of *units* (bytes, characters, or graphemes) in the final output,
     ///    including the length of the `etc` suffix.
     /// - `count_by`: `&CountBy` enum selecting the unit of measurement for `max`.
-    /// - `etc`:  `Option<String>` optional suffix to append when truncation occurs (e.g. ellipsis).
+    /// - `etc`:  `Option<String>` optional suffix to join when truncation occurs (e.g. ellipsis).
     ///    Defaults to [`TRUNCATE_DEFAULT_ENDING`].
     ///
     /// # Returns

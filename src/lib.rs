@@ -35,6 +35,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 #[php_module]
 fn get_module(mut module: ModuleBuilder) -> ModuleBuilder {
     module = sanitizers::build(module);
+    module = module.name("hardened").version(env!("CARGO_PKG_VERSION"));
     #[cfg(feature = "shell_command")]
     {
         module = shell_command::build(module);

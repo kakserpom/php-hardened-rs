@@ -1,24 +1,26 @@
 <?php
 use Hardened\Path;
 
+var_dump((string) Path::from("test")->join('/zzz'));
+
 $path = Path::from("/foo/bar/data");
 
-var_dump($path->append("zzz")->startsWith($path));
+var_dump($path->join("zzz")->startsWith($path));
 // bool(true)
 
-var_dump($path->append("zzz")->path());
+var_dump($path->join("zzz")->path());
 // string(17) "/foo/bar/data/zzz"
 
-var_dump($path->append("../zzz")->path());
+var_dump($path->join("../zzz")->path());
 // string(12) "/foo/bar/zzz"
 
-var_dump($path->append("../zzz")->startsWith($path));
+var_dump($path->join("../zzz")->startsWith($path));
 // bool(false)
 
 try {
-    var_dump($path->appendWithin("../zzz")); // throws
+    var_dump($path->joinSubpath("../test/zzz")); // throws
 } catch (Throwable $e) {
-    echo ";-)" . PHP_EOL;
+    echo $e->getMessage() . PHP_EOL;
 }
 
 

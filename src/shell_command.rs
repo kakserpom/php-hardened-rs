@@ -210,7 +210,7 @@ impl ShellCommand {
         self.pass_env.insert(key.to_string(), value.to_string());
     }
 
-    /// Append numeric or flag-style arguments from a PHP table.
+    /// join numeric or flag-style arguments from a PHP table.
     ///
     /// Numeric keys => positional args; string keys => `--key value`.
     fn pass_args<'a>(
@@ -668,7 +668,7 @@ pub fn shell_exec(command: &str, expected_commands: Option<Vec<String>>) -> Resu
 /// # Parameters
 /// - `string $command`: The command to run, in shell-word syntax (quoted or unquoted).
 /// - `array|null $arguments`: Optional associative or indexed array of additional arguments:
-///   - Indexed (numeric) arrays append values in order.
+///   - Indexed (numeric) arrays join values in order.
 ///   - Associative arrays use keys as `--key` flags followed by their value.
 ///
 /// # Returns

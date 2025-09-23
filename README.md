@@ -159,9 +159,9 @@ var_dump(Hostname::from("zzz.example.com")->subdomainOf("example.co.uk"));
 - API Highlights:
     - `Path::from(string|Path $path): Path` — parse path from string.
     - `$path->startsWith(string|Path $prefix): bool` — check if the path string or Path.
-    - `$path->append(string|Path $segment): Path` — appends the argument to the path and returns a new Path
-    - `$path->appendWithin(string|Path $segment): Path` — append, canonicalize, and enforce subpath constraint.
-    - `(string)$path` — string representation.
+    - `$path->join(string|Path $path): Path` — joins the argument to the path and returns a new Path
+    - `$path->joinSubpath(string|Path $subpath): Path` — join, normalize, and enforce subpath constraint.
+    - `(string) $path` — string representation.
 
 Note that `Path` is immutable.
 
@@ -172,24 +172,23 @@ use Hardened\Path;
 
 $path = Path::from("/foo/bar/data/");
 
-var_dump($path->append("zzz")->startsWith($path));
+var_dump($path->join("zzz")->startsWith($path));
 // bool(true)
 
-var_dump($path->append("zzz")->path());
+var_dump($path->join("zzz")->path());
 // string(17) "/foo/bar/data/zzz"
 
-var_dump($path->append("../zzz")->path());
+var_dump($path->join("../zzz")->path());
 // string(12) "/foo/bar/zzz"
 
-var_dump($path->append("../zzz")->startsWith($path));
+var_dump($path->join("../zzz")->startsWith($path));
 // bool(false)
 
 try {
-    var_dump($path->appendWithin("../zzz")); // throws
+    var_dump($path->joinSubpath("../zzz")); // throws
 } catch (Throwable $e) {
-    echo ";-)" . PHP_EOL;
+    echo $e->getMessage() . PHP_EOL;
 }
-
 
 // Create a Path instance
 $path = new Path('/var/www/uploads/photo.JPG');
@@ -221,11 +220,12 @@ var_dump($doc->validateExtensionDocument()); // true
 | `from(string\|Path $path): Path`          | Parse path from string                                                                       |
 | `__construct(string\|Path  $path)`        | Alias for `from()`.                                                                          |
 | `fileName(): ?string`                     | Get the final path component, or `null` if none.                                             |
-| `path(): string`                          | Get the full canonicalized path as a string.                                                 |
+| `path(): string`                          | Get the full normalized path as a string.                                                    |
+| `parent(): string`                        | Parent directory path.                                                                       |
 | `__toString(): string`                    | Alias for `path()`.                                                                          |
 | `startsWith(string\|Path $prefix): bool`  | Check if this path begins with the given prefix.                                             |
-| `append(mixed $segment): Path`            | Append a segment (string/Path), then canonicalize.                                           |
-| `appendWithin(mixed $segment): Path`      | Append a segment and enforce that result stays within base.                                  |
+| `join(mixed $segment): Path`              | join a segment (string/Path), then normalize.                                                |
+| `joinWithin(mixed $segment): Path`        | join a segment and enforce that result stays within base.                                    |
 | `setFileName(mixed $file_name): Path`     | Replace the file name component.                                                             |
 | `setExtension(mixed $extension): Path`    | Replace the file extension (without leading dot).                                            |
 | `validateExtension(array $allowed): bool` | Check if the file extension is in a custom allowed list.                                     |
@@ -284,8 +284,8 @@ $result2 = Hardened\safe_exec('git', $args);
 | `shell(): Self`                                        | Shortcut to `executable(env('SHELL') ?? '/bin/sh')`.                                                                                                                           |
 | `safeFromString(string $cmd): Self`                    | Shell-split safely (handles quotes/escapes, disallows NUL), then configure the command.                                                                                        |
 | `unsafeFromString(string $cmd): Self`                  | Like `shell_exec()`: runs via `/bin/sh -c`, but records top-level commands to detect injection.                                                                                |
-| `arg(string $arg): Self`                               | Append a single argument (no shell interpretation).                                                                                                                            |
-| `passArgs(array $args): Self`                          | Append multiple positional or `--key value` arguments.                                                                                                                         |
+| `arg(string $arg): Self`                               | join a single argument (no shell interpretation).                                                                                                                              |
+| `passArgs(array $args): Self`                          | join multiple positional or `--key value` arguments.                                                                                                                           |
 | `setTimeout(int $secs): Self`                          | Set an execution timeout in seconds (process is killed on expiry).                                                                                                             |
 | `setTimeoutMs(int $ms): Self`                          | Set an execution timeout in milliseconds.                                                                                                                                      |
 | `inheritAllEnvs(): Self`                               | Inherit all of the parent process’s environment variables.                                                                                                                     |
@@ -307,7 +307,7 @@ $result2 = Hardened\safe_exec('git', $args);
 | Function                                                                                   | Description                                                                                                                                                                                                                                                                     |
 |--------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `Hardened\shell_exec(string $command, array<string>? $expectedCommands = null): ?string`   | Drop-in replacement for PHP’s `shell_exec()`.  Runs `/bin/sh -c $command`, records the top-level command names, and if you pass an `$expectedCommands` list it will throw on any deviation (to catch injection). Returns the captured stdout (or exit-code string on non-zero). |
-| `Hardened\safe_exec(string $commandLine, array<string,mixed>? $arguments = null): ?string` | Safe alternative that never invokes a shell.  Splits `$commandLine` into tokens, disallows NUL, appends `$arguments`, then spawns directly. Captures stdout into the return string (or exit-code string on non-zero).                                                           |
+| `Hardened\safe_exec(string $commandLine, array<string,mixed>? $arguments = null): ?string` | Safe alternative that never invokes a shell.  Splits `$commandLine` into tokens, disallows NUL, joins `$arguments`, then spawns directly. Captures stdout into the return string (or exit-code string on non-zero).                                                             |
 
 </details>
 
@@ -381,7 +381,7 @@ var_dump($sanitizer->cleanAndTruncate("<p>доброеутро</p>", 20, 'u'));
 |---------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
 | `default(): HtmlSanitizer`                                                                  | Construct a sanitizer with default configuration.                                                                     |
 | `clean(string $html): string`                                                               | Sanitize the given HTML string.                                                                                       |
-| `cleanAndTruncate(string $html, int $max, array[string] $flags, string $etc = '…'): string` | Sanitize HTML and truncate appending `$etc` if truncated.                                                             |
+| `cleanAndTruncate(string $html, int $max, array[string] $flags, string $etc = '…'): string` | Sanitize HTML and truncate joining `$etc` if truncated.                                                               |
 | `urlRelativeDeny(): void`                                                                   | Deny all relative URLs in attributes.                                                                                 |
 | `urlRelativePassthrough(): void`                                                            | Pass through relative URLs unchanged.                                                                                 |
 | `urlRelativeRewriteWithBase(string $base_url): void`                                        | Rewrite relative URLs using the given base URL.                                                                       |

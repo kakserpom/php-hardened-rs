@@ -11,28 +11,28 @@ use std::path::{Path, PathBuf};
 #[derive(Debug)]
 pub struct PathObj {
     inner: PathBuf,
+    escaped: bool,
 }
 
 impl PathObj {
     #[inline]
     fn _from<P: Into<PathBuf>>(path: P) -> Self {
-        Self {
-            inner: lexical_canonicalize(path.into()),
-        }
+        let (inner, escaped) = normalize_lexically(path.into());
+        Self { inner, escaped }
     }
 
     #[inline]
-    fn _append(&self, path: &str) -> Self {
+    fn _join(&self, path: &str) -> Self {
         Self::_from(self.inner.join(path))
     }
 
     #[inline]
-    fn _append_within(&self, path: &str) -> anyhow::Result<Self> {
-        let inner = lexical_canonicalize(self.inner.join(path));
-        if inner.starts_with(&self.inner) {
-            Ok(Self { inner })
+    fn _join_subpath(&self, path: &str) -> anyhow::Result<Self> {
+        let (path, escaped) = normalize_lexically(path);
+        if escaped {
+            Err(anyhow!("Subpath is escaping"))
         } else {
-            Err(anyhow!("Not a sub path"))
+            Ok(Self::_from(self.inner.join(path)))
         }
     }
 
@@ -70,9 +70,8 @@ impl PathObj {
     /// - Throws an exception if conversion of `$path` to string fails.
     #[inline]
     fn from(path: &Zval) -> anyhow::Result<Self> {
-        Ok(Self {
-            inner: lexical_canonicalize(Path::new(&to_str(path)?)),
-        })
+        let (inner, escaped) = normalize_lexically(Path::new(&to_str(path)?));
+        Ok(Self { inner, escaped })
     }
 
     /// Constructs a new PathObj instance (alias for `from`).
@@ -100,7 +99,7 @@ impl PathObj {
         Ok(self.inner.starts_with(to_str(path)?))
     }
 
-    /// Joins the given path onto this path and canonicalizes it.
+    /// Joins the given path onto this path and normalizes it.
     ///
     /// # Parameters
     /// - `path`: The PHP value to join.
@@ -110,19 +109,19 @@ impl PathObj {
     ///
     /// # Exceptions
     /// - Throws an exception if conversion from Zval to string fails.
-    fn append(&self, path: &Zval) -> anyhow::Result<Self> {
-        Ok(self._append(&to_str(path)?))
+    fn join(&self, path: &Zval) -> anyhow::Result<Self> {
+        Ok(self._join(&to_str(path)?))
     }
 
-    /// Joins the given path onto this path, canonicalizes it, and ensures it's a subpath.
+    /// Joins the given path onto this path, normalizes it, and ensures it's a subpath.
     ///
     /// # Parameters
     /// - `path`: string|Path
     ///
     /// # Exceptions
     /// - Throws an exception if `$path` is not a string nor Path
-    fn append_within_base(&self, path: &Zval) -> anyhow::Result<Self> {
-        self._append_within(&to_str(path)?)
+    fn join_subpath(&self, path: &Zval) -> anyhow::Result<Self> {
+        self._join_subpath(&to_str(path)?)
     }
 
     /// Set the file name component of the path.
@@ -132,7 +131,10 @@ impl PathObj {
     fn set_file_name(&mut self, file_name: &str) -> Self {
         let mut inner = self.inner.clone();
         inner.set_file_name(file_name);
-        Self { inner }
+        Self {
+            inner,
+            escaped: self.escaped,
+        }
     }
 
     /// Set the file name component of the path.
@@ -142,7 +144,10 @@ impl PathObj {
     fn set_extension(&mut self, extension: &str) -> Self {
         let mut inner = self.inner.clone();
         inner.set_extension(extension);
-        Self { inner }
+        Self {
+            inner,
+            escaped: self.escaped,
+        }
     }
 
     /// Get the last component of the path.
@@ -155,8 +160,9 @@ impl PathObj {
 
     /// Get the directory name (similar to `dirname()`).
     fn parent(&self) -> Option<PathObj> {
-        self.inner.parent().and_then(Path::to_str).map(|x| Self {
-            inner: lexical_canonicalize(Path::new(x)),
+        self.inner.parent().and_then(Path::to_str).map(|x| {
+            let (inner, escaped) = normalize_lexically(x);
+            Self { inner, escaped }
         })
     }
 
@@ -240,11 +246,11 @@ impl PathObj {
 /// - `path`: The path to normalize.
 ///
 /// # Returns
-/// A lexically canonicalized PathBuf.
-fn lexical_canonicalize<P: AsRef<Path>>(path: P) -> PathBuf {
+/// A lexically normalized PathBuf.
+fn normalize_lexically<P: AsRef<Path>>(path: P) -> (PathBuf, bool) {
     let path = path.as_ref();
     let mut stack: Vec<Component> = Vec::new();
-
+    let mut escaped = false;
     for component in path.components() {
         match component {
             Component::CurDir => {
@@ -265,6 +271,7 @@ fn lexical_canonicalize<P: AsRef<Path>>(path: P) -> PathBuf {
                 } else {
                     // No previous segment, keep `..`
                     stack.push(component);
+                    escaped = true;
                 }
             }
             Component::Normal(_) | Component::RootDir | Component::Prefix(_) => {
@@ -279,17 +286,17 @@ fn lexical_canonicalize<P: AsRef<Path>>(path: P) -> PathBuf {
     for comp in stack {
         result.push(comp.as_os_str());
     }
-    result
+    (result, escaped)
 }
 #[cfg(test)]
 mod tests {
-    use super::{PathObj, lexical_canonicalize};
+    use super::{PathObj, normalize_lexically};
     use crate::run_php_example;
     use std::ffi::OsStr;
     use std::path::PathBuf;
 
     fn canon(s: &str) -> String {
-        lexical_canonicalize(s).to_str().unwrap().to_owned()
+        normalize_lexically(s).0.to_str().unwrap().to_owned()
     }
 
     #[test]
@@ -322,25 +329,26 @@ mod tests {
         );
     }
 
-    // --- Tests for PathObj stringification and basic join/canonicalize ---
+    // --- Tests for PathObj stringification and basic join/normalize ---
 
     #[test]
     fn test_pathobj_to_string() {
         let p = PathObj {
             inner: PathBuf::from("foo/bar"),
+            escaped: false,
         };
         assert_eq!(p.__to_string().unwrap(), "foo/bar");
     }
 
     #[test]
-    fn test_lexical_append_paths() {
-        // join-like behavior via canonicalize
+    fn test_lexical_join_paths() {
+        // join-like behavior via normalize
         assert_eq!(canon("base/inner/../leaf"), "base/leaf");
         assert_eq!(canon("/base//subdir//file.txt"), "/base/subdir/file.txt");
     }
 
     #[test]
-    fn test_lexical_canonicalize_escape_prevention() {
+    fn test_lexical_normalize_escape_prevention() {
         // attempting to escape beyond root yields root-relative
         assert_eq!(canon("base/sub/../../etc"), "etc");
     }
@@ -368,6 +376,7 @@ mod tests {
     fn test_validate_extension_custom() {
         let p = PathObj {
             inner: PathBuf::from("photo.JPG"),
+            escaped: false,
         };
         assert!(p.validate_extension(vec!["jpg", "png"]));
         assert!(!p.validate_extension(vec!["gif", "bmp"]));
@@ -377,9 +386,11 @@ mod tests {
     fn test_validate_extension_image() {
         let p_img = PathObj {
             inner: PathBuf::from("image.PNG"),
+            escaped: false,
         };
         let p_not = PathObj {
             inner: PathBuf::from("video.mp4"),
+            escaped: false,
         };
         assert!(p_img.validate_extension_image());
         assert!(!p_not.validate_extension_image());
@@ -389,9 +400,11 @@ mod tests {
     fn test_validate_extension_video() {
         let p_vid = PathObj {
             inner: PathBuf::from("clip.webm"),
+            escaped: false,
         };
         let p_not = PathObj {
             inner: PathBuf::from("sound.mp3"),
+            escaped: false,
         };
         assert!(p_vid.validate_extension_video());
         assert!(!p_not.validate_extension_video());
@@ -401,9 +414,11 @@ mod tests {
     fn test_validate_extension_audio() {
         let p_audio = PathObj {
             inner: PathBuf::from("track.FlAc"),
+            escaped: false,
         };
         let p_not = PathObj {
             inner: PathBuf::from("document.pdf"),
+            escaped: false,
         };
         assert!(p_audio.validate_extension_audio());
         assert!(!p_not.validate_extension_audio());
@@ -413,39 +428,41 @@ mod tests {
     fn test_validate_extension_document() {
         let p_doc = PathObj {
             inner: PathBuf::from("report.PdF"),
+            escaped: false,
         };
         let p_not = PathObj {
             inner: PathBuf::from("archive.zip"),
+            escaped: false,
         };
         assert!(p_doc.validate_extension_document());
         assert!(!p_not.validate_extension_document());
     }
 
     #[test]
-    fn test_append_simple() {
+    fn test_join_simple() {
         let base = PathBuf::from("base/dir");
-        let joined = lexical_canonicalize(base.join("sub/file.txt"));
+        let (joined, _) = normalize_lexically(base.join("sub/file.txt"));
         assert_eq!(joined, PathBuf::from("base/dir/sub/file.txt"));
     }
 
     #[test]
-    fn test_append_and_canonicalize() {
+    fn test_join_and_normalize() {
         let base = PathBuf::from("base/dir");
-        let joined = lexical_canonicalize(base.join("../other/./leaf"));
+        let (joined, _) = normalize_lexically(base.join("../other/./leaf"));
         assert_eq!(joined, PathBuf::from("base/other/leaf"));
     }
 
     #[test]
-    fn test_append_within_allowed() {
+    fn test_join_subpath_allowed() {
         let base = PathBuf::from("home/user");
-        let candidate = lexical_canonicalize(base.join("docs/report.pdf"));
+        let (candidate, _) = normalize_lexically(base.join("docs/report.pdf"));
         assert!(candidate.starts_with("home/user"));
     }
 
     #[test]
-    fn test_append_within_disallowed() {
+    fn test_join_subpath_disallowed() {
         let base = PathBuf::from("home/user");
-        let candidate = lexical_canonicalize(base.join("../../etc/passwd"));
+        let (candidate, _) = normalize_lexically(base.join("../../etc/passwd"));
         assert!(!candidate.starts_with("home/user"));
     }
 
@@ -455,6 +472,7 @@ mod tests {
     fn test_pathobj_to_string_and_starts_with() {
         let p = PathObj {
             inner: PathBuf::from("a/b/c"),
+            escaped: false,
         };
         // __to_string
         assert_eq!(p.__to_string().unwrap(), "a/b/c");
@@ -464,19 +482,20 @@ mod tests {
     }
 
     #[test]
-    fn test_pathobj_append_and_append_within() {
+    fn test_pathobj_join_and_join_subpath() {
         let base = PathObj {
             inner: PathBuf::from("root/dir"),
+            escaped: false,
         };
         // join
-        assert!(base._append("sub/child").eq("root/dir/sub/child"));
+        assert!(base._join("sub/child").eq("root/dir/sub/child"));
         // join_within valid
-        assert!(base._append_within("docs").unwrap().eq("root/dir/docs"));
-        assert!(base._append_within("../dir").unwrap().eq("root/dir"));
+        assert!(base._join_subpath("docs").unwrap().eq("root/dir/docs"));
+        assert!(base._join_subpath("../dir").unwrap().eq("root/dir"));
 
         // join_within disallowed
-        assert!(base._append_within("../outside").is_err());
-        assert!(base._append_within("../dirzzz").is_err());
+        assert!(base._join_subpath("../outside").is_err());
+        assert!(base._join_subpath("../dirzzz").is_err());
     }
 
     #[test]
@@ -517,7 +536,8 @@ mod tests {
         assert_eq!(
             parent,
             PathObj {
-                inner: lexical_canonicalize(PathBuf::from("foo/bar"))
+                inner: normalize_lexically(PathBuf::from("foo/bar")).0,
+                escaped: false,
             }
         );
     }
