@@ -66,7 +66,7 @@ Install with [`cargo-php`](https://github.com/davidcole1340/ext-php-rs):
 cargo install cargo-php --locked
 
 # Build and install the PHP extension
-cd php-hardened-rs-cdylib
+cd php-hardened-cdylib
 cargo php install --release --yes
 ```
 
