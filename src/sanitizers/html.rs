@@ -554,12 +554,12 @@ impl HtmlSanitizer {
     /// - `Exception` if the sanitizer is not in a valid state.
     fn url_schemes(
         self_: &mut ZendClassObject<HtmlSanitizer>,
-        schemes: Vec<String>,
+        schemes: HashSet<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
             bail!("You cannot do this now");
         };
-        inner.url_schemes(HashSet::from_iter(schemes));
+        inner.url_schemes(schemes);
         Ok(self_)
     }
 

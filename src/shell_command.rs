@@ -195,10 +195,10 @@ impl ShellCommand {
     }
 
     /// Inherit only the specified environment variable names.
-    fn inherit_envs(&mut self, envs: Vec<String>) {
+    fn inherit_envs(&mut self, envs: BTreeSet<String>) {
         match self.inherit_env.as_mut() {
             None => {
-                let _ = self.inherit_env.insert(BTreeSet::from_iter(envs));
+                let _ = self.inherit_env.insert(envs);
             }
             Some(set) => {
                 set.extend(envs);
