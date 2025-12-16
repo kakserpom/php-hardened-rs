@@ -1,4 +1,4 @@
-use heck::ToKebabCase;
+use heck::{ToKebabCase, ToShoutySnakeCase};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
@@ -66,11 +66,18 @@ pub fn php_enum_constants(attr: TokenStream, item: TokenStream) -> TokenStream {
                         .iter()
                         .filter(|a| a.path().is_ident("doc"))
                         .cloned();
-                    let lit = name.to_string().to_kebab_case();
+                    // Strip leading underscore if present (e.g. `_Self` -> `Self`)
+                    // This is needed because some Rust keywords like `Self` must be prefixed
+                    let name_str = name.to_string();
+                    let clean_name_str = name_str.strip_prefix('_').unwrap_or(&name_str);
+                    // Use SCREAMING_SNAKE_CASE for PHP constant names (e.g. `Self` -> `SELF`)
+                    let const_name_str = clean_name_str.to_shouty_snake_case();
+                    let const_name = syn::Ident::new(&const_name_str, name.span());
+                    let lit = clean_name_str.to_kebab_case();
                     const_items.push(quote! {
                         #(#docs)*
                         #[php_const]
-                        const #name: &'static str = #lit;
+                        const #const_name: &'static str = #lit;
                     });
                 }
                 break;

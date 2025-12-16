@@ -375,6 +375,46 @@ impl Hostname {
         }
         Ok(false)
     }
+
+    /// Returns true if this hostname is an IPv4 address.
+    ///
+    /// # Returns
+    /// - `bool`: `true` if the hostname is an IPv4 address.
+    fn is_ipv4(&self) -> bool {
+        matches!(self.inner, Host::Ipv4(_))
+    }
+
+    /// Returns true if this hostname is an IPv6 address.
+    ///
+    /// # Returns
+    /// - `bool`: `true` if the hostname is an IPv6 address.
+    fn is_ipv6(&self) -> bool {
+        matches!(self.inner, Host::Ipv6(_))
+    }
+
+    /// Returns true if this hostname is an IP address (either IPv4 or IPv6).
+    ///
+    /// # Returns
+    /// - `bool`: `true` if the hostname is an IP address.
+    fn is_ip(&self) -> bool {
+        matches!(self.inner, Host::Ipv4(_) | Host::Ipv6(_))
+    }
+
+    /// Returns true if this hostname is a domain name (not an IP address).
+    ///
+    /// # Returns
+    /// - `bool`: `true` if the hostname is a domain name.
+    fn is_domain(&self) -> bool {
+        matches!(self.inner, Host::Domain(_))
+    }
+
+    /// Returns the string representation of this hostname.
+    ///
+    /// # Returns
+    /// - `string`: The normalized hostname string.
+    fn __to_string(&self) -> String {
+        self.inner.to_string()
+    }
 }
 
 #[cfg(test)]

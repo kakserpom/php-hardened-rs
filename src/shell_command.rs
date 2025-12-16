@@ -18,6 +18,41 @@ use libc::{F_GETFL, F_SETFL, O_NONBLOCK, fcntl};
 use std::os::unix::io::AsRawFd;
 use std::process::{Command, Stdio};
 
+/// Parses a PHP array of arguments into a vector of strings.
+///
+/// For indexed arrays (numerical keys), values are appended in order.
+/// For associative arrays, string keys become `--key` flags followed by values.
+fn parse_php_arguments(arguments: &ZendHashTable, args: &mut Vec<String>) -> Result<()> {
+    if arguments.has_numerical_keys() {
+        for (i, value) in arguments.values().enumerate() {
+            if let Some(string) = value.string() {
+                args.push(string);
+            } else if let Some(int) = value.long() {
+                args.push(int.to_string());
+            } else {
+                bail!("argument {i}: value can only be string or int");
+            }
+        }
+    } else {
+        for (key, value) in arguments {
+            match key {
+                ArrayKey::String(_) | ArrayKey::Str(_) => {
+                    args.push(format!("--{key}"));
+                }
+                ArrayKey::Long(_) => {}
+            }
+            if let Some(string) = value.string() {
+                args.push(string);
+            } else if let Some(int) = value.long() {
+                args.push(int.to_string());
+            } else {
+                bail!("argument {key:?}: value can only be string or int");
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Safe subprocess launcher.
 ///
 /// Allows you to build up a command invocation with arguments, optionally configure
@@ -56,33 +91,7 @@ impl ShellCommand {
     fn __construct(executable: String, arguments: Option<&ZendHashTable>) -> Result<Self> {
         let mut command = Self::executable(executable);
         if let Some(arguments) = arguments {
-            if arguments.has_numerical_keys() {
-                for (i, value) in arguments.values().enumerate() {
-                    if let Some(string) = value.string() {
-                        command.args.push(string);
-                    } else if let Some(int) = value.long() {
-                        command.args.push(int.to_string());
-                    } else {
-                        bail!("argument {i}: value can only be string or int");
-                    }
-                }
-            } else {
-                for (key, value) in arguments {
-                    match key {
-                        ArrayKey::String(_) | ArrayKey::Str(_) => {
-                            command.args.push(format!("--{key}"));
-                        }
-                        ArrayKey::Long(_) => {}
-                    }
-                    if let Some(string) = value.string() {
-                        command.args.push(string);
-                    } else if let Some(int) = value.long() {
-                        command.args.push(int.to_string());
-                    } else {
-                        bail!("argument {key:?}: value can only be string or int");
-                    }
-                }
-            }
+            parse_php_arguments(arguments, &mut command.args)?;
         }
         Ok(command)
     }
@@ -190,60 +199,46 @@ impl ShellCommand {
     }
 
     /// Inherit _all_ parent environment variables.
-    fn inherit_all_envs(&mut self) {
-        self.inherit_env = None;
+    fn inherit_all_envs(
+        self_: &mut ZendClassObject<ShellCommand>,
+    ) -> &mut ZendClassObject<ShellCommand> {
+        self_.inherit_env = None;
+        self_
     }
 
     /// Inherit only the specified environment variable names.
-    fn inherit_envs(&mut self, envs: BTreeSet<String>) {
-        match self.inherit_env.as_mut() {
+    fn inherit_envs(
+        self_: &mut ZendClassObject<ShellCommand>,
+        envs: BTreeSet<String>,
+    ) -> &mut ZendClassObject<ShellCommand> {
+        match self_.inherit_env.as_mut() {
             None => {
-                let _ = self.inherit_env.insert(envs);
+                let _ = self_.inherit_env.insert(envs);
             }
             Some(set) => {
                 set.extend(envs);
             }
         }
+        self_
     }
     /// Pass a single environment variable to the child.
-    fn pass_env(&mut self, key: &str, value: &str) {
-        self.pass_env.insert(key.to_string(), value.to_string());
+    fn pass_env<'a>(
+        self_: &'a mut ZendClassObject<ShellCommand>,
+        key: &str,
+        value: &str,
+    ) -> &'a mut ZendClassObject<ShellCommand> {
+        self_.pass_env.insert(key.to_string(), value.to_string());
+        self_
     }
 
-    /// join numeric or flag-style arguments from a PHP table.
+    /// Join numeric or flag-style arguments from a PHP table.
     ///
     /// Numeric keys => positional args; string keys => `--key value`.
     fn pass_args<'a>(
-        #[allow(unused_variables)] self_: &'a mut ZendClassObject<ShellCommand>,
-        #[allow(unused_variables)] arguments: &'a ZendHashTable,
+        self_: &'a mut ZendClassObject<ShellCommand>,
+        arguments: &'a ZendHashTable,
     ) -> Result<&'a mut ZendClassObject<ShellCommand>> {
-        if arguments.has_numerical_keys() {
-            for (i, value) in arguments.values().enumerate() {
-                if let Some(string) = value.string() {
-                    self_.args.push(string);
-                } else if let Some(int) = value.long() {
-                    self_.args.push(int.to_string());
-                } else {
-                    bail!("argument {i}: value can only be string or int");
-                }
-            }
-        } else {
-            for (key, value) in arguments {
-                match key {
-                    ArrayKey::String(_) | ArrayKey::Str(_) => {
-                        self_.args.push(format!("--{key}"));
-                    }
-                    ArrayKey::Long(_) => {}
-                }
-                if let Some(string) = value.string() {
-                    self_.args.push(string);
-                } else if let Some(int) = value.long() {
-                    self_.args.push(int.to_string());
-                } else {
-                    bail!("argument {key:?}: value can only be string or int");
-                }
-            }
-        }
+        parse_php_arguments(arguments, &mut self_.args)?;
         Ok(self_)
     }
 
@@ -285,7 +280,7 @@ impl ShellCommand {
         self_: &mut ZendClassObject<ShellCommand>,
         milliseconds: u64,
     ) -> &mut ZendClassObject<ShellCommand> {
-        self_.timeout = Some(Duration::from_secs(milliseconds));
+        self_.timeout = Some(Duration::from_millis(milliseconds));
         self_
     }
 
@@ -536,10 +531,11 @@ impl ShellCommand {
                 return Err(anyhow!("select failed"));
             }
             if ready == 0 {
-                child
-                    .kill()
-                    .map_err(|e| anyhow!("Failed to kill on timeout: {e}"))?;
-                return Ok(-1);
+                // No data ready within the select poll interval - check if process exited
+                if child.try_wait().map_err(|e| anyhow!("{e}"))?.is_some() {
+                    break;
+                }
+                continue;
             }
 
             if unsafe { libc::FD_ISSET(out_fd, &rfds) } {
@@ -680,33 +676,7 @@ pub fn shell_exec(command: &str, expected_commands: Option<Vec<String>>) -> Resu
 pub fn safe_exec(command: &str, arguments: Option<&ZendHashTable>) -> Result<Option<Zval>> {
     let mut command = ShellCommand::safe_from_string(command)?;
     if let Some(arguments) = arguments {
-        if arguments.has_numerical_keys() {
-            for (i, value) in arguments.values().enumerate() {
-                if let Some(string) = value.string() {
-                    command.args.push(string);
-                } else if let Some(int) = value.long() {
-                    command.args.push(int.to_string());
-                } else {
-                    bail!("argument {i}: value can only be string or int");
-                }
-            }
-        } else {
-            for (key, value) in arguments {
-                match key {
-                    ArrayKey::String(_) | ArrayKey::Str(_) => {
-                        command.args.push(format!("--{key}"));
-                    }
-                    ArrayKey::Long(_) => {}
-                }
-                if let Some(string) = value.string() {
-                    command.args.push(string);
-                } else if let Some(int) = value.long() {
-                    command.args.push(int.to_string());
-                } else {
-                    bail!("argument {key:?}: value can only be string or int");
-                }
-            }
-        }
+        parse_php_arguments(arguments, &mut command.args)?;
     }
     let mut out = Zval::new();
     let code = command.run(Some(&mut out), None)?;

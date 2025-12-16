@@ -229,12 +229,51 @@ impl PathObj {
         self.validate_extension(vec!["mp3", "wav", "ogg", "flac", "aac"])
     }
 
-    /// Check if the path’s extension is a common document type.
+    /// Check if the path's extension is a common document type.
     ///
     /// # Returns
     /// - `bool` `true` if extension is one of `["pdf","doc","docx","xls","xlsx","ppt","pptx"]`.
     fn validate_extension_document(&self) -> bool {
         self.validate_extension(vec!["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"])
+    }
+
+    /// Returns true if the path is absolute (starts with root or drive prefix).
+    ///
+    /// # Returns
+    /// - `bool` `true` if the path is absolute.
+    fn is_absolute(&self) -> bool {
+        self.inner.is_absolute()
+    }
+
+    /// Returns true if the path is relative (not absolute).
+    ///
+    /// # Returns
+    /// - `bool` `true` if the path is relative.
+    fn is_relative(&self) -> bool {
+        self.inner.is_relative()
+    }
+
+    /// Returns true if the path tried to escape its base directory during normalization.
+    ///
+    /// This is useful for detecting directory traversal attempts.
+    /// A path "escapes" if it contains leading `..` components that would go above
+    /// the starting directory, or if it starts with a root/prefix.
+    ///
+    /// # Returns
+    /// - `bool` `true` if the path escaped during normalization.
+    fn has_escaped(&self) -> bool {
+        self.escaped
+    }
+
+    /// Returns the file extension, if any.
+    ///
+    /// # Returns
+    /// - `?string` The extension without the leading dot, or `null` if none.
+    fn extension(&self) -> Option<String> {
+        self.inner
+            .extension()
+            .and_then(OsStr::to_str)
+            .map(str::to_string)
     }
 }
 
