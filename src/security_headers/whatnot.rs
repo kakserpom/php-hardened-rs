@@ -1,6 +1,5 @@
 use super::{Error as SecurityHeaderError, Result};
 use ext_php_rs::types::Zval;
-#[cfg(not(test))]
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_impl};
 use serde_json::{Map, Value};
@@ -139,8 +138,10 @@ impl Whatnot {
     /// # Exceptions
     /// - Throws if `mode` is invalid or `"ALLOW-FROM"` is given without a URI.
     fn set_frame_options(&mut self, mode: &str, uri: Option<String>) -> Result<()> {
-        let opt =
-            FrameOptions::from_str(mode).map_err(|_| SecurityHeaderError::InvalidValue { header_type: "X-Frame-Options".into(), value: mode.into() })?;
+        let opt = FrameOptions::from_str(mode).map_err(|_| SecurityHeaderError::InvalidValue {
+            header_type: "X-Frame-Options".into(),
+            value: mode.into(),
+        })?;
         if opt == FrameOptions::AllowFrom && uri.is_none() {
             return Err(SecurityHeaderError::AllowFromRequiresUri.into());
         }
@@ -157,8 +158,10 @@ impl Whatnot {
     /// # Exceptions
     /// - Throws if `mode` is invalid or a `report_uri` is provided for 'off' mode.
     fn set_xss_protection(&mut self, mode: &str, report_uri: Option<String>) -> Result<()> {
-        let opt =
-            XssProtection::from_str(mode).map_err(|_| SecurityHeaderError::InvalidValue { header_type: "X-XSS-Protection".into(), value: mode.into() })?;
+        let opt = XssProtection::from_str(mode).map_err(|_| SecurityHeaderError::InvalidValue {
+            header_type: "X-XSS-Protection".into(),
+            value: mode.into(),
+        })?;
         if report_uri.is_some() && opt == XssProtection::Off {
             return Err(SecurityHeaderError::ReportUriIncompatible.into());
         }
@@ -179,8 +182,12 @@ impl Whatnot {
     /// # Exceptions
     /// - Throws if `mode` is not a valid policy token.
     fn set_permitted_cross_domain_policies(&mut self, mode: &str) -> Result<()> {
-        let policy = PermittedCrossDomainPolicies::from_str(mode)
-            .map_err(|_| SecurityHeaderError::InvalidValue { header_type: "X-Permitted-Cross-Domain-Policies".into(), value: mode.into() })?;
+        let policy = PermittedCrossDomainPolicies::from_str(mode).map_err(|_| {
+            SecurityHeaderError::InvalidValue {
+                header_type: "X-Permitted-Cross-Domain-Policies".into(),
+                value: mode.into(),
+            }
+        })?;
         self.permitted_policies = Some(policy);
         Ok(())
     }
@@ -323,20 +330,15 @@ impl Whatnot {
 
     /// Emit all configured headers via PHP `header()` calls.
     fn send(&self) -> Result<()> {
-        #[cfg(not(test))]
-        {
-            let header_fn = Function::try_from_function("header")
-                .ok_or(SecurityHeaderError::HeaderUnavailable)?;
-            for (name, value) in self.build() {
-                let hdr = format!("{name}: {value}");
-                header_fn
-                    .try_call(vec![&hdr])
-                    .map_err(|err| SecurityHeaderError::HeaderCallFailed(err.to_string()))?;
-            }
-            Ok(())
+        let header_fn =
+            Function::try_from_function("header").ok_or(SecurityHeaderError::HeaderUnavailable)?;
+        for (name, value) in self.build() {
+            let hdr = format!("{name}: {value}");
+            header_fn
+                .try_call(vec![&hdr])
+                .map_err(|err| SecurityHeaderError::HeaderCallFailed(err.to_string()))?;
         }
-        #[cfg(test)]
-        panic!("send() can not be called from tests");
+        Ok(())
     }
 }
 

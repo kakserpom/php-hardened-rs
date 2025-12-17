@@ -1,7 +1,5 @@
-use super::Result;
-#[cfg(not(test))]
 use super::Error as SecurityHeaderError;
-#[cfg(not(test))]
+use super::Result;
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_impl};
 /// HTTP Strict Transport Security (HSTS) header builder.
@@ -80,20 +78,15 @@ impl StrictTransportSecurity {
     /// # Exceptions
     /// - Throws `Exception` if PHP `header()` cannot be invoked.
     fn send(&self) -> Result<()> {
-        #[cfg(not(test))]
-        {
-            Function::try_from_function("header")
-                .ok_or(SecurityHeaderError::HeaderUnavailable)?
-                .try_call(vec![&format!(
-                    "Strict-Transport-Security: {}",
-                    self.build()
-                )])
-                .map_err(|err| SecurityHeaderError::HeaderCallFailed(format!("{err:?}")))?;
+        Function::try_from_function("header")
+            .ok_or(SecurityHeaderError::HeaderUnavailable)?
+            .try_call(vec![&format!(
+                "Strict-Transport-Security: {}",
+                self.build()
+            )])
+            .map_err(|err| SecurityHeaderError::HeaderCallFailed(format!("{err:?}")))?;
 
-            Ok(())
-        }
-        #[cfg(test)]
-        panic!("send() can not be called from tests");
+        Ok(())
     }
 }
 

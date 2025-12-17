@@ -3,10 +3,10 @@ use data_encoding::{BASE64, BASE64URL};
 use ext_php_rs::exception::PhpException;
 #[cfg(not(test))]
 use ext_php_rs::types::Zval;
-use ext_php_rs::zend::ce;
 use ext_php_rs::zend::Function;
 #[cfg(not(test))]
 use ext_php_rs::zend::ProcessGlobals;
+use ext_php_rs::zend::ce;
 use ext_php_rs::{php_class, php_impl};
 use thiserror::Error;
 
@@ -113,11 +113,7 @@ impl Csrf {
     /// # Exceptions
     /// - Throws `Exception` if key decoding or length validation fails.
     /// - Throws `Exception` if token pair generation fails.
-    fn __construct(
-        key: &str,
-        ttl: i64,
-        previous_token_value: Option<String>,
-    ) -> Result<Self> {
+    fn __construct(key: &str, ttl: i64, previous_token_value: Option<String>) -> Result<Self> {
         let key = <[u8; 32]>::try_from(
             BASE64URL
                 .decode(key.as_bytes())

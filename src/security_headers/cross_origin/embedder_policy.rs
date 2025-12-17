@@ -1,6 +1,5 @@
 use super::super::{Error as SecurityHeaderError, Result};
 use ext_php_rs::php_const;
-#[cfg(not(test))]
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_impl};
 use php_hardened_macro::php_enum_constants;
@@ -49,7 +48,10 @@ impl EmbedderPolicy {
     fn __construct(policy: Option<String>) -> Result<Self> {
         Ok(Self {
             policy: if let Some(p) = policy {
-                Policy::from_str(&p).map_err(|_| SecurityHeaderError::InvalidValue { header_type: "Cross-Origin-Embedder-Policy".into(), value: p })?
+                Policy::from_str(&p).map_err(|_| SecurityHeaderError::InvalidValue {
+                    header_type: "Cross-Origin-Embedder-Policy".into(),
+                    value: p,
+                })?
             } else {
                 Policy::UnsafeNone
             },
@@ -64,8 +66,10 @@ impl EmbedderPolicy {
     /// # Exceptions
     /// - Throws an `Exception` if `policy` cannot be parsed into a valid directive.
     fn set(&mut self, policy: &str) -> Result<()> {
-        self.policy = Policy::from_str(policy)
-            .map_err(|_| SecurityHeaderError::InvalidValue { header_type: "Cross-Origin-Embedder-Policy".into(), value: policy.to_string() })?;
+        self.policy = Policy::from_str(policy).map_err(|_| SecurityHeaderError::InvalidValue {
+            header_type: "Cross-Origin-Embedder-Policy".into(),
+            value: policy.to_string(),
+        })?;
         Ok(())
     }
 
@@ -90,19 +94,14 @@ impl EmbedderPolicy {
     /// # Errors
     /// - Throws `Exception` if the PHP `header()` function cannot be invoked.
     fn send(&self) -> Result<()> {
-        #[cfg(not(test))]
-        {
-            Function::try_from_function("header")
-                .ok_or(SecurityHeaderError::HeaderUnavailable)?
-                .try_call(vec![&format!(
-                    "Cross-Origin-Embedder-Policy: {}",
-                    self.policy
-                )])
-                .map_err(|err| SecurityHeaderError::HeaderCallFailed(err.to_string()))?;
-            Ok(())
-        }
-        #[cfg(test)]
-        panic!("send() can not be called from tests");
+        Function::try_from_function("header")
+            .ok_or(SecurityHeaderError::HeaderUnavailable)?
+            .try_call(vec![&format!(
+                "Cross-Origin-Embedder-Policy: {}",
+                self.policy
+            )])
+            .map_err(|err| SecurityHeaderError::HeaderCallFailed(err.to_string()))?;
+        Ok(())
     }
 }
 

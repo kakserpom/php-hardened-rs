@@ -1,5 +1,4 @@
 use super::{Error as SecurityHeaderError, Result};
-#[cfg(not(test))]
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_impl};
 use std::str::FromStr;
@@ -76,8 +75,12 @@ impl ReferrerPolicy {
     /// - Throws `Exception` if `policy` is not a recognized directive.
     fn __construct(policy: Option<String>) -> Result<Self> {
         let directive = if let Some(s) = policy {
-            ReferrerPolicyDirective::from_str(s.as_str())
-                .map_err(|_| SecurityHeaderError::InvalidValue { header_type: "Referrer-Policy".into(), value: s })?
+            ReferrerPolicyDirective::from_str(s.as_str()).map_err(|_| {
+                SecurityHeaderError::InvalidValue {
+                    header_type: "Referrer-Policy".into(),
+                    value: s,
+                }
+            })?
         } else {
             ReferrerPolicyDirective::NoReferrer
         };
@@ -92,8 +95,12 @@ impl ReferrerPolicy {
     /// # Exceptions
     /// - Throws `Exception` if the provided token is invalid.
     fn set(&mut self, policy: &str) -> Result<()> {
-        let parsed = ReferrerPolicyDirective::from_str(policy)
-            .map_err(|_| SecurityHeaderError::InvalidValue { header_type: "Referrer-Policy".into(), value: policy.to_string() })?;
+        let parsed = ReferrerPolicyDirective::from_str(policy).map_err(|_| {
+            SecurityHeaderError::InvalidValue {
+                header_type: "Referrer-Policy".into(),
+                value: policy.to_string(),
+            }
+        })?;
         self.policy = parsed;
         Ok(())
     }
@@ -119,16 +126,11 @@ impl ReferrerPolicy {
     /// # Exceptions
     /// - Throws `Exception` if the PHP `header()` function cannot be invoked.
     fn send(&self) -> Result<()> {
-        #[cfg(not(test))]
-        {
-            Function::try_from_function("header")
-                .ok_or(SecurityHeaderError::HeaderUnavailable)?
-                .try_call(vec![&format!("Referrer-Policy: {}", self.build())])
-                .map_err(|err| SecurityHeaderError::HeaderCallFailed(format!("{err:?}")))?;
-            Ok(())
-        }
-        #[cfg(test)]
-        panic!("send() can not be called from tests");
+        Function::try_from_function("header")
+            .ok_or(SecurityHeaderError::HeaderUnavailable)?
+            .try_call(vec![&format!("Referrer-Policy: {}", self.build())])
+            .map_err(|err| SecurityHeaderError::HeaderCallFailed(format!("{err:?}")))?;
+        Ok(())
     }
 }
 

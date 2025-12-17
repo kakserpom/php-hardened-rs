@@ -1,5 +1,4 @@
 use super::super::{Error as SecurityHeaderError, Result};
-#[cfg(not(test))]
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_impl};
 use std::str::FromStr;
@@ -43,8 +42,12 @@ impl ResourcePolicy {
     /// - Throws an `Exception` if `policy` cannot be parsed into a valid directive.
     fn __construct(policy: Option<String>) -> Result<Self> {
         let directive = if let Some(s) = policy {
-            ResourcePolicyDirective::from_str(&s)
-                .map_err(|_| SecurityHeaderError::InvalidValue { header_type: "Cross-Origin-Resource-Policy".into(), value: s })?
+            ResourcePolicyDirective::from_str(&s).map_err(|_| {
+                SecurityHeaderError::InvalidValue {
+                    header_type: "Cross-Origin-Resource-Policy".into(),
+                    value: s,
+                }
+            })?
         } else {
             ResourcePolicyDirective::SameOrigin
         };
@@ -61,8 +64,12 @@ impl ResourcePolicy {
     /// # Exceptions
     /// - Throws an `Exception` if `policy` cannot be parsed into a valid directive.
     fn set(&mut self, policy: &str) -> Result<()> {
-        self.policy = ResourcePolicyDirective::from_str(policy)
-            .map_err(|_| SecurityHeaderError::InvalidValue { header_type: "Cross-Origin-Resource-Policy".into(), value: policy.to_string() })?;
+        self.policy = ResourcePolicyDirective::from_str(policy).map_err(|_| {
+            SecurityHeaderError::InvalidValue {
+                header_type: "Cross-Origin-Resource-Policy".into(),
+                value: policy.to_string(),
+            }
+        })?;
         Ok(())
     }
 
@@ -87,19 +94,14 @@ impl ResourcePolicy {
     /// # Exceptions
     /// - Throws `Exception` if the PHP `header()` function cannot be invoked.
     fn send(&self) -> Result<()> {
-        #[cfg(not(test))]
-        {
-            Function::try_from_function("header")
-                .ok_or(SecurityHeaderError::HeaderUnavailable)?
-                .try_call(vec![&format!(
-                    "Cross-Origin-Resource-Policy: {}",
-                    self.build()
-                )])
-                .map_err(|err| SecurityHeaderError::HeaderCallFailed(format!("{err:?}")))?;
-            Ok(())
-        }
-        #[cfg(test)]
-        panic!("send() can not be called from tests");
+        Function::try_from_function("header")
+            .ok_or(SecurityHeaderError::HeaderUnavailable)?
+            .try_call(vec![&format!(
+                "Cross-Origin-Resource-Policy: {}",
+                self.build()
+            )])
+            .map_err(|err| SecurityHeaderError::HeaderCallFailed(format!("{err:?}")))?;
+        Ok(())
     }
 }
 #[cfg(test)]
