@@ -420,7 +420,7 @@ mod tests {
     }
 
     #[test]
-    fn php_example() -> anyhow::Result<()> {
+    fn php_example() -> crate::TestResult {
         run_php_example("security-headers/content-security-policy")?;
         Ok(())
     }

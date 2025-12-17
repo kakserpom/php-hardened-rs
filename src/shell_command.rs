@@ -792,13 +792,13 @@ mod tests {
     use crate::{run_php_example, run_php_test};
 
     #[test]
-    fn php_example() -> anyhow::Result<()> {
+    fn php_example() -> crate::TestResult {
         run_php_example("shell-command")?;
         Ok(())
     }
 
     #[test]
-    fn php_test() -> anyhow::Result<()> {
+    fn php_test() -> crate::TestResult {
         run_php_test("shell-command")?;
         Ok(())
     }

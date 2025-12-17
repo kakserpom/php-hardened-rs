@@ -1498,7 +1498,6 @@ name = "php-hardened"
 version = "0.1.0"
 dependencies = [
  "ammonia",
- "anyhow",
  "assertables",
  "criterion",
  "csrf",

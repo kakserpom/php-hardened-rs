@@ -1192,7 +1192,7 @@ mod tests {
     use url::Url;
 
     #[test]
-    fn test_strip_comments_toggle_and_clean() -> anyhow::Result<()> {
+    fn test_strip_comments_toggle_and_clean() -> crate::TestResult {
         let mut s = HtmlSanitizer::_default();
         // By default comments are stripped
         assert!(s.will_strip_comments()?);
@@ -1210,7 +1210,7 @@ mod tests {
     }
 
     #[test]
-    fn test_is_valid_url_and_relative_policy() -> anyhow::Result<()> {
+    fn test_is_valid_url_and_relative_policy() -> crate::TestResult {
         let mut s = HtmlSanitizer::_default();
         // Absolute http/https/... are allowed by default
         assert!(s.is_valid_url("http://example.com")?);
@@ -1234,7 +1234,7 @@ mod tests {
     }
 
     #[test]
-    fn test_url_relative_rewrite_in_clean() -> anyhow::Result<()> {
+    fn test_url_relative_rewrite_in_clean() -> crate::TestResult {
         let mut s = HtmlSanitizer::_default();
         // Rewrite relative using base
         s._url_relative_rewrite_with_base("https://example.com")?;
@@ -1245,7 +1245,7 @@ mod tests {
     }
 
     #[test]
-    fn test_id_prefix_applied() -> anyhow::Result<()> {
+    fn test_id_prefix_applied() -> crate::TestResult {
         let mut s = HtmlSanitizer::_default();
         s._add_tag_attributes(String::from("div"), vec![String::from("id")])?;
         s._id_prefix(Some("pre-".to_string()))?;
@@ -1256,7 +1256,7 @@ mod tests {
     }
 
     #[test]
-    fn test_unenclosed_tag() -> anyhow::Result<()> {
+    fn test_unenclosed_tag() -> crate::TestResult {
         let mut s = HtmlSanitizer::_default();
         s._tags(vec![String::from("a"), String::from("b")])?;
         let html = r#"<a><b>link</a>"#.to_string();
@@ -1267,7 +1267,7 @@ mod tests {
     /// Test that clean_and_truncate removes disallowed tags, preserves allowed ones,
     /// and truncates the text to the specified length without breaking HTML structure.
     #[test]
-    fn test_clean_and_truncate() -> anyhow::Result<()> {
+    fn test_clean_and_truncate() -> crate::TestResult {
         assert_not_contains!(
             HtmlSanitizer::_default()._clean_and_truncate(
                 "<p>Курва<p>!!</p>!</p>".into(),
@@ -1363,13 +1363,13 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
     }
 
     #[test]
-    fn php_example() -> anyhow::Result<()> {
+    fn php_example() -> crate::TestResult {
         run_php_example("sanitizers/html")?;
         Ok(())
     }
 
     impl HtmlSanitizer {
-        fn _url_relative_passthrough(&mut self) -> anyhow::Result<()> {
+        fn _url_relative_passthrough(&mut self) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
                 return Err(Error::InvalidState.into());
             };
@@ -1377,7 +1377,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
             Ok(())
         }
 
-        fn _url_relative_deny(&mut self) -> anyhow::Result<()> {
+        fn _url_relative_deny(&mut self) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
                 return Err(Error::InvalidState.into());
             };
@@ -1385,7 +1385,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
             Ok(())
         }
 
-        fn _url_relative_rewrite_with_base(&mut self, base_url: &str) -> anyhow::Result<()> {
+        fn _url_relative_rewrite_with_base(&mut self, base_url: &str) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
                 return Err(Error::InvalidState.into());
             };
@@ -1396,7 +1396,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
             Ok(())
         }
 
-        fn _url_relative_rewrite_with_root(&mut self, root: &str, path: String) -> anyhow::Result<()> {
+        fn _url_relative_rewrite_with_root(&mut self, root: &str, path: String) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
                 return Err(Error::InvalidState.into());
             };
@@ -1409,7 +1409,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
         }
 
         /// Must match add_tags()
-        fn _add_tags(&mut self, tags: Vec<String>) -> anyhow::Result<()> {
+        fn _add_tags(&mut self, tags: Vec<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
                 return Err(Error::InvalidState.into());
             };
@@ -1423,7 +1423,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
             Ok(())
         }
 
-        fn _rm_clean_content_tags(&mut self, tags: Vec<String>) -> anyhow::Result<()> {
+        fn _rm_clean_content_tags(&mut self, tags: Vec<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
                 return Err(Error::InvalidState.into());
             };
@@ -1431,7 +1431,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
             Ok(())
         }
 
-        fn _add_tag_attributes(&mut self, tag: String, attributes: Vec<String>) -> anyhow::Result<()> {
+        fn _add_tag_attributes(&mut self, tag: String, attributes: Vec<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
                 return Err(Error::InvalidState.into());
             };
@@ -1439,7 +1439,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
             Ok(())
         }
 
-        fn _tags(&mut self, tags: Vec<String>) -> anyhow::Result<()> {
+        fn _tags(&mut self, tags: Vec<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
                 return Err(Error::InvalidState.into());
             };
@@ -1447,7 +1447,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
             Ok(())
         }
 
-        fn _id_prefix(&mut self, prefix: Option<String>) -> anyhow::Result<()> {
+        fn _id_prefix(&mut self, prefix: Option<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
                 return Err(Error::InvalidState.into());
             };
@@ -1455,7 +1455,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
             Ok(())
         }
 
-        fn _url_schemes(&mut self, schemes: Vec<String>) -> anyhow::Result<()> {
+        fn _url_schemes(&mut self, schemes: Vec<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
                 return Err(Error::InvalidState.into());
             };
@@ -1463,7 +1463,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
             Ok(())
         }
 
-        fn _strip_comments(&mut self, strip: bool) -> anyhow::Result<()> {
+        fn _strip_comments(&mut self, strip: bool) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
                 return Err(Error::InvalidState.into());
             };

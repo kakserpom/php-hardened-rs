@@ -5,9 +5,8 @@ edition = "2024"
 
 [dependencies]
 ammonia = { git = "https://github.com/kakserpom/ammonia.git", branch = "owned", optional = true }
-anyhow = "1.0"
 thiserror = "2.0"
-ext-php-rs = { git = "https://github.com/davidcole1340/ext-php-rs.git", branch = "master", features = ["anyhow"] }
+ext-php-rs = { git = "https://github.com/davidcole1340/ext-php-rs.git", branch = "master" }
 url = { version = "2.5", optional = true }
 rand = { version = "0.9", optional = true }
 strum = { version = "0.27", features = ["derive", "strum_macros"] }

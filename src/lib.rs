@@ -116,17 +116,20 @@ pub(crate) fn to_str(path: &Zval) -> Result<String, ConversionError> {
         })
 }
 
+/// Test result type alias using Box<dyn Error> for simplicity.
+#[cfg(test)]
+pub(crate) type TestResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+
 /// Runs the given PHP script via the `php` CLI and returns an error if it fails.
 #[cfg(test)]
-fn run_php_file(php_file: PathBuf) -> anyhow::Result<String> {
-    use anyhow::{anyhow, bail};
+fn run_php_file(php_file: PathBuf) -> TestResult<String> {
     use std::process::Command;
     // Spawn `php -f <script_name>`
     let output = Command::new("php")
         .arg("-f")
         .arg(&php_file)
         .output()
-        .map_err(|err| anyhow!("Failed to execute php on {php_file:?}: {err}"))?;
+        .map_err(|err| format!("Failed to execute php on {php_file:?}: {err}"))?;
 
     // Print PHP stdout for debugging
     println!(
@@ -144,32 +147,27 @@ fn run_php_file(php_file: PathBuf) -> anyhow::Result<String> {
 
     // Check exit status
     if !output.status.success() {
-        bail!(
+        return Err(format!(
             "PHP script {php_file:?} exited with code {}",
             output.status.code().unwrap_or(-1)
-        );
+        ).into());
     }
 
     Ok(String::from_utf8_lossy(&output.stdout).parse()?)
 }
+
 #[cfg(test)]
-fn run_php_example(name: &str) -> anyhow::Result<String> {
+pub(crate) fn run_php_example(name: &str) -> TestResult<String> {
     run_php_file(
-        Path::new(
-            &std::env::var("CARGO_MANIFEST_DIR")
-                .map_err(|e| anyhow::anyhow!("env CARGO_MANIFEST_DIR: {}", e))?,
-        )
-        .join(format!("examples/{name}.php")),
+        Path::new(&std::env::var("CARGO_MANIFEST_DIR")?)
+            .join(format!("examples/{name}.php")),
     )
 }
 
 #[cfg(test)]
-fn run_php_test(name: &str) -> anyhow::Result<String> {
+pub(crate) fn run_php_test(name: &str) -> TestResult<String> {
     run_php_file(
-        Path::new(
-            &std::env::var("CARGO_MANIFEST_DIR")
-                .map_err(|e| anyhow::anyhow!("env CARGO_MANIFEST_DIR: {}", e))?,
-        )
-        .join(format!("tests/{name}.php")),
+        Path::new(&std::env::var("CARGO_MANIFEST_DIR")?)
+            .join(format!("tests/{name}.php")),
     )
 }

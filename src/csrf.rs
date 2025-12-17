@@ -292,7 +292,7 @@ mod tests {
     }
 
     #[test]
-    fn test_construct_and_token_cookie() -> anyhow::Result<()> {
+    fn test_construct_and_token_cookie() -> crate::TestResult {
         // Construct with zero key, 60-second TTL, no previous token
         let key = zero_key_b64();
         let csrf = Csrf::__construct(&key, 60, None)?;
@@ -313,7 +313,7 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_token_fails_with_bad_token() -> anyhow::Result<()> {
+    fn test_verify_token_fails_with_bad_token() -> crate::TestResult {
         let key = zero_key_b64();
         let csrf = Csrf::__construct(&key, 60, None)?;
         let bad_token = "invalid.token.value";
@@ -328,7 +328,7 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_token_fails_with_bad_cookie() -> anyhow::Result<()> {
+    fn test_verify_token_fails_with_bad_cookie() -> crate::TestResult {
         let key = zero_key_b64();
         let csrf = Csrf::__construct(&key, 60, None)?;
         let good_token = csrf.token();
@@ -345,7 +345,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cookie_name_get_set() -> anyhow::Result<()> {
+    fn test_cookie_name_get_set() -> crate::TestResult {
         let key = zero_key_b64();
         let mut csrf = Csrf::__construct(&key, 60, None)?;
         // default cookie name
@@ -357,7 +357,7 @@ mod tests {
     }
 
     #[test]
-    fn php_example() -> anyhow::Result<()> {
+    fn php_example() -> crate::TestResult {
         run_php_example("csrf-protection")?;
         Ok(())
     }

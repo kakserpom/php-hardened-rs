@@ -93,17 +93,17 @@ impl OpenerPolicy {
 mod tests {
     use super::OpenerPolicy;
     use crate::run_php_example;
-    use anyhow::Result;
+    use crate::TestResult;
 
     #[test]
-    fn default_is_unsafe_none() -> Result<()> {
+    fn default_is_unsafe_none() -> TestResult {
         let c = OpenerPolicy::__construct(None)?;
         assert_eq!(c.build(), "unsafe-none");
         Ok(())
     }
 
     #[test]
-    fn can_set_each_policy() -> Result<()> {
+    fn can_set_each_policy() -> TestResult {
         let mut c = OpenerPolicy::__construct(None)?;
         c.set("same-origin")?;
         assert_eq!(c.build(), "same-origin");
@@ -124,7 +124,7 @@ mod tests {
     }
 
     #[test]
-    fn php_example() -> anyhow::Result<()> {
+    fn php_example() -> TestResult {
         run_php_example("security-headers/cross-origin/opener-policy")?;
         Ok(())
     }
