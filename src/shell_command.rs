@@ -1,28 +1,121 @@
-use anyhow::anyhow;
-use anyhow::bail;
+use crate::shell_command::PipeMode::{Callback, Ignore, Passthrough};
+use ext_php_rs::builders::ModuleBuilder;
+use ext_php_rs::exception::PhpException;
 use ext_php_rs::types::{ZendCallable, ZendClassObject, Zval};
+use ext_php_rs::zend::ce;
 use ext_php_rs::{php_class, php_function, php_impl, wrap_function};
 use ext_php_rs::{
     php_print,
     types::{ArrayKey, ZendHashTable},
 };
+use libc::{fcntl, F_GETFL, F_SETFL, O_NONBLOCK};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::env;
 use std::io::Read;
-use std::time::{Duration, Instant};
-
-use crate::shell_command::PipeMode::{Callback, Ignore, Passthrough};
-use anyhow::Result;
-use ext_php_rs::builders::ModuleBuilder;
-use libc::{F_GETFL, F_SETFL, O_NONBLOCK, fcntl};
 use std::os::unix::io::AsRawFd;
 use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
+use thiserror::Error;
+
+// Error codes for ShellCommand errors: 1300-1399
+pub mod error_codes {
+    pub const EMPTY_COMMAND: i32 = 1300;
+    pub const PARSE_ERROR: i32 = 1301;
+    pub const NO_COMMAND: i32 = 1302;
+    pub const INVALID_CHARACTER: i32 = 1303;
+    pub const INVALID_ARGUMENT_TYPE: i32 = 1304;
+    pub const SPAWN_ERROR: i32 = 1305;
+    pub const FCNTL_GET: i32 = 1306;
+    pub const FCNTL_SET: i32 = 1307;
+    pub const SELECT: i32 = 1308;
+    pub const IO_ERROR: i32 = 1309;
+    pub const CALLBACK_ERROR: i32 = 1310;
+    pub const UNEXPECTED_COMMAND: i32 = 1311;
+}
+
+/// Errors that can occur during shell command operations.
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Command line must not be empty")]
+    EmptyCommand,
+
+    #[error("Failed to parse command line: {0}")]
+    ParseError(String),
+
+    #[error("No command found in command line")]
+    NoCommand,
+
+    #[error("invalid character in token: {0}")]
+    InvalidCharacter(String),
+
+    #[error("Argument {0}: value can only be string or int")]
+    InvalidArgumentType(String),
+
+    #[error("Failed to spawn process: {0}")]
+    SpawnError(String),
+
+    #[error("fcntl F_GETFL failed")]
+    FcntlGetError,
+
+    #[error("fcntl F_SETFL failed")]
+    FcntlSetError,
+
+    #[error("select() failed")]
+    SelectError,
+
+    #[error("Process I/O error: {0}")]
+    IoError(String),
+
+    #[error("Callback invocation failed: {0}")]
+    CallbackError(String),
+
+    #[error("Unexpected top-level command: {command}. Possible injection attempt. Full argument: {full_arg}. Expected: {expected:?}")]
+    UnexpectedCommand {
+        command: String,
+        full_arg: String,
+        expected: Vec<String>,
+    },
+}
+
+impl Error {
+    #[must_use]
+    pub fn code(&self) -> i32 {
+        match self {
+            Error::EmptyCommand => error_codes::EMPTY_COMMAND,
+            Error::ParseError(_) => error_codes::PARSE_ERROR,
+            Error::NoCommand => error_codes::NO_COMMAND,
+            Error::InvalidCharacter(_) => error_codes::INVALID_CHARACTER,
+            Error::InvalidArgumentType(_) => error_codes::INVALID_ARGUMENT_TYPE,
+            Error::SpawnError(_) => error_codes::SPAWN_ERROR,
+            Error::FcntlGetError => error_codes::FCNTL_GET,
+            Error::FcntlSetError => error_codes::FCNTL_SET,
+            Error::SelectError => error_codes::SELECT,
+            Error::IoError(_) => error_codes::IO_ERROR,
+            Error::CallbackError(_) => error_codes::CALLBACK_ERROR,
+            Error::UnexpectedCommand { .. } => error_codes::UNEXPECTED_COMMAND,
+        }
+    }
+}
+
+impl From<Error> for PhpException {
+    fn from(err: Error) -> Self {
+        let code = err.code();
+        let message = err.to_string();
+        PhpException::new(message, code, ce::exception())
+    }
+}
+
+/// Result type alias for shell command operations.
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Parses a PHP array of arguments into a vector of strings.
 ///
 /// For indexed arrays (numerical keys), values are appended in order.
 /// For associative arrays, string keys become `--key` flags followed by values.
-fn parse_php_arguments(arguments: &ZendHashTable, args: &mut Vec<String>) -> Result<()> {
+fn parse_php_arguments(
+    arguments: &ZendHashTable,
+    args: &mut Vec<String>,
+) -> std::result::Result<(), Error> {
     if arguments.has_numerical_keys() {
         for (i, value) in arguments.values().enumerate() {
             if let Some(string) = value.string() {
@@ -30,7 +123,7 @@ fn parse_php_arguments(arguments: &ZendHashTable, args: &mut Vec<String>) -> Res
             } else if let Some(int) = value.long() {
                 args.push(int.to_string());
             } else {
-                bail!("argument {i}: value can only be string or int");
+                return Err(Error::InvalidArgumentType(i.to_string()));
             }
         }
     } else {
@@ -46,7 +139,7 @@ fn parse_php_arguments(arguments: &ZendHashTable, args: &mut Vec<String>) -> Res
             } else if let Some(int) = value.long() {
                 args.push(int.to_string());
             } else {
-                bail!("argument {key:?}: value can only be string or int");
+                return Err(Error::InvalidArgumentType(format!("{key:?}")));
             }
         }
     }
@@ -296,22 +389,22 @@ impl ShellCommand {
     pub fn safe_from_string(command_line: &str) -> Result<Self> {
         // 1) Basic sanity
         if command_line.trim().is_empty() {
-            bail!("command line must not be empty");
+            return Err(Error::EmptyCommand);
         }
 
         // 2) Split into tokens (handles quotes, backslashes, etc.)
         let parts = shell_words::split(command_line)
-            .map_err(|e| anyhow!("failed to parse command line: {}", e))?;
+            .map_err(|e| Error::ParseError(e.to_string()))?;
 
         if parts.is_empty() {
-            bail!("no command found");
+            return Err(Error::NoCommand);
         }
 
         // 3) Disallow only NUL bytes (no real need to forbid any shell metachars,
         //    since we do *not* use a shell interpreter)
         for tok in &parts {
             if tok.contains('\0') {
-                bail!("invalid character in token {:?}", tok);
+                return Err(Error::InvalidCharacter(tok.clone()));
             }
         }
 
@@ -336,7 +429,7 @@ impl ShellCommand {
     pub fn shell_from_string(cmdline: &str) -> Result<Self> {
         let line = cmdline.trim();
         if line.is_empty() {
-            bail!("command line must not be empty");
+            return Err(Error::EmptyCommand);
         }
 
         // 1) split on top-level unquoted separators (;, |, &&, ||)
@@ -390,7 +483,7 @@ impl ShellCommand {
         let mut top_level_commands = Vec::new();
         for seg in &cmds {
             let parts = shell_words::split(seg)
-                .map_err(|e| anyhow!("failed to parse segment `{}`: {}", seg, e))?;
+                .map_err(|e| Error::ParseError(format!("segment `{seg}`: {e}")))?;
             if let Some(first) = parts.first() {
                 top_level_commands.push(first.clone());
             }
@@ -431,7 +524,7 @@ impl ShellCommand {
         self.top_level_commands.clone()
     }
 
-    /// Constructs a new `ShellCommand` using the user’s login shell.
+    /// Constructs a new `ShellCommand` using the user's login shell.
     ///
     /// Looks up the `SHELL` environment variable, or falls back to `/bin/sh` if unset.
     ///
@@ -452,7 +545,7 @@ impl ShellCommand {
     ///
     /// # Returns
     /// - `int`
-    ///   The process’s exit code (`0` on success, `-1` if killed by signal or timed out).
+    ///   The process's exit code (`0` on success, `-1` if killed by signal or timed out).
     ///
     /// # Exceptions
     /// - Throws `Exception` if the process cannot be spawned.
@@ -477,7 +570,7 @@ impl ShellCommand {
 
         let mut child = cmd
             .spawn()
-            .map_err(|err| anyhow!("Failed to spawn process: {err}"))?;
+            .map_err(|err| Error::SpawnError(err.to_string()))?;
 
         let mut out = child.stdout.take().unwrap();
         let mut err = child.stderr.take().unwrap();
@@ -486,10 +579,10 @@ impl ShellCommand {
             unsafe {
                 let flags = fcntl(*fd, F_GETFL);
                 if flags < 0 {
-                    return Err(anyhow!("fcntl F_GETFL failed"));
+                    return Err(Error::FcntlGetError);
                 }
                 if fcntl(*fd, F_SETFL, flags | O_NONBLOCK) < 0 {
-                    return Err(anyhow!("fcntl F_SETFL failed"));
+                    return Err(Error::FcntlSetError);
                 }
             }
         }
@@ -528,11 +621,15 @@ impl ShellCommand {
                 )
             };
             if ready < 0 {
-                return Err(anyhow!("select failed"));
+                return Err(Error::SelectError);
             }
             if ready == 0 {
                 // No data ready within the select poll interval - check if process exited
-                if child.try_wait().map_err(|e| anyhow!("{e}"))?.is_some() {
+                if child
+                    .try_wait()
+                    .map_err(|e| Error::IoError(e.to_string()))?
+                    .is_some()
+                {
                     break;
                 }
                 continue;
@@ -549,9 +646,9 @@ impl ShellCommand {
                             }
                             Callback(callback) => {
                                 ZendCallable::new(callback)
-                                    .map_err(|err| anyhow!("{err}"))?
+                                    .map_err(|err| Error::CallbackError(err.to_string()))?
                                     .try_call(vec![&String::from_utf8_lossy(&buf[..n]).to_string()])
-                                    .map_err(|err| anyhow!("{err}"))?;
+                                    .map_err(|err| Error::CallbackError(err.to_string()))?;
                             }
                         }
                         if let Some(s) = stdout_buf.as_mut() {
@@ -559,7 +656,7 @@ impl ShellCommand {
                         }
                     }
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
-                    Err(e) => return Err(anyhow!("{e}")),
+                    Err(e) => return Err(Error::IoError(e.to_string())),
                 }
             }
             if unsafe { libc::FD_ISSET(err_fd, &rfds) } {
@@ -573,9 +670,9 @@ impl ShellCommand {
                             }
                             Callback(callback) => {
                                 ZendCallable::new(callback)
-                                    .map_err(|err| anyhow!("{err}"))?
+                                    .map_err(|err| Error::CallbackError(err.to_string()))?
                                     .try_call(vec![&String::from_utf8_lossy(&buf[..n]).to_string()])
-                                    .map_err(|err| anyhow!("{err}"))?;
+                                    .map_err(|err| Error::CallbackError(err.to_string()))?;
                             }
                         }
                         if let Some(s) = stderr_buf.as_mut() {
@@ -583,16 +680,22 @@ impl ShellCommand {
                         }
                     }
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
-                    Err(e) => return Err(anyhow!("{e}")),
+                    Err(e) => return Err(Error::IoError(e.to_string())),
                 }
             }
 
-            if child.try_wait().map_err(|e| anyhow!("{e}"))?.is_some() {
+            if child
+                .try_wait()
+                .map_err(|e| Error::IoError(e.to_string()))?
+                .is_some()
+            {
                 break;
             }
         }
 
-        let status = child.wait().map_err(|e| anyhow!("{e}"))?;
+        let status = child
+            .wait()
+            .map_err(|e| Error::IoError(e.to_string()))?;
 
         if let Some(zval) = capture_stderr.as_mut()
             && let Some(buf) = stderr_buf
@@ -618,7 +721,7 @@ pub(crate) fn build(module: ModuleBuilder) -> ModuleBuilder {
 
 #[php_function]
 #[php(name = "Hardened\\shell_exec")]
-/// Execute a shell command via the user’s login shell, enforcing top-level command checks.
+/// Execute a shell command via the user's login shell, enforcing top-level command checks.
 ///
 /// # Parameters
 /// - `string $command`: Full shell-style command line to run (e.g. `"ls -la /tmp"`).
@@ -627,7 +730,7 @@ pub(crate) fn build(module: ModuleBuilder) -> ModuleBuilder {
 ///   will abort with an exception to prevent injection.
 ///
 /// # Returns
-/// - `string|null`: On success, returns the command’s stdout output as a string (or exit code as string if non-zero).
+/// - `string|null`: On success, returns the command's stdout output as a string (or exit code as string if non-zero).
 ///   Returns `null` only on error spawning the process.
 ///
 /// # Exceptions
@@ -639,13 +742,11 @@ pub fn shell_exec(command: &str, expected_commands: Option<Vec<String>>) -> Resu
     {
         for top_level_command in top_level_commands.iter() {
             if !expected_commands.contains(top_level_command) {
-                bail!(
-                    "Unexpected top-level command: {top_level_command:?}.
-    Possible injection attempt. Requires investigation.
-    Full argument value {command:?}
-    Expected top-level commands: {expected_commands:?}
-                        "
-                );
+                return Err(Error::UnexpectedCommand {
+                    command: top_level_command.clone(),
+                    full_arg: command.to_string(),
+                    expected: expected_commands.clone(),
+                });
             }
         }
     }

@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use super::{Error as SecurityHeaderError, Result};
 use ext_php_rs::php_const;
 #[cfg(not(test))]
 use ext_php_rs::zend::Function;
@@ -192,7 +192,7 @@ impl PermissionsPolicy {
     /// - if `feature` is not recognized.
     fn allow(&mut self, feature: &str, origins: Vec<String>) -> Result<()> {
         let feat =
-            Feature::from_str(feature).map_err(|_| anyhow!("Invalid feature: {}", feature))?;
+            Feature::from_str(feature).map_err(|_| SecurityHeaderError::InvalidFeature(feature.to_string()))?;
         self.policies.insert(feat, origins);
         Ok(())
     }
@@ -206,7 +206,7 @@ impl PermissionsPolicy {
     /// - if `feature` is not recognized.
     fn deny(&mut self, feature: &str) -> Result<()> {
         let feat =
-            Feature::from_str(feature).map_err(|_| anyhow!("Invalid feature: {}", feature))?;
+            Feature::from_str(feature).map_err(|_| SecurityHeaderError::InvalidFeature(feature.to_string()))?;
         self.policies.insert(feat, Vec::new());
         Ok(())
     }
@@ -259,9 +259,9 @@ impl PermissionsPolicy {
         #[cfg(not(test))]
         {
             Function::try_from_function("header")
-                .ok_or_else(|| anyhow!("could not call header()"))?
+                .ok_or(SecurityHeaderError::HeaderUnavailable)?
                 .try_call(vec![&format!("Permissions-Policy: {}", self.build())])
-                .map_err(|e| anyhow!("header() call failed: {}", e))?;
+                .map_err(|e| SecurityHeaderError::HeaderCallFailed(e.to_string()))?;
             Ok(())
         }
         #[cfg(test)]

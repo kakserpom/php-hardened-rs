@@ -1,10 +1,54 @@
 use crate::to_str;
-use anyhow::anyhow;
+use ext_php_rs::exception::PhpException;
 use ext_php_rs::types::Zval;
+use ext_php_rs::zend::ce;
 use ext_php_rs::{php_class, php_impl};
 use std::ffi::OsStr;
 use std::path::Component;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
+
+// Error codes for Path errors: 1200-1299
+pub mod error_codes {
+    pub const SUBPATH_ESCAPING: i32 = 1200;
+    pub const PATH_TO_STRING: i32 = 1201;
+    pub const STRING_CONVERSION: i32 = 1202;
+}
+
+/// Errors that can occur during path operations.
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Sub-path is escaping base directory")]
+    SubpathEscaping,
+
+    #[error("Could not convert path to string")]
+    PathToStringError,
+
+    #[error("String conversion failed")]
+    StringConversionError,
+}
+
+impl Error {
+    #[must_use]
+    pub fn code(&self) -> i32 {
+        match self {
+            Error::SubpathEscaping => error_codes::SUBPATH_ESCAPING,
+            Error::PathToStringError => error_codes::PATH_TO_STRING,
+            Error::StringConversionError => error_codes::STRING_CONVERSION,
+        }
+    }
+}
+
+impl From<Error> for PhpException {
+    fn from(err: Error) -> Self {
+        let code = err.code();
+        let message = err.to_string();
+        PhpException::new(message, code, ce::exception())
+    }
+}
+
+/// Result type alias for path operations.
+pub type Result<T> = std::result::Result<T, Error>;
 
 type HasEscaped = bool;
 
@@ -29,10 +73,10 @@ impl PathObj {
     }
 
     #[inline]
-    fn _join_subpath(&self, path: &str) -> anyhow::Result<Self> {
+    fn _join_subpath(&self, path: &str) -> Result<Self> {
         let (path, escaped) = normalize_lexically(path);
         if escaped {
-            Err(anyhow!("Sub-path is escaping"))
+            Err(Error::SubpathEscaping)
         } else {
             Ok(Self::_from(self.inner.join(path)))
         }
@@ -71,8 +115,9 @@ impl PathObj {
     /// # Exceptions
     /// - Throws an exception if conversion of `$path` to string fails.
     #[inline]
-    fn from(path: &Zval) -> anyhow::Result<Self> {
-        let (inner, escaped) = normalize_lexically(Path::new(&to_str(path)?));
+    fn from(path: &Zval) -> Result<Self> {
+        let (inner, escaped) =
+            normalize_lexically(Path::new(&to_str(path).map_err(|_| Error::StringConversionError)?));
         Ok(Self { inner, escaped })
     }
 
@@ -83,7 +128,7 @@ impl PathObj {
     ///
     /// # Exceptions
     /// - Throws an exception if conversion from Zval to string fails.
-    fn __construct(path: &Zval) -> anyhow::Result<Self> {
+    fn __construct(path: &Zval) -> Result<Self> {
         Self::from(path)
     }
 
@@ -97,8 +142,10 @@ impl PathObj {
     ///
     /// # Exceptions
     /// - Throws an exception if conversion from Zval to string fails.
-    fn starts_with(&self, path: &Zval) -> anyhow::Result<bool> {
-        Ok(self.inner.starts_with(to_str(path)?))
+    fn starts_with(&self, path: &Zval) -> Result<bool> {
+        Ok(self
+            .inner
+            .starts_with(to_str(path).map_err(|_| Error::StringConversionError)?))
     }
 
     /// Joins the given path onto this path and normalizes it.
@@ -111,8 +158,8 @@ impl PathObj {
     ///
     /// # Exceptions
     /// - Throws an exception if conversion from Zval to string fails.
-    fn join(&self, path: &Zval) -> anyhow::Result<Self> {
-        Ok(self._join(&to_str(path)?))
+    fn join(&self, path: &Zval) -> Result<Self> {
+        Ok(self._join(&to_str(path).map_err(|_| Error::StringConversionError)?))
     }
 
     /// Joins the given path onto this path, normalizes it, and ensures it's a subpath.
@@ -122,8 +169,8 @@ impl PathObj {
     ///
     /// # Exceptions
     /// - Throws an exception if `$path` is not a string nor Path
-    fn join_subpath(&self, path: &Zval) -> anyhow::Result<Self> {
-        self._join_subpath(&to_str(path)?)
+    fn join_subpath(&self, path: &Zval) -> Result<Self> {
+        self._join_subpath(&to_str(path).map_err(|_| Error::StringConversionError)?)
     }
 
     /// Set the file name component of the path.
@@ -175,21 +222,21 @@ impl PathObj {
     ///
     /// # Errors
     /// Throws an exception if the path cannot be converted to a string.
-    fn __to_string(&self) -> anyhow::Result<String> {
+    fn __to_string(&self) -> Result<String> {
         self.inner
             .to_str()
             .map(str::to_string)
-            .ok_or_else(|| anyhow::anyhow!("Could not convert path to string"))
+            .ok_or(Error::PathToStringError)
     }
 
-    fn path(&self) -> anyhow::Result<String> {
+    fn path(&self) -> Result<String> {
         self.inner
             .to_str()
             .map(str::to_string)
-            .ok_or_else(|| anyhow::anyhow!("Could not convert path to string"))
+            .ok_or(Error::PathToStringError)
     }
 
-    /// Check if the path’s extension is in the allowed list.
+    /// Check if the path's extension is in the allowed list.
     ///
     /// # Parameters
     /// - `allowed`: PHP array of allowed extensions (strings, without leading dot), case-insensitive.
@@ -203,7 +250,7 @@ impl PathObj {
             .is_some_and(|ext| allowed.iter().any(|a| a.eq_ignore_ascii_case(ext)))
     }
 
-    /// Check if the path’s extension is a common image type.
+    /// Check if the path's extension is a common image type.
     ///
     /// # Returns
     /// - `bool` `true` if extension is one of `["png","jpg","jpeg","gif","webp","bmp","tiff","svg"]`.
@@ -213,7 +260,7 @@ impl PathObj {
         ])
     }
 
-    /// Check if the path’s extension is a common video type.
+    /// Check if the path's extension is a common video type.
     ///
     /// # Returns
     /// - `bool` `true` if extension is one of `["mp4","mov","avi","mkv","webm","flv"]`.
@@ -221,7 +268,7 @@ impl PathObj {
         self.validate_extension(vec!["mp4", "mov", "avi", "mkv", "webm", "flv"])
     }
 
-    /// Check if the path’s extension is a common audio type.
+    /// Check if the path's extension is a common audio type.
     ///
     /// # Returns
     /// - `bool` `true` if extension is one of `["mp3","wav","ogg","flac","aac"]`.
@@ -332,7 +379,7 @@ fn normalize_lexically<P: AsRef<Path>>(path: P) -> (PathBuf, HasEscaped) {
 }
 #[cfg(test)]
 mod tests {
-    use super::{PathObj, normalize_lexically};
+    use super::{normalize_lexically, PathObj};
     use crate::run_php_example;
     use std::ffi::OsStr;
     use std::path::PathBuf;

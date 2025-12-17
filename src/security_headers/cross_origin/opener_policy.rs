@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use super::super::{Error as SecurityHeaderError, Result};
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_impl};
 use std::str::FromStr;
@@ -42,10 +42,9 @@ impl OpenerPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if the provided token is not one of the allowed values.
-    fn __construct(policy: Option<String>) -> anyhow::Result<Self> {
+    fn __construct(policy: Option<String>) -> Result<Self> {
         let policy = if let Some(p) = policy {
-            Policy::from_str(&p)
-                .map_err(|_| anyhow!("Invalid Cross-Origin-Opener-Policy value: {}", p))?
+            Policy::from_str(&p).map_err(|_| SecurityHeaderError::InvalidValue { header_type: "Cross-Origin-Opener-Policy".into(), value: p })?
         } else {
             Policy::UnsafeNone
         };
@@ -60,9 +59,9 @@ impl OpenerPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if the given token is invalid.
-    fn set(&mut self, policy: &str) -> anyhow::Result<()> {
+    fn set(&mut self, policy: &str) -> Result<()> {
         self.policy = Policy::from_str(policy)
-            .map_err(|_| anyhow!("Invalid Cross-Origin-Opener-Policy value: {}", policy))?;
+            .map_err(|_| SecurityHeaderError::InvalidValue { header_type: "Cross-Origin-Opener-Policy".into(), value: policy.to_string() })?;
         Ok(())
     }
 
@@ -78,14 +77,14 @@ impl OpenerPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if the PHP `header()` function cannot be invoked.
-    fn send(&self) -> anyhow::Result<()> {
+    fn send(&self) -> Result<()> {
         Function::try_from_function("header")
-            .ok_or_else(|| anyhow!("Could not call header()"))?
+            .ok_or(SecurityHeaderError::HeaderUnavailable)?
             .try_call(vec![&format!(
                 "Cross-Origin-Opener-Policy: {}",
                 self.build()
             )])
-            .map_err(|e| anyhow!("Could not call header(): {}", e))?;
+            .map_err(|e| SecurityHeaderError::HeaderCallFailed(e.to_string()))?;
         Ok(())
     }
 }

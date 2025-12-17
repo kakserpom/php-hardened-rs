@@ -21,9 +21,43 @@ use crate::security_headers::hsts::StrictTransportSecurity;
 use crate::security_headers::permissions::PermissionsPolicy;
 use crate::security_headers::referrer_policy::ReferrerPolicy;
 use crate::security_headers::whatnot::Whatnot;
-use anyhow::{Error, Result};
 use ext_php_rs::prelude::*;
 use ext_php_rs::types::Zval;
+use thiserror::Error;
+
+// Error codes for conversion errors: 1800-1899
+mod conversion_error_codes {
+    pub const STRING_FAILED: i32 = 1800;
+    pub const TO_STRING_CALL_FAILED: i32 = 1801;
+}
+
+/// Errors for string/Zval conversion.
+#[derive(Debug, Error)]
+enum ConversionError {
+    #[error("String conversion failed")]
+    StringConversionFailed,
+
+    #[error("__toString() call failed: {0}")]
+    ToStringCallFailed(String),
+}
+
+impl ConversionError {
+    #[must_use]
+    fn code(&self) -> i32 {
+        match self {
+            ConversionError::StringConversionFailed => conversion_error_codes::STRING_FAILED,
+            ConversionError::ToStringCallFailed(_) => conversion_error_codes::TO_STRING_CALL_FAILED,
+        }
+    }
+}
+
+impl From<ConversionError> for ext_php_rs::exception::PhpException {
+    fn from(err: ConversionError) -> Self {
+        let code = err.code();
+        let message = err.to_string();
+        ext_php_rs::exception::PhpException::new(message, code, ext_php_rs::zend::ce::exception())
+    }
+}
 #[cfg(test)]
 use std::path::{Path, PathBuf};
 
@@ -71,20 +105,20 @@ fn get_module(mut module: ModuleBuilder) -> ModuleBuilder {
     module
 }
 
-fn to_str(path: &Zval) -> Result<String, Error> {
+pub(crate) fn to_str(path: &Zval) -> Result<String, ConversionError> {
     path.string()
-        .ok_or_else(|| anyhow::anyhow!("String conversion failed"))
+        .ok_or(ConversionError::StringConversionFailed)
         .or_else(|_| {
             path.try_call_method("__toString", vec![])
-                .map_err(|err| anyhow::anyhow!("{err}"))?
+                .map_err(|err| ConversionError::ToStringCallFailed(err.to_string()))?
                 .string()
-                .ok_or_else(|| anyhow::anyhow!("String conversion failed"))
+                .ok_or(ConversionError::StringConversionFailed)
         })
 }
 
 /// Runs the given PHP script via the `php` CLI and returns an error if it fails.
 #[cfg(test)]
-fn run_php_file(php_file: PathBuf) -> Result<String> {
+fn run_php_file(php_file: PathBuf) -> anyhow::Result<String> {
     use anyhow::{anyhow, bail};
     use std::process::Command;
     // Spawn `php -f <script_name>`
@@ -119,7 +153,7 @@ fn run_php_file(php_file: PathBuf) -> Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).parse()?)
 }
 #[cfg(test)]
-fn run_php_example(name: &str) -> Result<String> {
+fn run_php_example(name: &str) -> anyhow::Result<String> {
     run_php_file(
         Path::new(
             &std::env::var("CARGO_MANIFEST_DIR")
@@ -130,7 +164,7 @@ fn run_php_example(name: &str) -> Result<String> {
 }
 
 #[cfg(test)]
-fn run_php_test(name: &str) -> Result<String> {
+fn run_php_test(name: &str) -> anyhow::Result<String> {
     run_php_file(
         Path::new(
             &std::env::var("CARGO_MANIFEST_DIR")

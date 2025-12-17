@@ -1,10 +1,63 @@
 use crate::to_str;
-use anyhow::{Result, anyhow};
-use ext_php_rs::exception::PhpResult;
+use ext_php_rs::exception::PhpException;
 use ext_php_rs::types::Zval;
+use ext_php_rs::zend::ce;
 use ext_php_rs::{php_class, php_impl};
+use thiserror::Error;
 use url::quirks::hostname;
 use url::{Host, Url};
+
+// Error codes for Hostname errors: 1100-1199
+pub mod error_codes {
+    pub const INVALID_IPV6: i32 = 1100;
+    pub const URL_PARSE: i32 = 1101;
+    pub const NO_HOST: i32 = 1102;
+    pub const INVALID_HOSTNAME: i32 = 1103;
+    pub const STRING_CONVERSION: i32 = 1104;
+}
+
+/// Errors that can occur during hostname operations.
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Invalid IPv6 address: {0}")]
+    InvalidIpv6(String),
+
+    #[error("URL parse error: {0}")]
+    UrlParseError(String),
+
+    #[error("URL has no host")]
+    NoHost,
+
+    #[error("Invalid hostname: {0}")]
+    InvalidHostname(String),
+
+    #[error("String conversion failed")]
+    StringConversionError,
+}
+
+impl Error {
+    #[must_use]
+    pub fn code(&self) -> i32 {
+        match self {
+            Error::InvalidIpv6(_) => error_codes::INVALID_IPV6,
+            Error::UrlParseError(_) => error_codes::URL_PARSE,
+            Error::NoHost => error_codes::NO_HOST,
+            Error::InvalidHostname(_) => error_codes::INVALID_HOSTNAME,
+            Error::StringConversionError => error_codes::STRING_CONVERSION,
+        }
+    }
+}
+
+impl From<Error> for PhpException {
+    fn from(err: Error) -> Self {
+        let code = err.code();
+        let message = err.to_string();
+        PhpException::new(message, code, ce::exception())
+    }
+}
+
+/// Result type alias for hostname operations.
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// A secured wrapper around `url::Host` for use in PHP extensions.
 /// Provides hostname parsing and normalization to prevent security issues.
@@ -31,7 +84,11 @@ impl Hostname {
         let host = if trimmed.starts_with('[') && trimmed.ends_with(']') {
             // IPv6 in brackets
             let inner = &trimmed[1..trimmed.len() - 1];
-            Host::Ipv6(inner.parse().map_err(|e| anyhow!("Invalid IPv6: {}", e))?)
+            Host::Ipv6(
+                inner
+                    .parse()
+                    .map_err(|e: std::net::AddrParseError| Error::InvalidIpv6(e.to_string()))?,
+            )
         } else if let Ok(v4) = trimmed.parse() {
             // IPv4
             Host::Ipv4(v4)
@@ -53,8 +110,8 @@ impl Hostname {
     /// # Errors
     /// - Returns `Err` if the URL cannot be parsed or has no host.
     fn _from_url(url: &str) -> Result<Self> {
-        let parsed = Url::parse(url).map_err(|e| anyhow!("URL parse error: {}", e))?;
-        let host_ref = parsed.host().ok_or_else(|| anyhow!("URL has no host"))?;
+        let parsed = Url::parse(url).map_err(|e| Error::UrlParseError(e.to_string()))?;
+        let host_ref = parsed.host().ok_or(Error::NoHost)?;
         let host = match host_ref {
             Host::Domain(d) => Host::Domain(d.trim_end_matches('.').to_lowercase()),
             Host::Ipv4(a) => Host::Ipv4(a),
@@ -215,13 +272,14 @@ impl Hostname {
     /// # Errors
     /// Throws an exception if parsing the hostname fails.
     #[inline]
-    fn from(hostname: &Zval) -> PhpResult<Self> {
-        Self::from_str(&to_str(hostname)?)
+    fn from(hostname: &Zval) -> Result<Self> {
+        Self::from_str(&to_str(hostname).map_err(|_| Error::StringConversionError)?)
     }
 
     #[inline]
-    fn from_str(hostname: &str) -> PhpResult<Self> {
-        let mut host = Host::parse(hostname).map_err(|err| anyhow!("{err}"))?;
+    fn from_str(hostname: &str) -> Result<Self> {
+        let mut host =
+            Host::parse(hostname).map_err(|err| Error::InvalidHostname(err.to_string()))?;
         if let Host::Domain(s) = &mut host {
             *s = s.trim_end_matches('.').to_lowercase();
         }
@@ -235,7 +293,7 @@ impl Hostname {
     ///
     /// # Errors
     /// Throws an exception if parsing the hostname fails.
-    fn __construct(hostname: &Zval) -> PhpResult<Self> {
+    fn __construct(hostname: &Zval) -> Result<Self> {
         Self::from(hostname)
     }
 
@@ -246,9 +304,10 @@ impl Hostname {
     ///
     /// # Errors
     /// Throws an exception if parsing the URL or hostname fails.
-    fn from_url(url: &Zval) -> PhpResult<Self> {
+    fn from_url(url: &Zval) -> Result<Self> {
         Self::from_str(hostname(
-            &Url::parse(&to_str(url)?).map_err(|err| anyhow!("{err}"))?,
+            &Url::parse(&to_str(url).map_err(|_| Error::StringConversionError)?)
+                .map_err(|err| Error::UrlParseError(err.to_string()))?,
         ))
     }
 
@@ -259,13 +318,14 @@ impl Hostname {
     ///
     /// # Errors
     /// Throws an exception if parsing the provided hostname fails.
-    fn equals(&self, hostname: &Zval) -> PhpResult<bool> {
-        self.equals_str(&to_str(hostname)?)
+    fn equals(&self, hostname: &Zval) -> Result<bool> {
+        self.equals_str(&to_str(hostname).map_err(|_| Error::StringConversionError)?)
     }
 
-    fn equals_str(&self, hostname: &str) -> PhpResult<bool> {
+    fn equals_str(&self, hostname: &str) -> Result<bool> {
         let this = &self.inner;
-        let mut that = Host::parse(hostname).map_err(|err| anyhow!("{err}"))?;
+        let mut that =
+            Host::parse(hostname).map_err(|err| Error::InvalidHostname(err.to_string()))?;
         if let Host::Domain(s) = &mut that {
             *s = s.trim_end_matches('.').to_lowercase();
         }
@@ -284,7 +344,7 @@ impl Hostname {
     ///
     /// # Errors
     /// Throws an exception if parsing any provided hostname fails.
-    fn equals_any(&self, hostnames: &[&Zval]) -> PhpResult<bool> {
+    fn equals_any(&self, hostnames: &[&Zval]) -> Result<bool> {
         for host in hostnames {
             if self.equals(host)? {
                 return Ok(true);
@@ -300,9 +360,10 @@ impl Hostname {
     ///
     /// # Errors
     /// Throws an exception if parsing the URL or hostname fails.
-    fn equals_url(&self, url: &Zval) -> PhpResult<bool> {
+    fn equals_url(&self, url: &Zval) -> Result<bool> {
         self.equals_str(hostname(
-            &Url::parse(&to_str(url)?).map_err(|err| anyhow!("{err}"))?,
+            &Url::parse(&to_str(url).map_err(|_| Error::StringConversionError)?)
+                .map_err(|err| Error::UrlParseError(err.to_string()))?,
         ))
     }
 
@@ -313,7 +374,7 @@ impl Hostname {
     ///
     /// # Errors
     /// Throws an exception if parsing any URL or hostname fails.
-    fn equals_any_url(&self, urls: &[&Zval]) -> PhpResult<bool> {
+    fn equals_any_url(&self, urls: &[&Zval]) -> Result<bool> {
         for url in urls {
             if self.equals_url(url)? {
                 return Ok(true);
@@ -330,7 +391,7 @@ impl Hostname {
     /// # Errors
     /// Throws an exception if parsing the provided hostname fails.
     fn subdomain_of(&self, hostname: &Zval) -> Result<bool> {
-        self._subdomain_of(&to_str(hostname)?)
+        self._subdomain_of(&to_str(hostname).map_err(|_| Error::StringConversionError)?)
     }
 
     /// Returns true if this hostname is a subdomain of any in the given list.
@@ -340,7 +401,7 @@ impl Hostname {
     ///
     /// # Errors
     /// Throws an exception if parsing any provided hostname fails.
-    fn subdomain_of_any(&self, hosts: &[&Zval]) -> PhpResult<bool> {
+    fn subdomain_of_any(&self, hosts: &[&Zval]) -> Result<bool> {
         for host in hosts {
             if self.subdomain_of(host)? {
                 return Ok(true);
@@ -357,7 +418,9 @@ impl Hostname {
     /// # Errors
     /// Throws an exception if parsing the URL or hostname fails.
     fn subdomain_of_url(&self, url: &str) -> Result<bool> {
-        self._subdomain_of(hostname(&Url::parse(url).map_err(|err| anyhow!("{err}"))?))
+        self._subdomain_of(hostname(
+            &Url::parse(url).map_err(|err| Error::UrlParseError(err.to_string()))?,
+        ))
     }
 
     /// Returns true if this hostname is a subdomain of any hostname extracted from the given URLs.
@@ -367,7 +430,7 @@ impl Hostname {
     ///
     /// # Errors
     /// Throws an exception if parsing any URL or hostname fails.
-    fn subdomain_of_any_url(&self, urls: Vec<&str>) -> PhpResult<bool> {
+    fn subdomain_of_any_url(&self, urls: Vec<&str>) -> Result<bool> {
         for url in urls {
             if self.subdomain_of_url(url)? {
                 return Ok(true);

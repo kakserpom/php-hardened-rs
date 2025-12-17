@@ -1,13 +1,96 @@
-use anyhow::{anyhow, bail};
 use csrf::{AesGcmCsrfProtection, CsrfCookie, CsrfProtection, CsrfToken};
 use data_encoding::{BASE64, BASE64URL};
-use ext_php_rs::exception::PhpResult;
+use ext_php_rs::exception::PhpException;
 #[cfg(not(test))]
 use ext_php_rs::types::Zval;
+use ext_php_rs::zend::ce;
 use ext_php_rs::zend::Function;
 #[cfg(not(test))]
 use ext_php_rs::zend::ProcessGlobals;
 use ext_php_rs::{php_class, php_impl};
+use thiserror::Error;
+
+// Error codes for CSRF errors: 1000-1099
+pub mod error_codes {
+    pub const KEY_DECODE: i32 = 1000;
+    pub const KEY_LENGTH: i32 = 1001;
+    pub const PREVIOUS_TOKEN_DECODE: i32 = 1002;
+    pub const TOKEN_GENERATION: i32 = 1003;
+    pub const TOKEN_DECODE: i32 = 1004;
+    pub const TOKEN_PARSE: i32 = 1005;
+    pub const COOKIE_NOT_SET: i32 = 1006;
+    pub const COOKIE_DECODE: i32 = 1007;
+    pub const COOKIE_PARSE: i32 = 1008;
+    pub const VERIFICATION: i32 = 1009;
+    pub const SETCOOKIE_UNAVAILABLE: i32 = 1010;
+}
+
+/// Errors that can occur during CSRF protection operations.
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("CSRF protection key must be valid base64url: {0}")]
+    KeyDecodeError(String),
+
+    #[error("CSRF protection key must contain exactly 32 bytes")]
+    KeyLengthError,
+
+    #[error("Failed to decode previous token: {0}")]
+    PreviousTokenDecodeError(String),
+
+    #[error("Failed to generate token pair: {0}")]
+    TokenGenerationError(String),
+
+    #[error("Token base64 decode error: {0}")]
+    TokenDecodeError(String),
+
+    #[error("Failed to parse token: {0}")]
+    TokenParseError(String),
+
+    #[error("Cookie is not set")]
+    CookieNotSet,
+
+    #[error("Cookie base64 decode error: {0}")]
+    CookieDecodeError(String),
+
+    #[error("Failed to parse cookie: {0}")]
+    CookieParseError(String),
+
+    #[error("Token verification failed: {0}")]
+    VerificationError(String),
+
+    #[error("Could not call setcookie()")]
+    SetCookieUnavailable,
+}
+
+impl Error {
+    #[must_use]
+    pub fn code(&self) -> i32 {
+        match self {
+            Error::KeyDecodeError(_) => error_codes::KEY_DECODE,
+            Error::KeyLengthError => error_codes::KEY_LENGTH,
+            Error::PreviousTokenDecodeError(_) => error_codes::PREVIOUS_TOKEN_DECODE,
+            Error::TokenGenerationError(_) => error_codes::TOKEN_GENERATION,
+            Error::TokenDecodeError(_) => error_codes::TOKEN_DECODE,
+            Error::TokenParseError(_) => error_codes::TOKEN_PARSE,
+            Error::CookieNotSet => error_codes::COOKIE_NOT_SET,
+            Error::CookieDecodeError(_) => error_codes::COOKIE_DECODE,
+            Error::CookieParseError(_) => error_codes::COOKIE_PARSE,
+            Error::VerificationError(_) => error_codes::VERIFICATION,
+            Error::SetCookieUnavailable => error_codes::SETCOOKIE_UNAVAILABLE,
+        }
+    }
+}
+
+impl From<Error> for PhpException {
+    fn from(err: Error) -> Self {
+        let code = err.code();
+        let message = err.to_string();
+        PhpException::new(message, code, ce::exception())
+    }
+}
+
+/// Result type alias for CSRF operations.
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// CSRF protection for your application.
 #[php_class]
@@ -34,20 +117,20 @@ impl Csrf {
         key: &str,
         ttl: i64,
         previous_token_value: Option<String>,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self> {
         let key = <[u8; 32]>::try_from(
             BASE64URL
                 .decode(key.as_bytes())
-                .map_err(|err| anyhow!("csrf protection key: {}", err))?,
+                .map_err(|err| Error::KeyDecodeError(err.to_string()))?,
         )
-        .map_err(|_| anyhow!("csrf protection key must contain 32 bytes"))?;
+        .map_err(|_| Error::KeyLengthError)?;
         let inner = AesGcmCsrfProtection::from_key(key);
 
         let previous_token_value = if let Some(previous_token_value) = previous_token_value {
             <[u8; 64]>::try_from(
                 BASE64URL
                     .decode(previous_token_value.as_bytes())
-                    .map_err(|err| anyhow!("{}", err))?,
+                    .map_err(|err| Error::PreviousTokenDecodeError(err.to_string()))?,
             )
             .ok()
         } else {
@@ -56,7 +139,7 @@ impl Csrf {
 
         let (token, cookie) = inner
             .generate_token_pair(previous_token_value.as_ref(), ttl)
-            .map_err(|err| anyhow!("{}", err))?;
+            .map_err(|err| Error::TokenGenerationError(err.to_string()))?;
         Ok(Self {
             inner,
             token,
@@ -84,16 +167,16 @@ impl Csrf {
         &self,
         token: &str,
         #[allow(unused_mut)] mut cookie: Option<String>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         let token = self
             .inner
             .parse_token(
                 BASE64URL
                     .decode(token.as_bytes())
-                    .map_err(|err| anyhow!("Token base64 error: {}", err))?
+                    .map_err(|err| Error::TokenDecodeError(err.to_string()))?
                     .as_slice(),
             )
-            .map_err(|err| anyhow!("{}", err))?;
+            .map_err(|err| Error::TokenParseError(err.to_string()))?;
 
         #[cfg(not(test))]
         if cookie.is_none() {
@@ -104,7 +187,7 @@ impl Csrf {
         }
 
         if cookie.is_none() {
-            bail!("Cookie is not set");
+            return Err(Error::CookieNotSet);
         }
 
         let cookie = self
@@ -112,14 +195,15 @@ impl Csrf {
             .parse_cookie(
                 BASE64
                     .decode(cookie.unwrap().as_bytes())
-                    .map_err(|err| anyhow!("Cookie base64 error: {}", err))?
+                    .map_err(|err| Error::CookieDecodeError(err.to_string()))?
                     .as_slice(),
             )
-            .map_err(|err| anyhow!("{}", err))?;
+            .map_err(|err| Error::CookieParseError(err.to_string()))?;
 
         self.inner
             .verify_token_pair(&token, &cookie)
-            .map_err(|err| anyhow!("Cookie base64 error: {}", err))
+            .map_err(|err| Error::VerificationError(err.to_string()))?;
+        Ok(())
     }
 
     /// Returns the CSRF cookie string to send in PHP.
@@ -175,7 +259,7 @@ impl Csrf {
         domain: Option<String>,
         secure: Option<bool>,
         httponly: Option<bool>,
-    ) -> PhpResult<()> {
+    ) -> Result<()> {
         let name = self.cookie_name.clone();
         let value = self.cookie.b64_string();
         let expires = expires.unwrap_or(0);
@@ -185,10 +269,11 @@ impl Csrf {
         let httponly = httponly.unwrap_or(true);
 
         Function::try_from_function("setcookie")
-            .ok_or_else(|| anyhow!("Could not call setcookie"))?
+            .ok_or(Error::SetCookieUnavailable)?
             .try_call(vec![
                 &name, &value, &expires, &path, &domain, &secure, &httponly,
-            ])?;
+            ])
+            .map_err(|_| Error::SetCookieUnavailable)?;
 
         Ok(())
     }
@@ -198,7 +283,6 @@ impl Csrf {
 mod tests {
     use super::Csrf;
     use crate::run_php_example;
-    use anyhow::Result;
     use data_encoding::BASE64URL;
 
     /// Helper to generate a Base64URL-encoded 32-byte zero key.
@@ -208,7 +292,7 @@ mod tests {
     }
 
     #[test]
-    fn test_construct_and_token_cookie() -> Result<()> {
+    fn test_construct_and_token_cookie() -> anyhow::Result<()> {
         // Construct with zero key, 60-second TTL, no previous token
         let key = zero_key_b64();
         let csrf = Csrf::__construct(&key, 60, None)?;
@@ -229,7 +313,7 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_token_fails_with_bad_token() -> Result<()> {
+    fn test_verify_token_fails_with_bad_token() -> anyhow::Result<()> {
         let key = zero_key_b64();
         let csrf = Csrf::__construct(&key, 60, None)?;
         let bad_token = "invalid.token.value";
@@ -237,14 +321,14 @@ mod tests {
         let err = csrf.verify_token(bad_token, Some(good_cookie)).unwrap_err();
         let msg = format!("{err}");
         assert!(
-            msg.contains("Token base64 error") || msg.contains("parse_token"),
+            msg.contains("Token base64 decode error") || msg.contains("parse_token"),
             "Unexpected error: {msg}"
         );
         Ok(())
     }
 
     #[test]
-    fn test_verify_token_fails_with_bad_cookie() -> Result<()> {
+    fn test_verify_token_fails_with_bad_cookie() -> anyhow::Result<()> {
         let key = zero_key_b64();
         let csrf = Csrf::__construct(&key, 60, None)?;
         let good_token = csrf.token();
@@ -254,14 +338,14 @@ mod tests {
             .unwrap_err();
         let msg = format!("{err}");
         assert!(
-            msg.contains("Cookie base64 error") || msg.contains("verify_token_pair"),
+            msg.contains("Cookie base64 decode error") || msg.contains("verify_token_pair"),
             "Unexpected error: {msg}"
         );
         Ok(())
     }
 
     #[test]
-    fn test_cookie_name_get_set() -> Result<()> {
+    fn test_cookie_name_get_set() -> anyhow::Result<()> {
         let key = zero_key_b64();
         let mut csrf = Csrf::__construct(&key, 60, None)?;
         // default cookie name
@@ -273,7 +357,7 @@ mod tests {
     }
 
     #[test]
-    fn php_example() -> Result<()> {
+    fn php_example() -> anyhow::Result<()> {
         run_php_example("csrf-protection")?;
         Ok(())
     }

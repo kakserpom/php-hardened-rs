@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use super::super::{Error as SecurityHeaderError, Result};
 use ext_php_rs::php_const;
 #[cfg(not(test))]
 use ext_php_rs::zend::Function;
@@ -46,11 +46,10 @@ impl EmbedderPolicy {
     ///
     /// # Exceptions
     /// - Throws `Exception` if an invalid token is provided.
-    fn __construct(policy: Option<String>) -> anyhow::Result<Self> {
+    fn __construct(policy: Option<String>) -> Result<Self> {
         Ok(Self {
             policy: if let Some(p) = policy {
-                Policy::from_str(&p)
-                    .map_err(|_| anyhow!("Invalid Cross-Origin-Embedder-Policy value: {p}"))?
+                Policy::from_str(&p).map_err(|_| SecurityHeaderError::InvalidValue { header_type: "Cross-Origin-Embedder-Policy".into(), value: p })?
             } else {
                 Policy::UnsafeNone
             },
@@ -64,9 +63,9 @@ impl EmbedderPolicy {
     ///
     /// # Exceptions
     /// - Throws an `Exception` if `policy` cannot be parsed into a valid directive.
-    fn set(&mut self, policy: &str) -> anyhow::Result<()> {
+    fn set(&mut self, policy: &str) -> Result<()> {
         self.policy = Policy::from_str(policy)
-            .map_err(|_| anyhow!("Invalid Cross-Origin-Embedder-Policy value: {policy}"))?;
+            .map_err(|_| SecurityHeaderError::InvalidValue { header_type: "Cross-Origin-Embedder-Policy".into(), value: policy.to_string() })?;
         Ok(())
     }
 
@@ -90,16 +89,16 @@ impl EmbedderPolicy {
     ///
     /// # Errors
     /// - Throws `Exception` if the PHP `header()` function cannot be invoked.
-    fn send(&self) -> anyhow::Result<()> {
+    fn send(&self) -> Result<()> {
         #[cfg(not(test))]
         {
             Function::try_from_function("header")
-                .ok_or_else(|| anyhow!("Could not call header()"))?
+                .ok_or(SecurityHeaderError::HeaderUnavailable)?
                 .try_call(vec![&format!(
                     "Cross-Origin-Embedder-Policy: {}",
                     self.policy
                 )])
-                .map_err(|err| anyhow!("header() call failed: {err}"))?;
+                .map_err(|err| SecurityHeaderError::HeaderCallFailed(err.to_string()))?;
             Ok(())
         }
         #[cfg(test)]

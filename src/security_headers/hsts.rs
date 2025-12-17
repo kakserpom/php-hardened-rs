@@ -1,6 +1,6 @@
-use anyhow::Result;
+use super::Result;
 #[cfg(not(test))]
-use anyhow::anyhow;
+use super::Error as SecurityHeaderError;
 #[cfg(not(test))]
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_impl};
@@ -83,12 +83,12 @@ impl StrictTransportSecurity {
         #[cfg(not(test))]
         {
             Function::try_from_function("header")
-                .ok_or_else(|| anyhow!("Could not call header()"))?
+                .ok_or(SecurityHeaderError::HeaderUnavailable)?
                 .try_call(vec![&format!(
                     "Strict-Transport-Security: {}",
                     self.build()
                 )])
-                .map_err(|err| anyhow!("{:?}", err))?;
+                .map_err(|err| SecurityHeaderError::HeaderCallFailed(format!("{err:?}")))?;
 
             Ok(())
         }

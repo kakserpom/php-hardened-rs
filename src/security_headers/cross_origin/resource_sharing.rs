@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use super::super::{Error as SecurityHeaderError, Result};
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_const, php_impl};
 use std::collections::HashMap;
@@ -37,7 +37,7 @@ impl ResourceSharing {
 
     /// Specify which origins are allowed to access the resource.
     ///
-    /// Browsers will only allow cross-origin requests if the request’s
+    /// Browsers will only allow cross-origin requests if the request's
     /// `Origin` header matches one of these values. Use `["*"]` to allow
     /// any origin (note: this will disable credentials).
     ///
@@ -46,7 +46,7 @@ impl ResourceSharing {
     ///   or `["*"]` for a wildcard that permits all origins.
     ///
     /// # Behavior
-    /// - If the request’s `Origin` header is not in this list, the browser
+    /// - If the request's `Origin` header is not in this list, the browser
     ///   will block the response.
     ///
     /// # Returns
@@ -187,12 +187,12 @@ impl ResourceSharing {
     /// - Throws `Exception` if PHP `header()` cannot be invoked.
     fn send(&self) -> Result<()> {
         let header_fn = Function::try_from_function("header")
-            .ok_or_else(|| anyhow!("header() is not available"))?;
+            .ok_or(SecurityHeaderError::HeaderUnavailable)?;
         for (name, value) in self.build() {
             let hdr = format!("{name}: {value}");
             header_fn
                 .try_call(vec![&hdr])
-                .map_err(|e| anyhow!("header() call failed {}", e))?;
+                .map_err(|e| SecurityHeaderError::HeaderCallFailed(e.to_string()))?;
         }
         Ok(())
     }

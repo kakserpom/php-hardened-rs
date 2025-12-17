@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow, bail};
+use super::{Error as SecurityHeaderError, Result};
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_const, php_impl};
 use fmt::Write;
@@ -247,19 +247,19 @@ impl ContentSecurityPolicy {
         let mut keywords_vec = Vec::with_capacity(keywords.len());
         for keyword in keywords {
             let keyword = Keyword::from_str(keyword)
-                .map_err(|e| anyhow!("Invalid keyword `{keyword}`: {e}"))?;
+                .map_err(|_| SecurityHeaderError::InvalidKeyword(keyword.to_string()))?;
             keywords_vec.push(keyword);
         }
         if let Some(vec_sources) = sources.as_mut() {
             for source in vec_sources {
                 if source.contains(['\'', '"']) {
-                    bail!("source `{source}` may not contain single quotes");
+                    return Err(SecurityHeaderError::QuotesInSource(source.clone()).into());
                 }
                 source.trim_in_place();
             }
         }
         self.src_map.insert(
-            Rule::from_str(rule).map_err(|_| anyhow!("Invalid rule name: {rule}"))?,
+            Rule::from_str(rule).map_err(|_| SecurityHeaderError::InvalidRule(rule.to_string()))?,
             (keywords_vec, sources.unwrap_or_default()),
         );
         Ok(())
@@ -296,16 +296,16 @@ impl ContentSecurityPolicy {
                                         .collect(),
                                 )
                             };
-                            write!(header, " 'nonce-{nonce}'").map_err(|err| anyhow!("{err}"))?;
+                            write!(header, " 'nonce-{nonce}'").map_err(|err| SecurityHeaderError::FormatError(err.to_string()))?;
                         }
                         _ => {
-                            write!(header, " '{keyword}'").map_err(|err| anyhow!("{err}"))?;
+                            write!(header, " '{keyword}'").map_err(|err| SecurityHeaderError::FormatError(err.to_string()))?;
                         }
                     }
                 }
 
                 for source in sources {
-                    write!(header, " {source}").map_err(|err| anyhow!("{err}"))?;
+                    write!(header, " {source}").map_err(|err| SecurityHeaderError::FormatError(err.to_string()))?;
                 }
             }
             if it.peek().is_some() {
@@ -322,7 +322,7 @@ impl ContentSecurityPolicy {
     /// - Throws `Exception` if the PHP `header()` function cannot be invoked.
     fn send(&mut self) -> Result<()> {
         let _ = Function::try_from_function("header")
-            .ok_or_else(|| anyhow::anyhow!("Could not call header()"))?
+            .ok_or(SecurityHeaderError::HeaderUnavailable)?
             .try_call(vec![&format!("content-security-policy: {}", self.build()?)]);
         Ok(())
     }

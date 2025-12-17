@@ -23,7 +23,8 @@ try {
     \Hardened\ShellCommand::safeFromString("echo\x00oops");
     assert(false, 'safeFromString should throw on NUL');
 } catch (\Exception $e) {
-    assert(strpos($e->getMessage(), 'invalid character') !== false, 'NUL error message');
+    // ext-php-rs rejects NUL bytes in strings before passing to Rust
+    assert(strpos($e->getMessage(), 'NUL') !== false, 'NUL error message');
 }
 
 // --- shellFromString captures top-level commands ---

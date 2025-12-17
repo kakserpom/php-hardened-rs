@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use super::{Error as SecurityHeaderError, Result};
 #[cfg(not(test))]
 use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_impl};
@@ -77,7 +77,7 @@ impl ReferrerPolicy {
     fn __construct(policy: Option<String>) -> Result<Self> {
         let directive = if let Some(s) = policy {
             ReferrerPolicyDirective::from_str(s.as_str())
-                .map_err(|_| anyhow!("Invalid Referrer-Policy value: {s}"))?
+                .map_err(|_| SecurityHeaderError::InvalidValue { header_type: "Referrer-Policy".into(), value: s })?
         } else {
             ReferrerPolicyDirective::NoReferrer
         };
@@ -93,7 +93,7 @@ impl ReferrerPolicy {
     /// - Throws `Exception` if the provided token is invalid.
     fn set(&mut self, policy: &str) -> Result<()> {
         let parsed = ReferrerPolicyDirective::from_str(policy)
-            .map_err(|_| anyhow!("Invalid Referrer-Policy value: {policy}"))?;
+            .map_err(|_| SecurityHeaderError::InvalidValue { header_type: "Referrer-Policy".into(), value: policy.to_string() })?;
         self.policy = parsed;
         Ok(())
     }
@@ -122,9 +122,9 @@ impl ReferrerPolicy {
         #[cfg(not(test))]
         {
             Function::try_from_function("header")
-                .ok_or_else(|| anyhow!("Could not call header()"))?
+                .ok_or(SecurityHeaderError::HeaderUnavailable)?
                 .try_call(vec![&format!("Referrer-Policy: {}", self.build())])
-                .map_err(|_| anyhow!("Could not call header()"))?;
+                .map_err(|err| SecurityHeaderError::HeaderCallFailed(format!("{err:?}")))?;
             Ok(())
         }
         #[cfg(test)]
@@ -157,7 +157,7 @@ mod tests {
         let err = ReferrerPolicy::__construct(Some(String::from("invalid-policy"))).unwrap_err();
         // Should be an Exception with appropriate message
         let msg = format!("{err}");
-        assert!(msg.contains("Invalid Referrer-Policy value"));
+        assert!(msg.contains("Invalid"));
     }
 
     #[test]
@@ -173,7 +173,7 @@ mod tests {
         let mut rp = ReferrerPolicy::__construct(None).unwrap();
         let err = rp.set("not-a-policy").unwrap_err();
         let msg = format!("{err}");
-        assert!(msg.contains("Invalid Referrer-Policy value"));
+        assert!(msg.contains("Invalid"));
     }
 
     #[test]
