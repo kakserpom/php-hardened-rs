@@ -1,10 +1,8 @@
 use csrf::{AesGcmCsrfProtection, CsrfCookie, CsrfProtection, CsrfToken};
 use data_encoding::{BASE64, BASE64URL};
 use ext_php_rs::exception::PhpException;
-#[cfg(not(test))]
 use ext_php_rs::types::Zval;
 use ext_php_rs::zend::Function;
-#[cfg(not(test))]
 use ext_php_rs::zend::ProcessGlobals;
 use ext_php_rs::zend::ce;
 use ext_php_rs::{php_class, php_impl};
@@ -174,7 +172,6 @@ impl Csrf {
             )
             .map_err(|err| Error::TokenParseError(err.to_string()))?;
 
-        #[cfg(not(test))]
         if cookie.is_none() {
             cookie = ProcessGlobals::get()
                 .http_cookie_vars()

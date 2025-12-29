@@ -74,52 +74,40 @@ impl From<Error> for PhpException {
 
 /// Result type alias for HTML sanitizer operations.
 pub type Result<T> = std::result::Result<T, Error>;
-#[cfg(not(any(test, feature = "test")))]
 use ext_php_rs::prelude::ZendCallable;
 use ext_php_rs::types::ZendClassObject;
-#[cfg(not(any(test, feature = "test")))]
 use ext_php_rs::types::Zval;
 use ext_php_rs::{php_class, php_impl};
 use std::collections::HashSet;
-#[cfg(not(any(test, feature = "test")))]
 use std::sync::{
     Arc, Mutex,
     mpsc::{Receiver, Sender, channel},
 };
-#[cfg(not(any(test, feature = "test")))]
 use std::thread;
 use strum_macros::{Display, EnumIter, EnumString};
 use unicode_segmentation::UnicodeSegmentation;
 use url::Url;
 
-#[cfg(not(any(test, feature = "test")))]
 type _Zval = Zval;
-#[cfg(any(test, feature = "test"))]
-type _Zval = str;
 #[php_class]
 #[php(name = "Hardened\\Sanitizers\\HtmlSanitizer")]
 /// PHP class wrapping Ammonia's HTML sanitizer builder.
 /// Allows customized sanitization through PHP method calls.
 pub struct HtmlSanitizer {
     inner: Option<Builder>,
-    #[cfg(not(any(test, feature = "test")))]
     attribute_filter: Option<Zval>,
-    #[cfg(not(any(test, feature = "test")))]
     req_rx: Option<Receiver<Option<FilterRequest>>>,
-    #[cfg(not(any(test, feature = "test")))]
     resp_tx: Option<Sender<FilterResponse>>,
-    #[cfg(not(any(test, feature = "test")))]
     req_tx: Option<Sender<Option<FilterRequest>>>,
     pub truncation_is_safe: bool,
 }
-#[cfg(not(any(test, feature = "test")))]
+
 struct FilterRequest {
     element: String,
     attribute: String,
     value: String,
 }
 
-#[cfg(not(any(test, feature = "test")))]
 struct FilterResponse {
     filtered: Option<String>,
 }
@@ -137,13 +125,9 @@ impl HtmlSanitizer {
         Self {
             inner: Some(Builder::default()),
             truncation_is_safe: true,
-            #[cfg(not(any(test, feature = "test")))]
             attribute_filter: None,
-            #[cfg(not(any(test, feature = "test")))]
             req_rx: None,
-            #[cfg(not(any(test, feature = "test")))]
             resp_tx: None,
-            #[cfg(not(any(test, feature = "test")))]
             req_tx: None,
         }
     }
@@ -570,53 +554,47 @@ impl HtmlSanitizer {
             return Err(Error::InvalidState);
         };
 
-        #[cfg(any(test, feature = "test"))]
-        return Ok(inner.clean(&html).to_string());
-
-        #[cfg(not(any(test, feature = "test")))]
+        let Some(filter) = self.attribute_filter.as_ref() else {
+            return Ok(inner.clean(&html).to_string());
+        };
+        let inner = self.inner.take().unwrap();
+        let req_tx_clone = self
+            .req_tx
+            .as_ref()
+            .cloned()
+            .ok_or_else(|| Error::ChannelError("No tx clone".to_string()))?;
+        let handle = thread::spawn(move || -> std::result::Result<_, Error> {
+            let result = inner.clean(&html).to_string();
+            req_tx_clone
+                .send(None)
+                .map_err(|err| Error::ChannelError(err.to_string()))?;
+            Ok((inner, result))
+        });
+        let callable =
+            ZendCallable::new(filter).map_err(|err| Error::CallableError(err.to_string()))?;
+        for req in self
+            .req_rx
+            .as_ref()
+            .ok_or_else(|| Error::ChannelError("no req rx".to_string()))?
         {
-            let Some(filter) = self.attribute_filter.as_ref() else {
-                return Ok(inner.clean(&html).to_string());
+            let Some(req) = req else {
+                break;
             };
-            let inner = self.inner.take().unwrap();
-            let req_tx_clone = self
-                .req_tx
+            let result = callable
+                .try_call(vec![&req.element, &req.attribute, &req.value])
+                .ok()
+                .and_then(|zval| zval.string());
+            let _ = self
+                .resp_tx
                 .as_ref()
-                .cloned()
-                .ok_or_else(|| Error::ChannelError("No tx clone".to_string()))?;
-            let handle = thread::spawn(move || -> std::result::Result<_, Error> {
-                let result = inner.clean(&html).to_string();
-                req_tx_clone
-                    .send(None)
-                    .map_err(|err| Error::ChannelError(err.to_string()))?;
-                Ok((inner, result))
-            });
-            let callable =
-                ZendCallable::new(filter).map_err(|err| Error::CallableError(err.to_string()))?;
-            for req in self
-                .req_rx
-                .as_ref()
-                .ok_or_else(|| Error::ChannelError("no req rx".to_string()))?
-            {
-                let Some(req) = req else {
-                    break;
-                };
-                let result = callable
-                    .try_call(vec![&req.element, &req.attribute, &req.value])
-                    .ok()
-                    .and_then(|zval| zval.string());
-                let _ = self
-                    .resp_tx
-                    .as_ref()
-                    .ok_or_else(|| Error::ChannelError("no resp tx".to_string()))?
-                    .send(FilterResponse { filtered: result });
-            }
-            let (inner, result) = handle
-                .join()
-                .map_err(|err| Error::ThreadError(format!("{err:?}")))??;
-            let _ = self.inner.insert(inner);
-            Ok(result)
+                .ok_or_else(|| Error::ChannelError("no resp tx".to_string()))?
+                .send(FilterResponse { filtered: result });
         }
+        let (inner, result) = handle
+            .join()
+            .map_err(|err| Error::ThreadError(format!("{err:?}")))??;
+        let _ = self.inner.insert(inner);
+        Ok(result)
     }
 
     /// Whitelists URL schemes (e.g., "http", "https").
@@ -925,38 +903,33 @@ impl HtmlSanitizer {
     /// # Exceptions
     /// - None.
     fn attribute_filter<'a>(
-        #[allow(unused_variables)] self_: &'a mut ZendClassObject<HtmlSanitizer>,
-        #[allow(unused_variables)] callable: &'a _Zval,
+        self_: &'a mut ZendClassObject<HtmlSanitizer>,
+        callable: &'a _Zval,
     ) -> Result<&'a mut ZendClassObject<HtmlSanitizer>> {
-        #[cfg(not(any(test, feature = "test")))]
-        {
-            self_.attribute_filter = Some(callable.shallow_clone());
-            let (req_tx, req_rx) = channel::<Option<FilterRequest>>();
-            let (resp_tx, resp_rx) = channel::<FilterResponse>();
-            let resp_rx = Arc::new(Mutex::new(resp_rx));
-            self_.req_tx = Some(req_tx.clone());
-            self_.req_rx = Some(req_rx);
-            self_.resp_tx = Some(resp_tx);
-            let inner = self_.inner.as_mut().ok_or(Error::InvalidState)?;
-            inner.attribute_filter(move |element, attribute, value| {
-                let _ = req_tx.send(Some(FilterRequest {
-                    element: element.to_string(),
-                    attribute: attribute.to_string(),
-                    value: value.to_string(),
-                }));
+        self_.attribute_filter = Some(callable.shallow_clone());
+        let (req_tx, req_rx) = channel::<Option<FilterRequest>>();
+        let (resp_tx, resp_rx) = channel::<FilterResponse>();
+        let resp_rx = Arc::new(Mutex::new(resp_rx));
+        self_.req_tx = Some(req_tx.clone());
+        self_.req_rx = Some(req_rx);
+        self_.resp_tx = Some(resp_tx);
+        let inner = self_.inner.as_mut().ok_or(Error::InvalidState)?;
+        inner.attribute_filter(move |element, attribute, value| {
+            let _ = req_tx.send(Some(FilterRequest {
+                element: element.to_string(),
+                attribute: attribute.to_string(),
+                value: value.to_string(),
+            }));
 
-                let resp = resp_rx
-                    .lock()
-                    .expect("Mutex error")
-                    .recv()
-                    .unwrap_or(FilterResponse { filtered: None });
+            let resp = resp_rx
+                .lock()
+                .expect("Mutex error")
+                .recv()
+                .unwrap_or(FilterResponse { filtered: None });
 
-                resp.filtered
-            });
-            Ok(self_)
-        }
-        #[cfg(any(test, feature = "test"))]
-        panic!("attribute_filter() can not be called from tests");
+            resp.filtered
+        });
+        Ok(self_)
     }
 
     /// Sanitize and truncate the given HTML by extended grapheme clusters.
@@ -974,34 +947,29 @@ impl HtmlSanitizer {
     /// - Throws `Exception` if sanitization or truncation fails.
     pub fn clean_and_truncate(
         &mut self,
-        #[allow(unused_variables)] html: String,
-        #[allow(unused_variables)] max: usize,
-        #[allow(unused_variables)] flags: &_Zval,
-        #[allow(unused_variables)] etc: Option<String>,
+        html: String,
+        max: usize,
+        flags: &_Zval,
+        etc: Option<String>,
     ) -> Result<String> {
-        #[cfg(not(any(test, feature = "test")))]
+        let flags = if let Some(array) = flags.array()
+            && array.has_sequential_keys()
         {
-            let flags = if let Some(array) = flags.array()
-                && array.has_sequential_keys()
-            {
-                array
-                    .into_iter()
-                    .map(|(_, str)| {
-                        let str = str
-                            .str()
-                            .ok_or_else(|| Error::InvalidFlag(format!("{str:?}")))?;
-                        Flag::try_from(str).map_err(|_| Error::InvalidFlag(str.to_string()))
-                    })
-                    .collect::<std::result::Result<Vec<Flag>, Error>>()?
-            } else if let Some(str) = flags.str() {
-                vec![Flag::try_from(str).map_err(|_| Error::InvalidFlag(str.to_string()))?]
-            } else {
-                return Err(Error::WrongFlagsArgument.into());
-            };
-            self._clean_and_truncate(html, max, flags.as_slice(), etc)
-        }
-        #[cfg(any(test, feature = "test"))]
-        panic!("clean_and_truncate() can not be called from tests; use _clean_and_truncate()");
+            array
+                .into_iter()
+                .map(|(_, str)| {
+                    let str = str
+                        .str()
+                        .ok_or_else(|| Error::InvalidFlag(format!("{str:?}")))?;
+                    Flag::try_from(str).map_err(|_| Error::InvalidFlag(str.to_string()))
+                })
+                .collect::<std::result::Result<Vec<Flag>, Error>>()?
+        } else if let Some(str) = flags.str() {
+            vec![Flag::try_from(str).map_err(|_| Error::InvalidFlag(str.to_string()))?]
+        } else {
+            return Err(Error::WrongFlagsArgument);
+        };
+        self._clean_and_truncate(html, max, flags.as_slice(), etc)
     }
 }
 impl HtmlSanitizer {
