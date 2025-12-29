@@ -136,8 +136,7 @@ checksum = "0e050f626429857a27ddccb31e0aca21356bfa709c04041aefddac081a8f068a"
 [[package]]
 name = "bindgen"
 version = "0.72.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "993776b509cfb49c750f11b8f07a46fa23e0a1386ffc01fb1e7d343efc387895"
+source = "git+https://github.com/extphprs/rust-bindgen.git?branch=preserve-none-support#d21d811c8dedb55905be2fdde76d4893352393fb"
 dependencies = [
  "bitflags",
  "cexpr",
@@ -2738,3 +2737,8 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "clang-sys"
+version = "1.9.0"
+source = "git+https://github.com/extphprs/clang-sys.git?branch=preserve-none-support#ed5be28c016d8b83e1ce9a4b4b3696ba76e0a316"
