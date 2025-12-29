@@ -760,12 +760,16 @@ pub fn shell_exec(command: &str, expected_commands: Option<Vec<String>>) -> Resu
 
 #[php_function]
 #[php(name = "Hardened\\safe_exec")]
-/// Execute a single command (no shell), splitting arguments safely without interpolation.
+/// Execute a command directly (no shell), with arguments passed explicitly.
+///
+/// Unlike `shell_exec()`, this function does NOT parse the executable string.
+/// The executable is used as-is, and all arguments must be passed via the array.
+/// This prevents any shell injection vulnerabilities.
 ///
 /// # Parameters
-/// - `string $command`: The command to run, in shell-word syntax (quoted or unquoted).
-/// - `array|null $arguments`: Optional associative or indexed array of additional arguments:
-///   - Indexed (numeric) arrays join values in order.
+/// - `string $executable`: Path to the executable (not parsed, used literally).
+/// - `array|null $arguments`: Optional associative or indexed array of arguments:
+///   - Indexed (numeric) arrays append values in order.
 ///   - Associative arrays use keys as `--key` flags followed by their value.
 ///
 /// # Returns
@@ -773,9 +777,26 @@ pub fn shell_exec(command: &str, expected_commands: Option<Vec<String>>) -> Resu
 ///   Returns `null` only on error spawning the process.
 ///
 /// # Exceptions
-/// - Throws `Exception` if parsing fails or process execution fails.
-pub fn safe_exec(command: &str, arguments: Option<&ZendHashTable>) -> Result<Option<Zval>> {
-    let mut command = ShellCommand::safe_from_string(command)?;
+/// - Throws `Exception` if the executable is empty, contains NUL bytes, or process execution fails.
+///
+/// # Example
+/// ```php
+/// // Correct usage - executable only, arguments in array
+/// $output = Hardened\safe_exec("ls", ["-la", "/tmp"]);
+///
+/// // WRONG - don't put arguments in the executable string
+/// // $output = Hardened\safe_exec("ls -la", ["/tmp"]); // -la is NOT parsed!
+/// ```
+pub fn safe_exec(executable: &str, arguments: Option<&ZendHashTable>) -> Result<Option<Zval>> {
+    let executable = executable.trim();
+    if executable.is_empty() {
+        return Err(Error::EmptyCommand);
+    }
+    if executable.contains('\0') {
+        return Err(Error::InvalidCharacter(executable.to_string()));
+    }
+
+    let mut command = ShellCommand::executable(executable.to_string());
     if let Some(arguments) = arguments {
         parse_php_arguments(arguments, &mut command.args)?;
     }
