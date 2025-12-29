@@ -78,17 +78,16 @@ use ext_php_rs::prelude::ZendCallable;
 use ext_php_rs::types::ZendClassObject;
 use ext_php_rs::types::Zval;
 use ext_php_rs::{php_class, php_impl};
+use std::cell::RefCell;
 use std::collections::HashSet;
-use std::sync::{
-    Arc, Mutex,
-    mpsc::{Receiver, Sender, channel},
-};
-use std::thread;
 use strum_macros::{Display, EnumIter, EnumString};
 use unicode_segmentation::UnicodeSegmentation;
 use url::Url;
 
-type _Zval = Zval;
+thread_local! {
+    static ATTRIBUTE_FILTER: RefCell<Option<Zval>> = const { RefCell::new(None) };
+}
+
 #[php_class]
 #[php(name = "Hardened\\Sanitizers\\HtmlSanitizer")]
 /// PHP class wrapping Ammonia's HTML sanitizer builder.
@@ -96,20 +95,7 @@ type _Zval = Zval;
 pub struct HtmlSanitizer {
     inner: Option<Builder>,
     attribute_filter: Option<Zval>,
-    req_rx: Option<Receiver<Option<FilterRequest>>>,
-    resp_tx: Option<Sender<FilterResponse>>,
-    req_tx: Option<Sender<Option<FilterRequest>>>,
     pub truncation_is_safe: bool,
-}
-
-struct FilterRequest {
-    element: String,
-    attribute: String,
-    value: String,
-}
-
-struct FilterResponse {
-    filtered: Option<String>,
 }
 
 #[php_impl]
@@ -126,9 +112,6 @@ impl HtmlSanitizer {
             inner: Some(Builder::default()),
             truncation_is_safe: true,
             attribute_filter: None,
-            req_rx: None,
-            resp_tx: None,
-            req_tx: None,
         }
     }
 
@@ -548,52 +531,35 @@ impl HtmlSanitizer {
     /// # Notes
     /// - If an attribute filter is set, it will be invoked for each attribute.
     pub fn clean(&mut self, html: String) -> Result<String> {
-        let inner = if let Some(inner) = self.inner.as_ref() {
-            inner
-        } else {
-            return Err(Error::InvalidState);
-        };
-
-        let Some(filter) = self.attribute_filter.as_ref() else {
+        let Some(filter) = self.attribute_filter.take() else {
+            // Fast path: no attribute filter
+            let inner = self.inner.as_ref().ok_or(Error::InvalidState)?;
             return Ok(inner.clean(&html).to_string());
         };
-        let inner = self.inner.take().unwrap();
-        let req_tx_clone = self
-            .req_tx
-            .as_ref()
-            .cloned()
-            .ok_or_else(|| Error::ChannelError("No tx clone".to_string()))?;
-        let handle = thread::spawn(move || -> std::result::Result<_, Error> {
-            let result = inner.clean(&html).to_string();
-            req_tx_clone
-                .send(None)
-                .map_err(|err| Error::ChannelError(err.to_string()))?;
-            Ok((inner, result))
+
+        // Store callable in thread-local for the filter closure to access
+        ATTRIBUTE_FILTER.with(|f| *f.borrow_mut() = Some(filter.shallow_clone()));
+
+        // Configure the builder with the attribute filter
+        let inner = self.inner.as_mut().ok_or(Error::InvalidState)?;
+        inner.attribute_filter(|element, attribute, value| {
+            ATTRIBUTE_FILTER.with(|f| {
+                let binding = f.borrow();
+                let filter = binding.as_ref()?;
+                let callable = ZendCallable::new(filter).ok()?;
+                callable
+                    .try_call(vec![&element, &attribute, &value])
+                    .ok()?
+                    .string()
+            })
         });
-        let callable =
-            ZendCallable::new(filter).map_err(|err| Error::CallableError(err.to_string()))?;
-        for req in self
-            .req_rx
-            .as_ref()
-            .ok_or_else(|| Error::ChannelError("no req rx".to_string()))?
-        {
-            let Some(req) = req else {
-                break;
-            };
-            let result = callable
-                .try_call(vec![&req.element, &req.attribute, &req.value])
-                .ok()
-                .and_then(|zval| zval.string());
-            let _ = self
-                .resp_tx
-                .as_ref()
-                .ok_or_else(|| Error::ChannelError("no resp tx".to_string()))?
-                .send(FilterResponse { filtered: result });
-        }
-        let (inner, result) = handle
-            .join()
-            .map_err(|err| Error::ThreadError(format!("{err:?}")))??;
-        let _ = self.inner.insert(inner);
+
+        let result = inner.clean(&html).to_string();
+
+        // Restore the callable and clear thread-local
+        self.attribute_filter = Some(filter);
+        ATTRIBUTE_FILTER.with(|f| *f.borrow_mut() = None);
+
         Ok(result)
     }
 
@@ -904,31 +870,9 @@ impl HtmlSanitizer {
     /// - None.
     fn attribute_filter<'a>(
         self_: &'a mut ZendClassObject<HtmlSanitizer>,
-        callable: &'a _Zval,
+        callable: &'a Zval,
     ) -> Result<&'a mut ZendClassObject<HtmlSanitizer>> {
         self_.attribute_filter = Some(callable.shallow_clone());
-        let (req_tx, req_rx) = channel::<Option<FilterRequest>>();
-        let (resp_tx, resp_rx) = channel::<FilterResponse>();
-        let resp_rx = Arc::new(Mutex::new(resp_rx));
-        self_.req_tx = Some(req_tx.clone());
-        self_.req_rx = Some(req_rx);
-        self_.resp_tx = Some(resp_tx);
-        let inner = self_.inner.as_mut().ok_or(Error::InvalidState)?;
-        inner.attribute_filter(move |element, attribute, value| {
-            let _ = req_tx.send(Some(FilterRequest {
-                element: element.to_string(),
-                attribute: attribute.to_string(),
-                value: value.to_string(),
-            }));
-
-            let resp = resp_rx
-                .lock()
-                .expect("Mutex error")
-                .recv()
-                .unwrap_or(FilterResponse { filtered: None });
-
-            resp.filtered
-        });
         Ok(self_)
     }
 
@@ -949,7 +893,7 @@ impl HtmlSanitizer {
         &mut self,
         html: String,
         max: usize,
-        flags: &_Zval,
+        flags: &Zval,
         etc: Option<String>,
     ) -> Result<String> {
         let flags = if let Some(array) = flags.array()
