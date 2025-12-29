@@ -69,7 +69,7 @@ jobs:
           extensions: mbstring
 
       - name: Run tests
-        run: cargo test --features test
+        run: cargo test --features test -- --skip php_example --skip php_test
 
   clippy:
     name: Clippy

@@ -1356,7 +1356,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
     impl HtmlSanitizer {
         fn _url_relative_passthrough(&mut self) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState);
+                return Err(Error::InvalidState.into());
             };
             inner.url_relative(UrlRelative::PassThrough);
             Ok(())
@@ -1364,7 +1364,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
 
         fn _url_relative_deny(&mut self) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState);
+                return Err(Error::InvalidState.into());
             };
             inner.url_relative(UrlRelative::Deny);
             Ok(())
@@ -1372,7 +1372,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
 
         fn _url_relative_rewrite_with_base(&mut self, base_url: &str) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState);
+                return Err(Error::InvalidState.into());
             };
             inner.url_relative(UrlRelative::RewriteWithBase(
                 Url::parse(base_url).map_err(|err| Error::InvalidUrl(err.to_string()))?,
@@ -1386,7 +1386,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
             path: String,
         ) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState);
+                return Err(Error::InvalidState.into());
             };
             inner.url_relative(UrlRelative::RewriteWithRoot {
                 root: Url::parse(root).map_err(|err| Error::InvalidUrl(err.to_string()))?,
@@ -1398,7 +1398,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
         /// Must match add_tags()
         fn _add_tags(&mut self, tags: Vec<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState);
+                return Err(Error::InvalidState.into());
             };
             if tags
                 .iter()
@@ -1412,7 +1412,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
 
         fn _rm_clean_content_tags(&mut self, tags: Vec<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState);
+                return Err(Error::InvalidState.into());
             };
             inner.rm_clean_content_tags(tags.iter());
             Ok(())
@@ -1424,7 +1424,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
             attributes: Vec<String>,
         ) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState);
+                return Err(Error::InvalidState.into());
             };
             inner.add_tag_attributes(tag, attributes);
             Ok(())
@@ -1432,7 +1432,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
 
         fn _tags(&mut self, tags: Vec<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState);
+                return Err(Error::InvalidState.into());
             };
             inner.tags(tags);
             Ok(())
@@ -1440,7 +1440,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
 
         fn _id_prefix(&mut self, prefix: Option<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState);
+                return Err(Error::InvalidState.into());
             };
             inner.id_prefix(prefix);
             Ok(())
@@ -1448,7 +1448,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
 
         fn _url_schemes(&mut self, schemes: Vec<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState);
+                return Err(Error::InvalidState.into());
             };
             inner.url_schemes(HashSet::from_iter(schemes));
             Ok(())
@@ -1456,7 +1456,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
 
         fn _strip_comments(&mut self, strip: bool) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState);
+                return Err(Error::InvalidState.into());
             };
             inner.strip_comments(strip);
             Ok(())
