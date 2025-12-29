@@ -8,7 +8,7 @@ use ext_php_rs::{
     php_print,
     types::{ArrayKey, ZendHashTable},
 };
-use libc::{fcntl, F_GETFL, F_SETFL, O_NONBLOCK};
+use libc::{F_GETFL, F_SETFL, O_NONBLOCK, fcntl};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::env;
 use std::io::Read;
@@ -69,7 +69,9 @@ pub enum Error {
     #[error("Callback invocation failed: {0}")]
     CallbackError(String),
 
-    #[error("Unexpected top-level command: {command}. Possible injection attempt. Full argument: {full_arg}. Expected: {expected:?}")]
+    #[error(
+        "Unexpected top-level command: {command}. Possible injection attempt. Full argument: {full_arg}. Expected: {expected:?}"
+    )]
     UnexpectedCommand {
         command: String,
         full_arg: String,
@@ -393,8 +395,8 @@ impl ShellCommand {
         }
 
         // 2) Split into tokens (handles quotes, backslashes, etc.)
-        let parts = shell_words::split(command_line)
-            .map_err(|e| Error::ParseError(e.to_string()))?;
+        let parts =
+            shell_words::split(command_line).map_err(|e| Error::ParseError(e.to_string()))?;
 
         if parts.is_empty() {
             return Err(Error::NoCommand);
@@ -693,9 +695,7 @@ impl ShellCommand {
             }
         }
 
-        let status = child
-            .wait()
-            .map_err(|e| Error::IoError(e.to_string()))?;
+        let status = child.wait().map_err(|e| Error::IoError(e.to_string()))?;
 
         if let Some(zval) = capture_stderr.as_mut()
             && let Some(buf) = stderr_buf

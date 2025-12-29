@@ -44,7 +44,10 @@ impl OpenerPolicy {
     /// - Throws `Exception` if the provided token is not one of the allowed values.
     fn __construct(policy: Option<String>) -> Result<Self> {
         let policy = if let Some(p) = policy {
-            Policy::from_str(&p).map_err(|_| SecurityHeaderError::InvalidValue { header_type: "Cross-Origin-Opener-Policy".into(), value: p })?
+            Policy::from_str(&p).map_err(|_| SecurityHeaderError::InvalidValue {
+                header_type: "Cross-Origin-Opener-Policy".into(),
+                value: p,
+            })?
         } else {
             Policy::UnsafeNone
         };
@@ -60,8 +63,10 @@ impl OpenerPolicy {
     /// # Exceptions
     /// - Throws `Exception` if the given token is invalid.
     fn set(&mut self, policy: &str) -> Result<()> {
-        self.policy = Policy::from_str(policy)
-            .map_err(|_| SecurityHeaderError::InvalidValue { header_type: "Cross-Origin-Opener-Policy".into(), value: policy.to_string() })?;
+        self.policy = Policy::from_str(policy).map_err(|_| SecurityHeaderError::InvalidValue {
+            header_type: "Cross-Origin-Opener-Policy".into(),
+            value: policy.to_string(),
+        })?;
         Ok(())
     }
 
@@ -92,8 +97,8 @@ impl OpenerPolicy {
 #[cfg(test)]
 mod tests {
     use super::OpenerPolicy;
-    use crate::run_php_example;
     use crate::TestResult;
+    use crate::run_php_example;
 
     #[test]
     fn default_is_unsafe_none() -> TestResult {

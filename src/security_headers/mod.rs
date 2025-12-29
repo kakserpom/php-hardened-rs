@@ -5,9 +5,9 @@ use thiserror::Error;
 pub mod cross_origin;
 pub mod csp;
 pub mod hsts;
-pub mod whatnot;
 pub mod permissions;
 pub mod referrer_policy;
+pub mod whatnot;
 
 // Error codes for security header errors: 1700-1799
 pub mod error_codes {

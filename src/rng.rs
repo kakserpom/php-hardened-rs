@@ -4,7 +4,7 @@ use ext_php_rs::types::Zval;
 use ext_php_rs::zend::ce;
 use ext_php_rs::{php_class, php_impl};
 use rand::distr::{Alphabetic, Alphanumeric, SampleString, Uniform};
-use rand::{rng, seq::IndexedRandom, Rng as _};
+use rand::{Rng as _, rng, seq::IndexedRandom};
 use thiserror::Error;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -310,7 +310,8 @@ impl Rng {
             .map_err(|e| Error::WeightError(e.to_string()))?;
         Ok(vec![
             choice.0.shallow_clone(),
-            Zval::try_from(choice.1).map_err(|err| Error::ZvalConversionError(format!("{err:?}")))?,
+            Zval::try_from(choice.1)
+                .map_err(|err| Error::ZvalConversionError(format!("{err:?}")))?,
         ])
     }
 

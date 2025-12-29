@@ -150,7 +150,8 @@ fn run_php_file(php_file: PathBuf) -> TestResult<String> {
         return Err(format!(
             "PHP script {php_file:?} exited with code {}",
             output.status.code().unwrap_or(-1)
-        ).into());
+        )
+        .into());
     }
 
     Ok(String::from_utf8_lossy(&output.stdout).parse()?)
@@ -159,15 +160,11 @@ fn run_php_file(php_file: PathBuf) -> TestResult<String> {
 #[cfg(test)]
 pub(crate) fn run_php_example(name: &str) -> TestResult<String> {
     run_php_file(
-        Path::new(&std::env::var("CARGO_MANIFEST_DIR")?)
-            .join(format!("examples/{name}.php")),
+        Path::new(&std::env::var("CARGO_MANIFEST_DIR")?).join(format!("examples/{name}.php")),
     )
 }
 
 #[cfg(test)]
 pub(crate) fn run_php_test(name: &str) -> TestResult<String> {
-    run_php_file(
-        Path::new(&std::env::var("CARGO_MANIFEST_DIR")?)
-            .join(format!("tests/{name}.php")),
-    )
+    run_php_file(Path::new(&std::env::var("CARGO_MANIFEST_DIR")?).join(format!("tests/{name}.php")))
 }

@@ -58,7 +58,7 @@ impl PngSanitizer {
         f.read_exact(&mut chunk_type)
             .map_err(|e| Error::ChunkTypeError(e.to_string()))?;
         if &chunk_type != b"IHDR" {
-            return Err(Error::MissingIhdr.into());
+            return Err(Error::MissingIhdr);
         }
 
         // IHDR payload starts immediately: width (4 bytes BE), height (4 bytes BE)
@@ -72,7 +72,7 @@ impl PngSanitizer {
 
         // Consider >10000 in either dimension a "bomb"
         if width > 10_000 || height > 10_000 {
-            return Err(Error::PngBomb { width, height }.into());
+            return Err(Error::PngBomb { width, height });
         }
 
         Ok(())

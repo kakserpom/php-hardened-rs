@@ -2,21 +2,20 @@ use std::collections::HashSet;
 
 /// Elements that are ALWAYS blocked regardless of configuration
 pub const BLOCKED_ELEMENTS: &[&str] = &[
-    "script",          // JavaScript execution
-    "foreignObject",   // Can embed arbitrary HTML
-    "set",             // SMIL animation
-    "animate",         // SMIL animation
-    "animateMotion",   // SMIL animation
+    "script",           // JavaScript execution
+    "foreignObject",    // Can embed arbitrary HTML
+    "set",              // SMIL animation
+    "animate",          // SMIL animation
+    "animateMotion",    // SMIL animation
     "animateTransform", // SMIL animation
-    "animateColor",    // SMIL animation (deprecated but dangerous)
-    "handler",         // Event handler element
-    "listener",        // Listener element
+    "animateColor",     // SMIL animation (deprecated but dangerous)
+    "handler",          // Event handler element
+    "listener",         // Listener element
 ];
 
 /// Minimal safe elements (strict preset)
 pub const SAFE_ELEMENTS_STRICT: &[&str] = &[
-    "svg", "g", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "text",
-    "tspan",
+    "svg", "g", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "text", "tspan",
 ];
 
 /// Standard safe elements (default preset)
@@ -404,8 +403,14 @@ impl Preset {
     pub fn elements(&self) -> HashSet<String> {
         match self {
             Preset::Strict => SAFE_ELEMENTS_STRICT.iter().map(|s| s.to_string()).collect(),
-            Preset::Standard => SAFE_ELEMENTS_STANDARD.iter().map(|s| s.to_string()).collect(),
-            Preset::Permissive => SAFE_ELEMENTS_PERMISSIVE.iter().map(|s| s.to_string()).collect(),
+            Preset::Standard => SAFE_ELEMENTS_STANDARD
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            Preset::Permissive => SAFE_ELEMENTS_PERMISSIVE
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
         }
     }
 

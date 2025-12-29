@@ -143,7 +143,7 @@ impl Whatnot {
             value: mode.into(),
         })?;
         if opt == FrameOptions::AllowFrom && uri.is_none() {
-            return Err(SecurityHeaderError::AllowFromRequiresUri.into());
+            return Err(SecurityHeaderError::AllowFromRequiresUri);
         }
         self.frame = Some((opt, uri));
         Ok(())
@@ -163,7 +163,7 @@ impl Whatnot {
             value: mode.into(),
         })?;
         if report_uri.is_some() && opt == XssProtection::Off {
-            return Err(SecurityHeaderError::ReportUriIncompatible.into());
+            return Err(SecurityHeaderError::ReportUriIncompatible);
         }
         self.xss = Some((opt, report_uri));
         Ok(())
@@ -253,7 +253,7 @@ impl Whatnot {
             blocked.push(dest);
         }
         if blocked.is_empty() {
-            return Err(SecurityHeaderError::EmptyBlockedDestinations.into());
+            return Err(SecurityHeaderError::EmptyBlockedDestinations);
         }
 
         // sources (optional)

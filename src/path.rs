@@ -116,8 +116,9 @@ impl PathObj {
     /// - Throws an exception if conversion of `$path` to string fails.
     #[inline]
     fn from(path: &Zval) -> Result<Self> {
-        let (inner, escaped) =
-            normalize_lexically(Path::new(&to_str(path).map_err(|_| Error::StringConversionError)?));
+        let (inner, escaped) = normalize_lexically(Path::new(
+            &to_str(path).map_err(|_| Error::StringConversionError)?,
+        ));
         Ok(Self { inner, escaped })
     }
 
@@ -379,7 +380,7 @@ fn normalize_lexically<P: AsRef<Path>>(path: P) -> (PathBuf, HasEscaped) {
 }
 #[cfg(test)]
 mod tests {
-    use super::{normalize_lexically, PathObj};
+    use super::{PathObj, normalize_lexically};
     use crate::run_php_example;
     use std::ffi::OsStr;
     use std::path::PathBuf;

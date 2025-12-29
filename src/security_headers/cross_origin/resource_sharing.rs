@@ -186,8 +186,8 @@ impl ResourceSharing {
     /// # Exceptions
     /// - Throws `Exception` if PHP `header()` cannot be invoked.
     fn send(&self) -> Result<()> {
-        let header_fn = Function::try_from_function("header")
-            .ok_or(SecurityHeaderError::HeaderUnavailable)?;
+        let header_fn =
+            Function::try_from_function("header").ok_or(SecurityHeaderError::HeaderUnavailable)?;
         for (name, value) in self.build() {
             let hdr = format!("{name}: {value}");
             header_fn

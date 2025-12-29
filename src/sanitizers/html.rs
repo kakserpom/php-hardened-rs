@@ -164,7 +164,7 @@ impl HtmlSanitizer {
         self_: &mut ZendClassObject<HtmlSanitizer>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.url_relative(UrlRelative::Deny);
         Ok(self_)
@@ -184,7 +184,7 @@ impl HtmlSanitizer {
     /// - Throws `Exception` if the sanitizer is not in a valid state.
     fn is_valid_url(&self, url: &str) -> Result<bool> {
         let Some(inner) = self.inner.as_ref() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         let url = Url::parse(url);
         Ok(if let Ok(url) = url {
@@ -204,7 +204,7 @@ impl HtmlSanitizer {
         self_: &mut ZendClassObject<HtmlSanitizer>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.url_relative(UrlRelative::PassThrough);
         Ok(self_)
@@ -223,11 +223,10 @@ impl HtmlSanitizer {
         base_url: String,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.url_relative(UrlRelative::RewriteWithBase(
-            Url::parse(base_url.as_str())
-                .map_err(|err| Error::InvalidUrl(err.to_string()))?,
+            Url::parse(base_url.as_str()).map_err(|err| Error::InvalidUrl(err.to_string()))?,
         ));
         Ok(self_)
     }
@@ -247,11 +246,10 @@ impl HtmlSanitizer {
         path: String,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.url_relative(UrlRelative::RewriteWithRoot {
-            root: Url::parse(root.as_str())
-                .map_err(|err| Error::InvalidUrl(err.to_string()))?,
+            root: Url::parse(root.as_str()).map_err(|err| Error::InvalidUrl(err.to_string()))?,
             path,
         });
         Ok(self_)
@@ -269,7 +267,7 @@ impl HtmlSanitizer {
         value: Option<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.link_rel(value);
         Ok(self_)
@@ -288,7 +286,7 @@ impl HtmlSanitizer {
         tags: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.tags(tags);
         Ok(self_)
@@ -308,7 +306,7 @@ impl HtmlSanitizer {
         tags: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.clean_content_tags(tags);
         Ok(self_)
@@ -329,7 +327,7 @@ impl HtmlSanitizer {
         tags: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.add_clean_content_tags(tags);
         Ok(self_)
@@ -350,7 +348,7 @@ impl HtmlSanitizer {
         tags: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.rm_clean_content_tags(tags.iter());
         Ok(self_)
@@ -369,7 +367,7 @@ impl HtmlSanitizer {
         tags: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         if self_.inner.is_none() {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         if tags.iter().any(|tag_name| {
             tag_name.eq_ignore_ascii_case("script") || tag_name.eq_ignore_ascii_case("style")
@@ -392,7 +390,7 @@ impl HtmlSanitizer {
         tags: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.rm_tags(tags.iter().map(String::as_str));
         self_.truncation_is_safe = !self_
@@ -416,7 +414,7 @@ impl HtmlSanitizer {
         classes: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.add_allowed_classes(tag, classes);
         Ok(self_)
@@ -436,7 +434,7 @@ impl HtmlSanitizer {
         classes: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.rm_allowed_classes(tag.as_str(), classes.iter().map(String::as_str));
         Ok(self_)
@@ -456,7 +454,7 @@ impl HtmlSanitizer {
         attributes: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.add_tag_attributes(tag, attributes);
         Ok(self_)
@@ -476,7 +474,7 @@ impl HtmlSanitizer {
         classes: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.rm_tag_attributes(tag.as_str(), classes.iter().map(String::as_str));
         Ok(self_)
@@ -495,7 +493,7 @@ impl HtmlSanitizer {
         attributes: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.add_generic_attributes(attributes);
         Ok(self_)
@@ -513,7 +511,7 @@ impl HtmlSanitizer {
         attributes: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.rm_generic_attributes(attributes.iter().map(String::as_str));
         Ok(self_)
@@ -531,7 +529,7 @@ impl HtmlSanitizer {
         prefixes: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.add_generic_attribute_prefixes(prefixes);
         Ok(self_)
@@ -549,7 +547,7 @@ impl HtmlSanitizer {
         prefixes: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.rm_generic_attribute_prefixes(prefixes.iter().map(String::as_str));
         Ok(self_)
@@ -569,7 +567,7 @@ impl HtmlSanitizer {
         let inner = if let Some(inner) = self.inner.as_ref() {
             inner
         } else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
 
         #[cfg(any(test, feature = "test"))]
@@ -586,17 +584,15 @@ impl HtmlSanitizer {
                 .as_ref()
                 .cloned()
                 .ok_or_else(|| Error::ChannelError("No tx clone".to_string()))?;
-            let handle = thread::spawn(
-                move || -> std::result::Result<_, Error> {
-                    let result = inner.clean(&html).to_string();
-                    req_tx_clone
-                        .send(None)
-                        .map_err(|err| Error::ChannelError(err.to_string()))?;
-                    Ok((inner, result))
-                },
-            );
-            let callable = ZendCallable::new(filter)
-                .map_err(|err| Error::CallableError(err.to_string()))?;
+            let handle = thread::spawn(move || -> std::result::Result<_, Error> {
+                let result = inner.clean(&html).to_string();
+                req_tx_clone
+                    .send(None)
+                    .map_err(|err| Error::ChannelError(err.to_string()))?;
+                Ok((inner, result))
+            });
+            let callable =
+                ZendCallable::new(filter).map_err(|err| Error::CallableError(err.to_string()))?;
             for req in self
                 .req_rx
                 .as_ref()
@@ -635,7 +631,7 @@ impl HtmlSanitizer {
         schemes: HashSet<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.url_schemes(schemes);
         Ok(self_)
@@ -654,7 +650,7 @@ impl HtmlSanitizer {
         strip: bool,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.strip_comments(strip);
         Ok(self_)
@@ -669,7 +665,7 @@ impl HtmlSanitizer {
     /// - `Exception` if the sanitizer is not in a valid state.
     fn will_strip_comments(&self) -> Result<bool> {
         let Some(inner) = self.inner.as_ref() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         Ok(inner.will_strip_comments())
     }
@@ -686,7 +682,7 @@ impl HtmlSanitizer {
         prefix: Option<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.id_prefix(prefix);
         Ok(self_)
@@ -704,7 +700,7 @@ impl HtmlSanitizer {
         props: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.filter_style_properties(props);
         Ok(self_)
@@ -715,7 +711,7 @@ impl HtmlSanitizer {
         props: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.filter_style_properties(props);
         Ok(self_)
@@ -737,7 +733,7 @@ impl HtmlSanitizer {
         value: String,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.set_tag_attribute_value(tag, attribute, value);
         Ok(self_)
@@ -752,7 +748,7 @@ impl HtmlSanitizer {
     /// - `Exception` if the sanitizer is not in a valid state.
     fn clone_tags(&self) -> Result<Vec<String>> {
         let Some(inner) = self.inner.as_ref() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         Ok(inner.clone_tags().into_iter().collect())
     }
@@ -766,7 +762,7 @@ impl HtmlSanitizer {
     /// - `Exception` if the sanitizer is not in a valid state.
     fn clone_clean_content_tags(&self) -> Result<Vec<String>> {
         let Some(inner) = self.inner.as_ref() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         Ok(inner
             .clone_clean_content_tags()
@@ -787,7 +783,7 @@ impl HtmlSanitizer {
         attrs: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.generic_attributes(attrs);
         Ok(self_)
@@ -805,7 +801,7 @@ impl HtmlSanitizer {
         prefixes: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.generic_attribute_prefixes(prefixes);
         Ok(self_)
@@ -827,7 +823,7 @@ impl HtmlSanitizer {
         values: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.add_tag_attribute_values(tag, attr, values);
         Ok(self_)
@@ -849,7 +845,7 @@ impl HtmlSanitizer {
         values: Vec<String>,
     ) -> Result<&mut ZendClassObject<HtmlSanitizer>> {
         let Some(inner) = self_.inner.as_mut() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         inner.rm_tag_attribute_values(
             tag.as_str(),
@@ -872,7 +868,7 @@ impl HtmlSanitizer {
     /// - `Exception` if the sanitizer is not in a valid state.
     fn get_set_tag_attribute_value(&self, tag: &str, attr: &str) -> Result<Option<String>> {
         let Some(inner) = self.inner.as_ref() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         Ok(inner
             .get_set_tag_attribute_value(tag, attr)
@@ -888,7 +884,7 @@ impl HtmlSanitizer {
     /// - `Exception` if the sanitizer is not in a valid state.
     fn is_url_relative_deny(&self) -> Result<bool> {
         let Some(inner) = self.inner.as_ref() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         Ok(inner.is_url_relative_deny())
     }
@@ -902,7 +898,7 @@ impl HtmlSanitizer {
     /// - `Exception` if the sanitizer is not in a valid state.
     fn is_url_relative_pass_through(&self) -> Result<bool> {
         let Some(inner) = self.inner.as_ref() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         Ok(inner.is_url_relative_pass_through())
     }
@@ -916,7 +912,7 @@ impl HtmlSanitizer {
     /// - `Exception` if the sanitizer is not in a valid state.
     fn is_url_relative_custom(&self) -> Result<bool> {
         let Some(inner) = self.inner.as_ref() else {
-            return Err(Error::InvalidState.into());
+            return Err(Error::InvalidState);
         };
         Ok(inner.is_url_relative_custom())
     }
@@ -941,10 +937,7 @@ impl HtmlSanitizer {
             self_.req_tx = Some(req_tx.clone());
             self_.req_rx = Some(req_rx);
             self_.resp_tx = Some(resp_tx);
-            let inner = self_
-                .inner
-                .as_mut()
-                .ok_or(Error::InvalidState)?;
+            let inner = self_.inner.as_mut().ok_or(Error::InvalidState)?;
             inner.attribute_filter(move |element, attribute, value| {
                 let _ = req_tx.send(Some(FilterRequest {
                     element: element.to_string(),
@@ -997,13 +990,11 @@ impl HtmlSanitizer {
                         let str = str
                             .str()
                             .ok_or_else(|| Error::InvalidFlag(format!("{str:?}")))?;
-                        Flag::try_from(str)
-                            .map_err(|_| Error::InvalidFlag(str.to_string()))
+                        Flag::try_from(str).map_err(|_| Error::InvalidFlag(str.to_string()))
                     })
                     .collect::<std::result::Result<Vec<Flag>, Error>>()?
             } else if let Some(str) = flags.str() {
-                vec![Flag::try_from(str)
-                    .map_err(|_| Error::InvalidFlag(str.to_string()))?]
+                vec![Flag::try_from(str).map_err(|_| Error::InvalidFlag(str.to_string()))?]
             } else {
                 return Err(Error::WrongFlagsArgument.into());
             };
@@ -1029,10 +1020,10 @@ impl HtmlSanitizer {
     /// # Parameters
     /// - `html`: `String` containing the raw HTML content to sanitize and truncate.
     /// - `max`: `usize` maximum number of *units* (bytes, characters, or graphemes) in the final output,
-    ///    including the length of the `etc` suffix.
+    ///   including the length of the `etc` suffix.
     /// - `count_by`: `&CountBy` enum selecting the unit of measurement for `max`.
     /// - `etc`:  `Option<String>` optional suffix to join when truncation occurs (e.g. ellipsis).
-    ///    Defaults to [`TRUNCATE_DEFAULT_ENDING`].
+    ///   Defaults to [`TRUNCATE_DEFAULT_ENDING`].
     ///
     /// # Returns
     /// - `Ok(String)` containing a sanitized, well-formed HTML snippet, no longer than `max` units.
@@ -1049,17 +1040,13 @@ impl HtmlSanitizer {
         let mut count_by = None;
         let mut preserve_words = false;
         if !self.truncation_is_safe {
-            return Err(Error::UnsafeTruncation.into());
+            return Err(Error::UnsafeTruncation);
         }
         for flag in flags {
             match flag {
                 Flag::ExtendedGraphemes | Flag::Graphemes | Flag::Unicode | Flag::Ascii => {
                     if let Some(other) = count_by.replace(flag) {
-                        return Err(Error::ConflictingFlags(
-                            other.to_string(),
-                            flag.to_string(),
-                        )
-                        .into());
+                        return Err(Error::ConflictingFlags(other.to_string(), flag.to_string()));
                     }
                 }
                 Flag::PreserveWords => {
@@ -1128,25 +1115,23 @@ impl HtmlSanitizer {
             }
         }
 
-        if preserve_words {
-            if let Some(idx) = cut_offset {
-                let mut last_boundary = 0;
-                for (byte_idx, _) in html[..idx].split_word_bound_indices() {
-                    last_boundary = byte_idx;
-                }
-                if last_boundary > 0 && last_boundary < idx {
-                    let mut spaces = last_boundary - html[..last_boundary].trim_end().len();
-                    if spaces > 1 {
-                        spaces -= 1;
-                    }
-                    cut_offset = Some(last_boundary - spaces);
-                }
-                #[cfg(test)]
-                println!(
-                    "preserve_words: trimmed to {:?}",
-                    html[..last_boundary].to_string()
-                );
+        if preserve_words && let Some(idx) = cut_offset {
+            let mut last_boundary = 0;
+            for (byte_idx, _) in html[..idx].split_word_bound_indices() {
+                last_boundary = byte_idx;
             }
+            if last_boundary > 0 && last_boundary < idx {
+                let mut spaces = last_boundary - html[..last_boundary].trim_end().len();
+                if spaces > 1 {
+                    spaces -= 1;
+                }
+                cut_offset = Some(last_boundary - spaces);
+            }
+            #[cfg(test)]
+            println!(
+                "preserve_words: trimmed to {:?}",
+                html[..last_boundary].to_string()
+            );
         }
 
         // If we actually need to truncate:
@@ -1182,8 +1167,8 @@ pub enum Flag {
 }
 #[cfg(test)]
 mod tests {
-    use super::HtmlSanitizer;
     use super::Error;
+    use super::HtmlSanitizer;
     use crate::run_php_example;
     use crate::sanitizers::html::Flag::{Ascii, Graphemes, PreserveWords};
     use ammonia::UrlRelative;
@@ -1371,7 +1356,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
     impl HtmlSanitizer {
         fn _url_relative_passthrough(&mut self) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState.into());
+                return Err(Error::InvalidState);
             };
             inner.url_relative(UrlRelative::PassThrough);
             Ok(())
@@ -1379,7 +1364,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
 
         fn _url_relative_deny(&mut self) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState.into());
+                return Err(Error::InvalidState);
             };
             inner.url_relative(UrlRelative::Deny);
             Ok(())
@@ -1387,22 +1372,24 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
 
         fn _url_relative_rewrite_with_base(&mut self, base_url: &str) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState.into());
+                return Err(Error::InvalidState);
             };
             inner.url_relative(UrlRelative::RewriteWithBase(
-                Url::parse(base_url)
-                    .map_err(|err| Error::InvalidUrl(err.to_string()))?,
+                Url::parse(base_url).map_err(|err| Error::InvalidUrl(err.to_string()))?,
             ));
             Ok(())
         }
 
-        fn _url_relative_rewrite_with_root(&mut self, root: &str, path: String) -> crate::TestResult {
+        fn _url_relative_rewrite_with_root(
+            &mut self,
+            root: &str,
+            path: String,
+        ) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState.into());
+                return Err(Error::InvalidState);
             };
             inner.url_relative(UrlRelative::RewriteWithRoot {
-                root: Url::parse(root)
-                    .map_err(|err| Error::InvalidUrl(err.to_string()))?,
+                root: Url::parse(root).map_err(|err| Error::InvalidUrl(err.to_string()))?,
                 path,
             });
             Ok(())
@@ -1411,7 +1398,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
         /// Must match add_tags()
         fn _add_tags(&mut self, tags: Vec<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState.into());
+                return Err(Error::InvalidState);
             };
             if tags
                 .iter()
@@ -1425,15 +1412,19 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
 
         fn _rm_clean_content_tags(&mut self, tags: Vec<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState.into());
+                return Err(Error::InvalidState);
             };
             inner.rm_clean_content_tags(tags.iter());
             Ok(())
         }
 
-        fn _add_tag_attributes(&mut self, tag: String, attributes: Vec<String>) -> crate::TestResult {
+        fn _add_tag_attributes(
+            &mut self,
+            tag: String,
+            attributes: Vec<String>,
+        ) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState.into());
+                return Err(Error::InvalidState);
             };
             inner.add_tag_attributes(tag, attributes);
             Ok(())
@@ -1441,7 +1432,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
 
         fn _tags(&mut self, tags: Vec<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState.into());
+                return Err(Error::InvalidState);
             };
             inner.tags(tags);
             Ok(())
@@ -1449,7 +1440,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
 
         fn _id_prefix(&mut self, prefix: Option<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState.into());
+                return Err(Error::InvalidState);
             };
             inner.id_prefix(prefix);
             Ok(())
@@ -1457,7 +1448,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
 
         fn _url_schemes(&mut self, schemes: Vec<String>) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState.into());
+                return Err(Error::InvalidState);
             };
             inner.url_schemes(HashSet::from_iter(schemes));
             Ok(())
@@ -1465,7 +1456,7 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui \
 
         fn _strip_comments(&mut self, strip: bool) -> crate::TestResult {
             let Some(inner) = self.inner.as_mut() else {
-                return Err(Error::InvalidState.into());
+                return Err(Error::InvalidState);
             };
             inner.strip_comments(strip);
             Ok(())

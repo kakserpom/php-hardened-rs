@@ -54,7 +54,8 @@ impl ArchiveSanitizer {
         })?;
         if &sig == b"PK\x03\x04" {
             // Central directory: sum uncompressed sizes
-            f.seek(SeekFrom::Start(0)).map_err(|e| Error::SeekError(e.to_string()))?;
+            f.seek(SeekFrom::Start(0))
+                .map_err(|e| Error::SeekError(e.to_string()))?;
             let mut zip = ZipArchive::new(f).map_err(|e| Error::FileOpenError {
                 path: path.to_string(),
                 reason: e.to_string(),
@@ -73,7 +74,8 @@ impl ArchiveSanitizer {
                 path: path.to_string(),
                 reason: e.to_string(),
             })?;
-            f2.seek(SeekFrom::Start(22)).map_err(|e| Error::SeekError(e.to_string()))?;
+            f2.seek(SeekFrom::Start(22))
+                .map_err(|e| Error::SeekError(e.to_string()))?;
             let mut buf = [0u8; 4];
             f2.read_exact(&mut buf).map_err(|e| Error::FileOpenError {
                 path: path.to_string(),
@@ -82,13 +84,16 @@ impl ArchiveSanitizer {
             let header_uncompressed = u32::from_le_bytes(buf) as u64;
 
             if total_uncompressed != header_uncompressed {
-                return Err(Error::ZipBomb.into());
+                return Err(Error::ZipBomb);
             }
         } else if sig.starts_with(b"Rar") {
-            let compressed_size = f.metadata().map_err(|e| Error::FileOpenError {
-                path: path.to_string(),
-                reason: e.to_string(),
-            })?.len() as f64;
+            let compressed_size = f
+                .metadata()
+                .map_err(|e| Error::FileOpenError {
+                    path: path.to_string(),
+                    reason: e.to_string(),
+                })?
+                .len() as f64;
             let max_ratio = max_ratio.unwrap_or(1000) as f64;
 
             if let Ok(archive) = RarArchive::new(path).open_for_listing() {
@@ -99,7 +104,7 @@ impl ArchiveSanitizer {
                     })?;
                     let unpacked = entry.unpacked_size as f64;
                     if compressed_size > 0.0 && (unpacked / compressed_size) >= max_ratio {
-                        return Err(Error::RarBomb.into());
+                        return Err(Error::RarBomb);
                     }
                 }
             }

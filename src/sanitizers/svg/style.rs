@@ -115,8 +115,8 @@ fn sanitize_url_in_css(value: &str) -> Option<String> {
 
         // Remove quotes if present
         let url = url_content
-            .trim_start_matches(|c| c == '"' || c == '\'')
-            .trim_end_matches(|c| c == '"' || c == '\'')
+            .trim_start_matches(['"', '\''])
+            .trim_end_matches(['"', '\''])
             .trim();
 
         // Only allow internal references (#id)
@@ -130,7 +130,9 @@ fn sanitize_url_in_css(value: &str) -> Option<String> {
                 ""
             };
 
-            let result = format!("{}{}", before.trim(), after.trim()).trim().to_string();
+            let result = format!("{}{}", before.trim(), after.trim())
+                .trim()
+                .to_string();
             if result.is_empty() {
                 return None;
             }
@@ -168,10 +170,8 @@ pub fn sanitize_style_content(content: &str, allowed_properties: &HashSet<String
                 let rest = trimmed[idx + 1..].trim();
                 if !rest.is_empty() && rest != "}" {
                     // Declarations on the same line
-                    let sanitized = sanitize_style_attribute(
-                        rest.trim_end_matches('}'),
-                        allowed_properties,
-                    );
+                    let sanitized =
+                        sanitize_style_attribute(rest.trim_end_matches('}'), allowed_properties);
                     if !sanitized.is_empty() {
                         current_declarations.push_str(&sanitized);
                         current_declarations.push_str("; ");
@@ -222,11 +222,12 @@ pub fn sanitize_style_content(content: &str, allowed_properties: &HashSet<String
         } else {
             // Outside rule blocks - could be @rules, comments, etc.
             // For safety, only keep simple lines that don't contain dangerous patterns
-            if !trimmed.starts_with('@') || trimmed.starts_with("@charset") {
-                if !trimmed.is_empty() && !trimmed.starts_with("/*") {
-                    result.push_str(trimmed);
-                    result.push('\n');
-                }
+            if (!trimmed.starts_with('@') || trimmed.starts_with("@charset"))
+                && !trimmed.is_empty()
+                && !trimmed.starts_with("/*")
+            {
+                result.push_str(trimmed);
+                result.push('\n');
             }
         }
     }

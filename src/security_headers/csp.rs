@@ -253,7 +253,7 @@ impl ContentSecurityPolicy {
         if let Some(vec_sources) = sources.as_mut() {
             for source in vec_sources {
                 if source.contains(['\'', '"']) {
-                    return Err(SecurityHeaderError::QuotesInSource(source.clone()).into());
+                    return Err(SecurityHeaderError::QuotesInSource(source.clone()));
                 }
                 source.trim_in_place();
             }
@@ -296,16 +296,19 @@ impl ContentSecurityPolicy {
                                         .collect(),
                                 )
                             };
-                            write!(header, " 'nonce-{nonce}'").map_err(|err| SecurityHeaderError::FormatError(err.to_string()))?;
+                            write!(header, " 'nonce-{nonce}'")
+                                .map_err(|err| SecurityHeaderError::FormatError(err.to_string()))?;
                         }
                         _ => {
-                            write!(header, " '{keyword}'").map_err(|err| SecurityHeaderError::FormatError(err.to_string()))?;
+                            write!(header, " '{keyword}'")
+                                .map_err(|err| SecurityHeaderError::FormatError(err.to_string()))?;
                         }
                     }
                 }
 
                 for source in sources {
-                    write!(header, " {source}").map_err(|err| SecurityHeaderError::FormatError(err.to_string()))?;
+                    write!(header, " {source}")
+                        .map_err(|err| SecurityHeaderError::FormatError(err.to_string()))?;
                 }
             }
             if it.peek().is_some() {

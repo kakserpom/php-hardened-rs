@@ -19,7 +19,10 @@ impl DimensionValidator {
         let parts: Vec<&str> = viewbox.split_whitespace().collect();
         if parts.len() != 4 {
             // Also try comma-separated format
-            let parts: Vec<&str> = viewbox.split([' ', ',']).filter(|s| !s.is_empty()).collect();
+            let parts: Vec<&str> = viewbox
+                .split([' ', ','])
+                .filter(|s| !s.is_empty())
+                .collect();
             if parts.len() != 4 {
                 return Err(Error::InvalidViewBox(format!(
                     "expected 4 values, got {}",
@@ -75,7 +78,9 @@ impl DimensionValidator {
         // Extract numeric part (including scientific notation)
         let numeric_str: String = trimmed
             .chars()
-            .take_while(|c| c.is_ascii_digit() || *c == '.' || *c == '-' || *c == 'e' || *c == 'E' || *c == '+')
+            .take_while(|c| {
+                c.is_ascii_digit() || *c == '.' || *c == '-' || *c == 'e' || *c == 'E' || *c == '+'
+            })
             .collect();
 
         if numeric_str.is_empty() {
@@ -136,15 +141,14 @@ pub fn check_dangerous_url(url: &str, block_external: bool, block_data_uri: bool
     }
 
     // Block external URLs (if configured)
-    if block_external {
-        if url_lower.starts_with("http://")
+    if block_external
+        && (url_lower.starts_with("http://")
             || url_lower.starts_with("https://")
             || url_lower.starts_with("//")
             || url_lower.starts_with("ftp://")
-            || url_lower.starts_with("file://")
-        {
-            return Some(Error::ExternalReference(url.to_string()));
-        }
+            || url_lower.starts_with("file://"))
+    {
+        return Some(Error::ExternalReference(url.to_string()));
     }
 
     // Allow internal references (#id) and relative paths
