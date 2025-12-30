@@ -2,10 +2,10 @@
 
 [![CI](https://github.com/kakserpom/php-hardened-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/kakserpom/php-hardened-rs/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PHP](https://img.shields.io/badge/PHP-777BB4?logo=php&logoColor=white)](https://www.php.net/)
+[![PHP 8.1+](https://img.shields.io/badge/PHP-8.1%2B-8892BF.svg)](https://php.net)
 [![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 
-A PHP extension powered by **Rust** 🦀 and [ext-php-rs](https://github.com/davidcole1340/ext-php-rs), delivering
+A PHP extension powered by **Rust** 🦀 and [ext-php-rs](https://github.com/extphprs/ext-php-rs), delivering
 essential security utilities for PHP applications. It features the following core classes:
 
 - **Hardened\Hostname** — secure hostname parsing, normalization, and comparison.
