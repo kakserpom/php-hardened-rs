@@ -4,12 +4,16 @@
 
 namespace Hardened {
     /**
-     * Execute a single command (no shell), splitting arguments safely without interpolation.
+     * Execute a command directly (no shell), with arguments passed explicitly.
+     *
+     * Unlike `shell_exec()`, this function does NOT parse the executable string.
+     * The executable is used as-is, and all arguments must be passed via the array.
+     * This prevents any shell injection vulnerabilities.
      *
      * # Parameters
-     * - `string $command`: The command to run, in shell-word syntax (quoted or unquoted).
-     * - `array|null $arguments`: Optional associative or indexed array of additional arguments:
-     *   - Indexed (numeric) arrays join values in order.
+     * - `string $executable`: Path to the executable (not parsed, used literally).
+     * - `array|null $arguments`: Optional associative or indexed array of arguments:
+     *   - Indexed (numeric) arrays append values in order.
      *   - Associative arrays use keys as `--key` flags followed by their value.
      *
      * # Returns
@@ -17,12 +21,21 @@ namespace Hardened {
      *   Returns `null` only on error spawning the process.
      *
      * # Exceptions
-     * - Throws `Exception` if parsing fails or process execution fails.
+     * - Throws `Exception` if the executable is empty, contains NUL bytes, or process execution fails.
+     *
+     * # Example
+     * ```php
+     * // Correct usage - executable only, arguments in array
+     * $output = Hardened\safe_exec("ls", ["-la", "/tmp"]);
+     *
+     * // WRONG - don't put arguments in the executable string
+     * // $output = Hardened\safe_exec("ls -la", ["/tmp"]); // -la is NOT parsed!
+     * ```
      */
-    function safe_exec(string $command, ?array $arguments): mixed {}
+    function safe_exec(string $executable, ?array $arguments): mixed {}
 
     /**
-     * Execute a shell command via the user’s login shell, enforcing top-level command checks.
+     * Execute a shell command via the user's login shell, enforcing top-level command checks.
      *
      * # Parameters
      * - `string $command`: Full shell-style command line to run (e.g. `"ls -la /tmp"`).
@@ -31,7 +44,7 @@ namespace Hardened {
      *   will abort with an exception to prevent injection.
      *
      * # Returns
-     * - `string|null`: On success, returns the command’s stdout output as a string (or exit code as string if non-zero).
+     * - `string|null`: On success, returns the command's stdout output as a string (or exit code as string if non-zero).
      *   Returns `null` only on error spawning the process.
      *
      * # Exceptions
@@ -110,20 +123,20 @@ namespace Hardened {
         /**
          * Inherit _all_ parent environment variables.
          */
-        public function inheritAllEnvs() {}
+        public function inheritAllEnvs(): \Hardened\ShellCommand {}
 
         /**
          * Inherit only the specified environment variable names.
          */
-        public function inheritEnvs(array $envs) {}
+        public function inheritEnvs(array $envs): \Hardened\ShellCommand {}
 
         /**
          * Pass a single environment variable to the child.
          */
-        public function passEnv(string $key, string $value) {}
+        public function passEnv(string $key, string $value): \Hardened\ShellCommand {}
 
         /**
-         * join numeric or flag-style arguments from a PHP table.
+         * Join numeric or flag-style arguments from a PHP table.
          *
          * Numeric keys => positional args; string keys => `--key value`.
          */
@@ -209,7 +222,7 @@ namespace Hardened {
         public function topLevelCommands(): ?array {}
 
         /**
-         * Constructs a new `ShellCommand` using the user’s login shell.
+         * Constructs a new `ShellCommand` using the user's login shell.
          *
          * Looks up the `SHELL` environment variable, or falls back to `/bin/sh` if unset.
          *
@@ -230,7 +243,7 @@ namespace Hardened {
          *
          * # Returns
          * - `int`
-         *   The process’s exit code (`0` on success, `-1` if killed by signal or timed out).
+         *   The process's exit code (`0` on success, `-1` if killed by signal or timed out).
          *
          * # Exceptions
          * - Throws `Exception` if the process cannot be spawned.
@@ -302,7 +315,7 @@ namespace Hardened {
          * # Errors
          * Throws an exception if parsing any provided hostname fails.
          */
-        public function equalsAny(mixed $hostnames): bool {}
+        public function equalsAny(mixed ...$hostnames): bool {}
 
         /**
          * Compares this hostname with the hostname extracted from a URL.
@@ -324,7 +337,7 @@ namespace Hardened {
          * # Errors
          * Throws an exception if parsing any URL or hostname fails.
          */
-        public function equalsAnyUrl(mixed $urls): bool {}
+        public function equalsAnyUrl(mixed ...$urls): bool {}
 
         /**
          * Checks if this hostname is a subdomain of the given hostname.
@@ -346,7 +359,7 @@ namespace Hardened {
          * # Errors
          * Throws an exception if parsing any provided hostname fails.
          */
-        public function subdomainOfAny(mixed $hosts): bool {}
+        public function subdomainOfAny(mixed ...$hosts): bool {}
 
         /**
          * Checks if this hostname is a subdomain of the hostname extracted from a URL.
@@ -369,6 +382,46 @@ namespace Hardened {
          * Throws an exception if parsing any URL or hostname fails.
          */
         public function subdomainOfAnyUrl(array $urls): bool {}
+
+        /**
+         * Returns true if this hostname is an IPv4 address.
+         *
+         * # Returns
+         * - `bool`: `true` if the hostname is an IPv4 address.
+         */
+        public function isIpv4(): bool {}
+
+        /**
+         * Returns true if this hostname is an IPv6 address.
+         *
+         * # Returns
+         * - `bool`: `true` if the hostname is an IPv6 address.
+         */
+        public function isIpv6(): bool {}
+
+        /**
+         * Returns true if this hostname is an IP address (either IPv4 or IPv6).
+         *
+         * # Returns
+         * - `bool`: `true` if the hostname is an IP address.
+         */
+        public function isIp(): bool {}
+
+        /**
+         * Returns true if this hostname is a domain name (not an IP address).
+         *
+         * # Returns
+         * - `bool`: `true` if the hostname is a domain name.
+         */
+        public function isDomain(): bool {}
+
+        /**
+         * Returns the string representation of this hostname.
+         *
+         * # Returns
+         * - `string`: The normalized hostname string.
+         */
+        public function __toString(): string {}
 
         /**
          * Constructs a new Hostname instance (alias for `from`).
@@ -473,7 +526,7 @@ namespace Hardened {
         public function path(): string {}
 
         /**
-         * Check if the path’s extension is in the allowed list.
+         * Check if the path's extension is in the allowed list.
          *
          * # Parameters
          * - `allowed`: PHP array of allowed extensions (strings, without leading dot), case-insensitive.
@@ -484,7 +537,7 @@ namespace Hardened {
         public function validateExtension(array $allowed): bool {}
 
         /**
-         * Check if the path’s extension is a common image type.
+         * Check if the path's extension is a common image type.
          *
          * # Returns
          * - `bool` `true` if extension is one of `["png","jpg","jpeg","gif","webp","bmp","tiff","svg"]`.
@@ -492,7 +545,7 @@ namespace Hardened {
         public function validateExtensionImage(): bool {}
 
         /**
-         * Check if the path’s extension is a common video type.
+         * Check if the path's extension is a common video type.
          *
          * # Returns
          * - `bool` `true` if extension is one of `["mp4","mov","avi","mkv","webm","flv"]`.
@@ -500,7 +553,7 @@ namespace Hardened {
         public function validateExtensionVideo(): bool {}
 
         /**
-         * Check if the path’s extension is a common audio type.
+         * Check if the path's extension is a common audio type.
          *
          * # Returns
          * - `bool` `true` if extension is one of `["mp3","wav","ogg","flac","aac"]`.
@@ -508,12 +561,48 @@ namespace Hardened {
         public function validateExtensionAudio(): bool {}
 
         /**
-         * Check if the path’s extension is a common document type.
+         * Check if the path's extension is a common document type.
          *
          * # Returns
          * - `bool` `true` if extension is one of `["pdf","doc","docx","xls","xlsx","ppt","pptx"]`.
          */
         public function validateExtensionDocument(): bool {}
+
+        /**
+         * Returns true if the path is absolute (starts with root or drive prefix).
+         *
+         * # Returns
+         * - `bool` `true` if the path is absolute.
+         */
+        public function isAbsolute(): bool {}
+
+        /**
+         * Returns true if the path is relative (not absolute).
+         *
+         * # Returns
+         * - `bool` `true` if the path is relative.
+         */
+        public function isRelative(): bool {}
+
+        /**
+         * Returns true if the path tried to escape its base directory during normalization.
+         *
+         * This is useful for detecting directory traversal attempts.
+         * A path "escapes" if it contains leading `..` components that would go above
+         * the starting directory, or if it starts with a root/prefix.
+         *
+         * # Returns
+         * - `bool` `true` if the path escaped during normalization.
+         */
+        public function hasEscaped(): bool {}
+
+        /**
+         * Returns the file extension, if any.
+         *
+         * # Returns
+         * - `?string` The extension without the leading dot, or `null` if none.
+         */
+        public function extension(): ?string {}
 
         /**
          * Constructs a new PathObj instance (alias for `from`).
@@ -801,7 +890,7 @@ namespace Hardened\Sanitizers {
          * # Returns
          * - HtmlSanitizer A new sanitizer instance.
          */
-        public static function default(): \Hardened\Sanitizers\HtmlSanitizer {}
+        public static function Default(): \Hardened\Sanitizers\HtmlSanitizer {}
 
         /**
          * Denies all relative URLs in attributes.
@@ -1279,11 +1368,116 @@ namespace Hardened\Sanitizers {
          */
         public function __construct() {}
     }
+
+    class SvgSanitizer {
+        const PRESET_STRICT = null;
+
+        const PRESET_STANDARD = null;
+
+        const PRESET_PERMISSIVE = null;
+
+        /**
+         * Create a new SvgSanitizer with default (standard) settings
+         */
+        public static function Default(): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Create a sanitizer with a named preset
+         */
+        public static function withPreset(string $preset_name): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Static method for file-based bomb detection (throws on dangerous SVG)
+         */
+        public static function defuse(string $path, ?int $max_dimension): mixed {}
+
+        /**
+         * Sanitize SVG content string
+         */
+        public function clean(string $svg): string {}
+
+        /**
+         * Sanitize SVG file and return cleaned content
+         */
+        public function cleanFile(string $path): string {}
+
+        /**
+         * Check if SVG content is safe without modification
+         */
+        public function isSafe(string $svg): bool {}
+
+        /**
+         * Check if SVG file is safe without modification
+         */
+        public function isSafeFile(string $path): bool {}
+
+        /**
+         * Set allowed SVG elements (overwrites defaults)
+         */
+        public function allowElements(array $elements): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Add elements to the allowlist
+         */
+        public function addAllowedElements(array $elements): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Remove elements from the allowlist
+         */
+        public function removeElements(array $elements): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Set allowed attributes (overwrites defaults)
+         */
+        public function allowAttributes(array $attributes): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Add attributes to the allowlist
+         */
+        public function addAllowedAttributes(array $attributes): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Remove attributes from the allowlist
+         */
+        public function removeAttributes(array $attributes): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Set maximum allowed dimension (width/height/viewBox)
+         */
+        public function setMaxDimension(int $max): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Set maximum nesting depth
+         */
+        public function setMaxNestingDepth(int $max): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Enable/disable blocking of external references (http/https URLs)
+         */
+        public function blockExternalReferences(bool $block): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Enable/disable blocking of data: URIs
+         */
+        public function blockDataUris(bool $block): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Enable/disable XML comments removal
+         */
+        public function stripComments(bool $strip): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Allow relative URLs
+         */
+        public function allowRelativeUrls(bool $allow): \Hardened\Sanitizers\SvgSanitizer {}
+
+        public function __construct() {}
+    }
 }
 
 namespace Hardened\Sanitizers\File {
     /**
-     * Engine for detecting “PNG bombs” (images with unreasonable dimensions).
+     * Engine for detecting "PNG bombs" (images with unreasonable dimensions).
      */
     class PngSanitizer {
         /**
@@ -1293,8 +1487,8 @@ namespace Hardened\Sanitizers\File {
          * - `path`: `string` Filesystem path to the PNG file.
          *
          * # Returns
-         * - `bool` `true` if the file is a PNG *and* has width or height > 10000,
-         *   or if it’s invalid PNG with missing IHDR. Returns `false` if it’s not
+         * - `bool` `true` if the file is a PNG *and* has width or height > 10000,
+         *   or if it's invalid PNG with missing IHDR. Returns `false` if it's not
          *   a PNG or has acceptable dimensions.
          *
          * # Exceptions
@@ -1323,18 +1517,18 @@ namespace Hardened\Sanitizers\File {
          * Perform archive‐bomb detection on a file.
          *
          * This internal helper examines the file at `path` and returns an error if it
-         * appears to be a “bomb” (i.e. an archive whose reported uncompressed size
+         * appears to be a "bomb" (i.e. an archive whose reported uncompressed size
          * far exceeds its on‐disk compressed size or mismatches the local header).
          *
          * **ZIP**:
          * - Reads the central directory to sum the uncompressed sizes of all entries.
-         * - Reads the 4‐byte little‐endian uncompressed size from the local file header at offset 22.
+         * - Reads the 4‐byte little‐endian uncompressed size from the local file header at offset 22.
          * - Fails if those two values differ.
          *
          * **RAR**:
          * - Computes the on‐disk file size.
-         * - Lists the first entry’s `unpacked_size` and divides by the compressed size.
-         * - Fails if that ratio ≥ `max_ratio` (default 1000).
+         * - Lists the first entry's `unpacked_size` and divides by the compressed size.
+         * - Fails if that ratio ≥ `max_ratio` (default 1000).
          *
          * # Parameters
          * - `path`: Filesystem path to the archive file to inspect.
@@ -2190,7 +2384,7 @@ namespace Hardened\SecurityHeaders\CrossOrigin {
         /**
          * Specify which origins are allowed to access the resource.
          *
-         * Browsers will only allow cross-origin requests if the request’s
+         * Browsers will only allow cross-origin requests if the request's
          * `Origin` header matches one of these values. Use `["*"]` to allow
          * any origin (note: this will disable credentials).
          *
@@ -2199,7 +2393,7 @@ namespace Hardened\SecurityHeaders\CrossOrigin {
          *   or `["*"]` for a wildcard that permits all origins.
          *
          * # Behavior
-         * - If the request’s `Origin` header is not in this list, the browser
+         * - If the request's `Origin` header is not in this list, the browser
          *   will block the response.
          *
          * # Returns
