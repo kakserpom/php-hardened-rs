@@ -209,6 +209,7 @@ impl PathObj {
     }
 
     /// Get the directory name (similar to `dirname()`).
+    #[php(name = "getParent")]
     fn parent(&self) -> Option<PathObj> {
         self.inner.parent().and_then(Path::to_str).map(|x| {
             let (inner, escaped) = normalize_lexically(x);

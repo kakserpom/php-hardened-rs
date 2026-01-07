@@ -18,7 +18,7 @@ pub struct ResourceSharing {
 #[php_impl]
 impl ResourceSharing {
     #[php_const]
-    const SELF: &str = "self";
+    const ORIGIN_SELF: &str = "self";
 
     /// Constructs a new CORS policy with default settings (no restrictions).
     ///
@@ -198,6 +198,19 @@ impl ResourceSharing {
     }
 }
 
+impl Default for ResourceSharing {
+    fn default() -> Self {
+        Self {
+            allow_origins: Vec::new(),
+            allow_methods: Vec::new(),
+            allow_headers: Vec::new(),
+            allow_credentials: false,
+            expose_headers: Vec::new(),
+            max_age: 0,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::ResourceSharing;
@@ -205,14 +218,14 @@ mod tests {
 
     #[test]
     fn test_default_policy_empty() {
-        let cp = ResourceSharing::__construct();
+        let cp = ResourceSharing::default();
         let headers = cp.build();
         assert!(headers.is_empty(), "Expected no headers by default");
     }
 
     #[test]
     fn test_allow_origins_only() {
-        let mut cp = ResourceSharing::__construct();
+        let mut cp = ResourceSharing::default();
         cp.allow_origins(vec!["https://example.com".to_string(), "*".to_string()]);
         let headers = cp.build();
         assert_eq!(
@@ -226,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_allow_methods_only() {
-        let mut cp = ResourceSharing::__construct();
+        let mut cp = ResourceSharing::default();
         cp.allow_methods(vec!["GET".to_string(), "POST".to_string()]);
         let headers = cp.build();
         assert_eq!(
@@ -240,7 +253,7 @@ mod tests {
 
     #[test]
     fn test_allow_headers_only() {
-        let mut cp = ResourceSharing::__construct();
+        let mut cp = ResourceSharing::default();
         cp.allow_headers(vec!["Content-Type".to_string(), "X-Custom".to_string()]);
         let headers = cp.build();
         assert_eq!(
@@ -254,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_allow_credentials_only() {
-        let mut cp = ResourceSharing::__construct();
+        let mut cp = ResourceSharing::default();
         cp.allow_credentials(true);
         let headers = cp.build();
         assert_eq!(
@@ -268,7 +281,7 @@ mod tests {
 
     #[test]
     fn test_expose_headers_only() {
-        let mut cp = ResourceSharing::__construct();
+        let mut cp = ResourceSharing::default();
         cp.expose_headers(vec!["X-Exposed".to_string()]);
         let headers = cp.build();
         assert_eq!(
@@ -282,7 +295,7 @@ mod tests {
 
     #[test]
     fn test_max_age_only() {
-        let mut cp = ResourceSharing::__construct();
+        let mut cp = ResourceSharing::default();
         cp.max_age(3600);
         let headers = cp.build();
         assert_eq!(
@@ -294,7 +307,7 @@ mod tests {
 
     #[test]
     fn test_full_policy_combination() {
-        let mut cp = ResourceSharing::__construct();
+        let mut cp = ResourceSharing::default();
         cp.allow_origins(vec!["https://foo".to_string()]);
         cp.allow_methods(vec!["GET".to_string()]);
         cp.allow_headers(vec!["X-Test".to_string()]);

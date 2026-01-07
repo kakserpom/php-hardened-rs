@@ -116,7 +116,7 @@ pub enum Rule {
 pub enum Keyword {
     /// The `'self'` keyword, allowing the same origin.
     #[strum(serialize = "self")]
-    _Self,
+    SelfOrigin,
 
     /// The `'unsafe-inline'` keyword, allowing inline scripts or styles.
     UnsafeInline,
@@ -344,6 +344,15 @@ impl ContentSecurityPolicy {
     }
 }
 
+impl Default for ContentSecurityPolicy {
+    fn default() -> Self {
+        Self {
+            src_map: Default::default(),
+            nonce: None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{ContentSecurityPolicy, Keyword, Rule};
@@ -351,7 +360,7 @@ mod tests {
 
     #[test]
     fn build_empty_policy() {
-        let mut csp = ContentSecurityPolicy::__construct();
+        let mut csp = ContentSecurityPolicy::default();
         let header = csp.build().unwrap();
         assert!(
             header.is_empty(),
@@ -361,7 +370,7 @@ mod tests {
 
     #[test]
     fn build_none_directive() {
-        let mut csp = ContentSecurityPolicy::__construct();
+        let mut csp = ContentSecurityPolicy::default();
         csp.src_map
             .insert(Rule::DefaultSrc, (Vec::new(), Vec::new()));
         let header = csp.build().unwrap();
@@ -370,19 +379,19 @@ mod tests {
 
     #[test]
     fn build_single_keyword() {
-        let mut csp = ContentSecurityPolicy::__construct();
+        let mut csp = ContentSecurityPolicy::default();
         csp.src_map
-            .insert(Rule::DefaultSrc, (vec![Keyword::_Self], Vec::new()));
+            .insert(Rule::DefaultSrc, (vec![Keyword::SelfOrigin], Vec::new()));
         let header = csp.build().unwrap();
         assert_eq!(header, "default-src 'self'");
     }
 
     #[test]
     fn build_keyword_and_source() {
-        let mut csp = ContentSecurityPolicy::__construct();
+        let mut csp = ContentSecurityPolicy::default();
         csp.src_map.insert(
             Rule::DefaultSrc,
-            (vec![Keyword::_Self], vec!["example.com".into()]),
+            (vec![Keyword::SelfOrigin], vec!["example.com".into()]),
         );
         let header = csp.build().unwrap();
         assert_eq!(header, "default-src 'self' example.com");
@@ -390,12 +399,12 @@ mod tests {
 
     #[test]
     fn build_multiple_directives_ordered() {
-        let mut csp = ContentSecurityPolicy::__construct();
+        let mut csp = ContentSecurityPolicy::default();
         // insert in reverse order
         csp.src_map
-            .insert(Rule::ScriptSrc, (vec![Keyword::_Self], Vec::new()));
+            .insert(Rule::ScriptSrc, (vec![Keyword::SelfOrigin], Vec::new()));
         csp.src_map
-            .insert(Rule::DefaultSrc, (vec![Keyword::_Self], Vec::new()));
+            .insert(Rule::DefaultSrc, (vec![Keyword::SelfOrigin], Vec::new()));
         let header = csp.build().unwrap();
         // BTreeMap orders DefaultSrc before ScriptSrc
         assert_eq!(header, "default-src 'self';script-src 'self'");
@@ -403,7 +412,7 @@ mod tests {
 
     #[test]
     fn nonce_generation_and_reset() {
-        let mut csp = ContentSecurityPolicy::__construct();
+        let mut csp = ContentSecurityPolicy::default();
         csp.src_map
             .insert(Rule::DefaultSrc, (vec![Keyword::Nonce], Vec::new()));
         // first build generates a nonce

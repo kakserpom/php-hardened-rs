@@ -31,7 +31,7 @@ impl SvgSanitizer {
     pub const PRESET_PERMISSIVE: &'static str = "permissive";
 
     /// Create a new SvgSanitizer with default (standard) settings
-    pub fn _default() -> Self {
+    pub fn new_default() -> Self {
         let preset = Preset::Standard;
         let mut builder = Builder::new();
 
@@ -59,7 +59,7 @@ impl SvgSanitizer {
     }
 
     fn __construct() -> Self {
-        Self::_default()
+        Self::new_default()
     }
 
     /// Create a sanitizer with a named preset
@@ -311,6 +311,35 @@ impl SvgSanitizer {
     }
 }
 
+impl Default for SvgSanitizer {
+    fn default() -> Self {
+        let preset = Preset::Standard;
+        let mut builder = Builder::new();
+
+        // Configure allowed elements
+        builder.tags(preset.elements());
+
+        // Configure allowed attributes
+        builder.generic_attributes(preset.attributes());
+
+        // By default, block ALL external URLs for SVG (only allow fragment references like #id)
+        // This is the secure default - external references can be used for data exfiltration
+        let empty_schemes: HashSet<String> = HashSet::new();
+        builder.url_schemes(empty_schemes);
+        builder.url_relative(UrlRelative::Deny);
+
+        // Strip comments for security
+        builder.strip_comments(true);
+
+        Self {
+            inner: Some(builder),
+            max_dimension: 10_000,
+            max_nesting_depth: 100,
+            block_data_uris: true,
+        }
+    }
+}
+
 impl SvgSanitizer {
     /// Validate SVG dimensions to prevent SVG bombs
     /// Checks ALL occurrences of dimension attributes (for multiple SVG roots)
@@ -437,7 +466,7 @@ mod tests {
 
     #[test]
     fn test_basic_sanitization() {
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer.clean("<svg><rect/></svg>".to_string()).unwrap();
         assert!(result.contains("svg"));
         assert!(result.contains("rect"));
@@ -445,7 +474,7 @@ mod tests {
 
     #[test]
     fn test_script_removal() {
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><script>alert(1)</script><rect/></svg>".to_string())
             .unwrap();
@@ -455,7 +484,7 @@ mod tests {
 
     #[test]
     fn test_event_handler_removal() {
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><rect onclick=\"alert(1)\"/></svg>".to_string())
             .unwrap();
@@ -465,21 +494,21 @@ mod tests {
 
     #[test]
     fn test_svg_bomb_detection() {
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer.clean("<svg viewBox=\"0 0 100000 100000\"></svg>".to_string());
         assert!(result.is_err());
     }
 
     #[test]
     fn test_is_safe() {
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         assert!(sanitizer.is_safe("<svg><rect width=\"100\" height=\"100\"/></svg>".to_string()));
         assert!(!sanitizer.is_safe("<svg viewBox=\"0 0 100000 100000\"></svg>".to_string()));
     }
 
     #[test]
     fn test_foreign_object_blocked() {
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><foreignObject><div>HTML</div></foreignObject></svg>".to_string())
             .unwrap();
@@ -519,7 +548,7 @@ mod tests {
     #[test]
     fn test_bypass_case_insensitive_viewbox() {
         // VULNERABILITY: extract_attribute is case-sensitive
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result =
             sanitizer.clean("<svg VIEWBOX=\"0 0 100000 100000\"><rect/></svg>".to_string());
         // This SHOULD fail but currently passes (bypass!)
@@ -532,7 +561,7 @@ mod tests {
     #[test]
     fn test_bypass_tab_in_attribute() {
         // VULNERABILITY: extract_attribute doesn't handle tabs
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result =
             sanitizer.clean("<svg viewBox\t=\"0 0 100000 100000\"><rect/></svg>".to_string());
         assert!(result.is_err(), "BYPASS: Tab before = not detected");
@@ -541,7 +570,7 @@ mod tests {
     #[test]
     fn test_bypass_nested_svg() {
         // Nested SVG with large dimensions
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><svg viewBox=\"0 0 100000 100000\"><rect/></svg></svg>".to_string());
         // First viewBox is from nested SVG - should still be caught
@@ -554,7 +583,7 @@ mod tests {
     #[test]
     fn test_bypass_animate_element() {
         // <animate> element can be dangerous
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean(
                 "<svg><animate attributeName=\"href\" to=\"javascript:alert(1)\"/></svg>"
@@ -570,7 +599,7 @@ mod tests {
     #[test]
     fn test_bypass_set_element() {
         // <set> element can inject attributes
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><set attributeName=\"onmouseover\" to=\"alert(1)\"/></svg>".to_string())
             .unwrap();
@@ -583,7 +612,7 @@ mod tests {
     #[test]
     fn test_bypass_use_external_reference() {
         // <use> with external reference
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><use href=\"https://evil.com/malware.svg#payload\"/></svg>".to_string())
             .unwrap();
@@ -596,7 +625,7 @@ mod tests {
     #[test]
     fn test_bypass_xlink_href() {
         // xlink:href attribute
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean(
                 "<svg><a xlink:href=\"javascript:alert(1)\"><text>click</text></a></svg>"
@@ -612,7 +641,7 @@ mod tests {
     #[test]
     fn test_bypass_data_uri_svg() {
         // data: URI containing SVG with script
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = "<svg><image href=\"data:image/svg+xml,<svg onload='alert(1)'/>\"/></svg>";
         let result = sanitizer.clean(payload.to_string()).unwrap();
         assert!(
@@ -624,7 +653,7 @@ mod tests {
     #[test]
     fn test_bypass_css_import() {
         // CSS @import in style element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean(
                 "<svg><style>@import url(\"https://evil.com/steal.css\");</style><rect/></svg>"
@@ -640,7 +669,7 @@ mod tests {
     #[test]
     fn test_bypass_html_entity_in_attr_name() {
         // HTML entity encoding in attribute
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         // viewBox with HTML entity for 'B'
         let result =
             sanitizer.clean("<svg view&#66;ox=\"0 0 100000 100000\"><rect/></svg>".to_string());
@@ -651,7 +680,7 @@ mod tests {
     #[test]
     fn test_bypass_svg_onload() {
         // SVG onload event
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg onload=\"alert(1)\"><rect/></svg>".to_string())
             .unwrap();
@@ -664,7 +693,7 @@ mod tests {
     #[test]
     fn test_bypass_handler_case() {
         // Uppercase event handler
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><rect ONCLICK=\"alert(1)\"/></svg>".to_string())
             .unwrap();
@@ -679,7 +708,7 @@ mod tests {
     #[test]
     fn test_bypass_scientific_notation_dimensions() {
         // Scientific notation could bypass numeric parsing
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer.clean("<svg viewBox=\"0 0 1e10 1e10\"><rect/></svg>".to_string());
         assert!(
             result.is_err(),
@@ -690,7 +719,7 @@ mod tests {
     #[test]
     fn test_bypass_negative_dimensions() {
         // Negative dimensions in viewBox could cause issues
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         // Large negative + large positive = huge render area
         let result = sanitizer
             .clean("<svg viewBox=\"-50000 -50000 100000 100000\"><rect/></svg>".to_string());
@@ -703,7 +732,7 @@ mod tests {
     #[test]
     fn test_bypass_infinity_dimension() {
         // Infinity could bypass checks
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg width=\"Infinity\" height=\"Infinity\"><rect/></svg>".to_string());
         println!("Infinity result: {:?}", result);
@@ -719,7 +748,7 @@ mod tests {
     #[test]
     fn test_bypass_null_byte_in_attribute() {
         // Null byte injection
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><rect on\0click=\"alert(1)\"/></svg>".to_string())
             .unwrap();
@@ -732,7 +761,7 @@ mod tests {
     #[test]
     fn test_bypass_newline_in_attribute_value() {
         // Newline in javascript URL
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean(
                 "<svg><a href=\"java\nscript:alert(1)\"><text>click</text></a></svg>".to_string(),
@@ -747,7 +776,7 @@ mod tests {
     #[test]
     fn test_bypass_feimage_external() {
         // feImage can load external resources
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean(
                 "<svg><filter><feImage href=\"https://evil.com/track.svg\"/></filter></svg>"
@@ -763,7 +792,7 @@ mod tests {
     #[test]
     fn test_bypass_image_external() {
         // <image> with external reference
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><image xlink:href=\"https://evil.com/pixel.gif\"/></svg>".to_string())
             .unwrap();
@@ -777,7 +806,7 @@ mod tests {
     fn test_bypass_style_attribute_expression() {
         // CSS expression in style attribute
         // style attribute is NOT allowed by default due to CSS injection risks
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><rect style=\"width:expression(alert(1))\"/></svg>".to_string())
             .unwrap();
@@ -797,7 +826,7 @@ mod tests {
     fn test_bypass_style_attribute_url_external() {
         // External URL in style attribute
         // style attribute is NOT allowed by default due to CSS injection risks
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean(
                 "<svg><rect style=\"fill:url(https://evil.com/gradient.svg)\"/></svg>".to_string(),
@@ -818,7 +847,7 @@ mod tests {
     #[test]
     fn test_bypass_mpath_external() {
         // mpath with external reference
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer.clean("<svg><animateMotion><mpath href=\"https://evil.com/path.svg#p\"/></animateMotion></svg>".to_string()).unwrap();
         assert!(
             !result.contains("evil.com"),
@@ -829,7 +858,7 @@ mod tests {
     #[test]
     fn test_bypass_handler_element() {
         // <handler> element (SVG 1.2)
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean(
                 "<svg><handler type=\"application/ecmascript\">alert(1)</handler></svg>"
@@ -845,7 +874,7 @@ mod tests {
     #[test]
     fn test_bypass_listener_element() {
         // <listener> element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><listener event=\"click\" handler=\"#h\"/></svg>".to_string())
             .unwrap();
@@ -858,7 +887,7 @@ mod tests {
     #[test]
     fn test_bypass_xml_stylesheet() {
         // XML stylesheet processing instruction
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<?xml-stylesheet href=\"javascript:alert(1)\"?><svg><rect/></svg>".to_string())
             .unwrap();
@@ -875,7 +904,7 @@ mod tests {
     #[test]
     fn test_bypass_entity_expansion() {
         // Billion laughs / XML bomb via entities
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY lol "lol"><!ENTITY lol2 "&lol;&lol;&lol;">]><svg>&lol2;</svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Entity result: {}", result);
@@ -892,7 +921,7 @@ mod tests {
     #[test]
     fn test_bypass_cdata_script() {
         // CDATA section containing script
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><script><![CDATA[alert(1)]]></script></svg>".to_string())
             .unwrap();
@@ -905,7 +934,7 @@ mod tests {
     #[test]
     fn test_bypass_xmlns_redefinition() {
         // Redefine SVG namespace to something else
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean(
                 "<svg xmlns=\"http://www.w3.org/1999/xhtml\"><script>alert(1)</script></svg>"
@@ -921,7 +950,7 @@ mod tests {
     #[test]
     fn test_bypass_viewbox_comma_separator() {
         // viewBox with comma separators
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result =
             sanitizer.clean("<svg viewBox=\"0,0,100000,100000\"><rect/></svg>".to_string());
         assert!(
@@ -933,7 +962,7 @@ mod tests {
     #[test]
     fn test_bypass_multiple_svg_roots() {
         // Multiple SVG root elements
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer.clean(
             "<svg viewBox=\"0 0 100 100\"></svg><svg viewBox=\"0 0 100000 100000\"></svg>"
                 .to_string(),
@@ -947,7 +976,7 @@ mod tests {
     #[test]
     fn test_bypass_unicode_tag_name() {
         // Unicode lookalike characters in tag names
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         // Using fullwidth 's' (U+FF53) - ｓcript
         let result = sanitizer
             .clean("<svg><\u{FF53}cript>alert(1)</\u{FF53}cript></svg>".to_string())
@@ -970,7 +999,7 @@ mod tests {
     #[test]
     fn test_bypass_transform_huge_scale() {
         // Huge transform scale could cause resource exhaustion
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><rect transform=\"scale(1000000000)\"/></svg>".to_string())
             .unwrap();
@@ -981,7 +1010,7 @@ mod tests {
     #[test]
     fn test_bypass_deep_nesting() {
         // Deep nesting could cause stack overflow
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let deep = "<g>".repeat(200) + "<rect/>" + &"</g>".repeat(200);
         let svg = format!("<svg>{}</svg>", deep);
         let result = sanitizer.clean(svg);
@@ -992,7 +1021,7 @@ mod tests {
     #[test]
     fn test_bypass_srcset_like_attribute() {
         // srcset-like attribute (shouldn't exist in SVG but test anyway)
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><image srcset=\"https://evil.com/1.png 1x\"/></svg>".to_string())
             .unwrap();
@@ -1005,7 +1034,7 @@ mod tests {
     #[test]
     fn test_bypass_formaction_attribute() {
         // HTML-specific attributes that shouldn't be in SVG
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><rect formaction=\"https://evil.com/\"/></svg>".to_string())
             .unwrap();
@@ -1023,7 +1052,7 @@ mod tests {
         // NOTE: This is NOT a vulnerability in modern browsers. UTF-7 XSS only worked
         // in IE7 and earlier. Modern browsers don't decode UTF-7 automatically.
         // The +ADw-script+AD4- sequence is just plain text, not executable code.
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = "<svg>+ADw-script+AD4-alert(1)+ADw-/script+AD4-</svg>";
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("UTF-7 result: {}", result);
@@ -1044,7 +1073,7 @@ mod tests {
     #[test]
     fn test_bypass_html_entity_decimal() {
         // Decimal HTML entities in dangerous places
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         // &#60; = <, &#62; = >
         let payload = "<svg>&#60;script&#62;alert(1)&#60;/script&#62;</svg>";
         let result = sanitizer.clean(payload.to_string()).unwrap();
@@ -1058,7 +1087,7 @@ mod tests {
     #[test]
     fn test_bypass_html_entity_hex() {
         // Hex HTML entities
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         // &#x3c; = <, &#x3e; = >
         let payload = "<svg>&#x3c;script&#x3e;alert(1)&#x3c;/script&#x3e;</svg>";
         let result = sanitizer.clean(payload.to_string()).unwrap();
@@ -1072,7 +1101,7 @@ mod tests {
     #[test]
     fn test_bypass_mixed_case_event() {
         // Mixed case event handlers
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer
             .clean("<svg><rect OnClIcK=\"alert(1)\"/></svg>".to_string())
             .unwrap();
@@ -1085,7 +1114,7 @@ mod tests {
     #[test]
     fn test_bypass_data_uri_base64() {
         // Base64 encoded data URI
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         // data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9ImFsZXJ0KDEpIi8+ = <svg onload="alert(1)"/>
         let payload = r#"<svg><image href="data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9ImFsZXJ0KDEpIi8+"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
@@ -1099,7 +1128,7 @@ mod tests {
     #[test]
     fn test_bypass_use_fragment_injection() {
         // <use> element with fragment that could reference dangerous content
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload =
             r##"<svg><defs><script id="x">alert(1)</script></defs><use href="#x"/></svg>"##;
         let result = sanitizer.clean(payload.to_string()).unwrap();
@@ -1113,7 +1142,7 @@ mod tests {
     #[test]
     fn test_bypass_svg_inside_desc() {
         // Nested SVG inside desc element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><desc><svg onload="alert(1)"/></desc></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("SVG in desc result: {}", result);
@@ -1126,7 +1155,7 @@ mod tests {
     #[test]
     fn test_bypass_attribute_without_quotes() {
         // Attribute value without quotes
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = "<svg><rect onclick=alert(1)/></svg>";
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Unquoted attr result: {}", result);
@@ -1139,7 +1168,7 @@ mod tests {
     #[test]
     fn test_bypass_attribute_backtick_quotes() {
         // Backtick quotes (browser quirk)
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = "<svg><rect onclick=`alert(1)`/></svg>";
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Backtick attr result: {}", result);
@@ -1152,7 +1181,7 @@ mod tests {
     #[test]
     fn test_bypass_closing_tag_in_attribute() {
         // Closing tag characters in attribute to confuse parser
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><rect fill="red" title="</rect><script>alert(1)</script>"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Close tag in attr result: {}", result);
@@ -1165,7 +1194,7 @@ mod tests {
     #[test]
     fn test_bypass_null_between_on_and_handler() {
         // Null byte between "on" and handler name
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = "<svg><rect on\x00click=\"alert(1)\"/></svg>";
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Null in event result: {}", result);
@@ -1179,7 +1208,7 @@ mod tests {
     #[test]
     fn test_bypass_svg_namespace_script() {
         // Script with SVG namespace
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload =
             r#"<svg xmlns="http://www.w3.org/2000/svg"><svg:script>alert(1)</svg:script></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
@@ -1193,7 +1222,7 @@ mod tests {
     #[test]
     fn test_bypass_xhtml_namespace_script() {
         // XHTML namespace to inject script
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload =
             r#"<svg><x:script xmlns:x="http://www.w3.org/1999/xhtml">alert(1)</x:script></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
@@ -1207,7 +1236,7 @@ mod tests {
     #[test]
     fn test_bypass_xml_space_preserve() {
         // xml:space="preserve" to keep dangerous whitespace
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg xml:space="preserve"><script>	alert(1)	</script></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         assert!(
@@ -1219,7 +1248,7 @@ mod tests {
     #[test]
     fn test_bypass_base_element() {
         // HTML base element to change URL resolution
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><base href="https://evil.com/"/><image href="image.png"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Base element result: {}", result);
@@ -1232,7 +1261,7 @@ mod tests {
     #[test]
     fn test_bypass_meta_refresh() {
         // HTML meta refresh
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload =
             r#"<svg><meta http-equiv="refresh" content="0;url=javascript:alert(1)"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
@@ -1246,7 +1275,7 @@ mod tests {
     #[test]
     fn test_bypass_object_element() {
         // Object element for embedding
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><object data="https://evil.com/malware.swf"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Object element result: {}", result);
@@ -1259,7 +1288,7 @@ mod tests {
     #[test]
     fn test_bypass_embed_element() {
         // Embed element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><embed src="https://evil.com/malware.swf"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Embed element result: {}", result);
@@ -1272,7 +1301,7 @@ mod tests {
     #[test]
     fn test_bypass_iframe_element() {
         // iframe element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><iframe src="javascript:alert(1)"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Iframe element result: {}", result);
@@ -1285,7 +1314,7 @@ mod tests {
     #[test]
     fn test_bypass_style_element_import() {
         // Style element with @import
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><style>@import url('https://evil.com/steal.css');</style></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Style import result: {}", result);
@@ -1298,7 +1327,7 @@ mod tests {
     #[test]
     fn test_bypass_style_element_expression() {
         // Style element with CSS expression
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><style>rect { width: expression(alert(1)); }</style><rect/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Style expression result: {}", result);
@@ -1311,7 +1340,7 @@ mod tests {
     #[test]
     fn test_bypass_style_element_behavior() {
         // Style element with behavior (IE)
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><style>rect { behavior: url('https://evil.com/evil.htc'); }</style><rect/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Style behavior result: {}", result);
@@ -1324,7 +1353,7 @@ mod tests {
     #[test]
     fn test_bypass_viewbox_scientific_large() {
         // Very large scientific notation
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer.clean("<svg viewBox=\"0 0 9e99 9e99\"></svg>".to_string());
         println!("Scientific large viewBox result: {:?}", result);
         assert!(
@@ -1336,7 +1365,7 @@ mod tests {
     #[test]
     fn test_bypass_width_scientific_large() {
         // Very large width in scientific notation
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let result = sanitizer.clean("<svg width=\"9e99\"></svg>".to_string());
         println!("Scientific large width result: {:?}", result);
         assert!(
@@ -1348,7 +1377,7 @@ mod tests {
     #[test]
     fn test_bypass_double_url_encoding() {
         // Double URL encoding in href
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         // %25 = %, so %256A = %6A = j
         let payload = r#"<svg><a href="%256Aavascript:alert(1)"><text>click</text></a></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
@@ -1363,7 +1392,7 @@ mod tests {
     #[test]
     fn test_bypass_unicode_escape_sequence() {
         // Unicode escape sequences in attribute
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><a href="\u006Aavascript:alert(1)"><text>click</text></a></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Unicode escape result: {}", result);
@@ -1376,7 +1405,7 @@ mod tests {
     #[test]
     fn test_bypass_html_comment_in_svg() {
         // HTML comments potentially hiding dangerous content
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><!--<script>-->alert(1)<!--</script>--></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("HTML comment result: {}", result);
@@ -1387,7 +1416,7 @@ mod tests {
     #[test]
     fn test_bypass_malformed_comment() {
         // Malformed comment that might confuse parsers
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = "<svg><!- -><script>alert(1)</script><!- -></svg>";
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Malformed comment result: {}", result);
@@ -1400,7 +1429,7 @@ mod tests {
     #[test]
     fn test_bypass_processing_instruction() {
         // XML processing instruction
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = "<?xml version=\"1.0\"?><?evil data=\"test\"?><svg><rect/></svg>";
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("Processing instruction result: {}", result);
@@ -1413,7 +1442,7 @@ mod tests {
     #[test]
     fn test_bypass_svg_in_title() {
         // SVG inside title element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><title><svg onload="alert(1)"/></title></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("SVG in title result: {}", result);
@@ -1426,7 +1455,7 @@ mod tests {
     #[test]
     fn test_bypass_textpath_external() {
         // textPath with external reference
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><text><textPath href="https://evil.com/path.svg#p">text</textPath></text></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("textPath external result: {}", result);
@@ -1439,7 +1468,7 @@ mod tests {
     #[test]
     fn test_bypass_clippath_external() {
         // clipPath with external reference
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><defs><clipPath id="c"><rect/></clipPath></defs><rect clip-path="url(https://evil.com/clip.svg#c)"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("clipPath external result: {}", result);
@@ -1452,7 +1481,7 @@ mod tests {
     #[test]
     fn test_bypass_mask_external() {
         // mask with external reference
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><rect mask="url(https://evil.com/mask.svg#m)"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("mask external result: {}", result);
@@ -1465,7 +1494,7 @@ mod tests {
     #[test]
     fn test_bypass_filter_external() {
         // filter with external reference
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><rect filter="url(https://evil.com/filter.svg#f)"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("filter external result: {}", result);
@@ -1478,7 +1507,7 @@ mod tests {
     #[test]
     fn test_bypass_fill_external_url() {
         // fill with external URL (could be used for data exfiltration)
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><rect fill="url(https://evil.com/gradient.svg#g)"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("fill external result: {}", result);
@@ -1491,7 +1520,7 @@ mod tests {
     #[test]
     fn test_bypass_stroke_external_url() {
         // stroke with external URL
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><rect stroke="url(https://evil.com/pattern.svg#p)"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("stroke external result: {}", result);
@@ -1504,7 +1533,7 @@ mod tests {
     #[test]
     fn test_bypass_marker_external() {
         // marker with external reference
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><line marker-start="url(https://evil.com/marker.svg#m)" x1="0" y1="0" x2="100" y2="100"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("marker external result: {}", result);
@@ -1517,7 +1546,7 @@ mod tests {
     #[test]
     fn test_bypass_cursor_external() {
         // cursor with external reference
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><rect cursor="url(https://evil.com/cursor.svg)"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("cursor external result: {}", result);
@@ -1531,7 +1560,7 @@ mod tests {
     #[test]
     fn test_bypass_video_element() {
         // HTML5 video element (shouldn't be in SVG)
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><video src="https://evil.com/video.mp4" autoplay/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("video element result: {}", result);
@@ -1544,7 +1573,7 @@ mod tests {
     #[test]
     fn test_bypass_audio_element() {
         // HTML5 audio element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><audio src="https://evil.com/audio.mp3" autoplay/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("audio element result: {}", result);
@@ -1557,7 +1586,7 @@ mod tests {
     #[test]
     fn test_bypass_link_stylesheet() {
         // link element for stylesheets
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><link rel="stylesheet" href="https://evil.com/evil.css"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("link stylesheet result: {}", result);
@@ -1570,7 +1599,7 @@ mod tests {
     #[test]
     fn test_bypass_form_element() {
         // HTML form element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload =
             r#"<svg><form action="https://evil.com/steal"><input name="data"/></form></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
@@ -1584,7 +1613,7 @@ mod tests {
     #[test]
     fn test_bypass_input_element() {
         // HTML input element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><input onfocus="alert(1)" autofocus/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("input element result: {}", result);
@@ -1597,7 +1626,7 @@ mod tests {
     #[test]
     fn test_bypass_textarea_element() {
         // HTML textarea element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><textarea onfocus="alert(1)" autofocus/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("textarea element result: {}", result);
@@ -1610,7 +1639,7 @@ mod tests {
     #[test]
     fn test_bypass_button_element() {
         // HTML button element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><button onclick="alert(1)">Click</button></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("button element result: {}", result);
@@ -1623,7 +1652,7 @@ mod tests {
     #[test]
     fn test_bypass_marquee_element() {
         // HTML marquee element (legacy but dangerous)
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><marquee onstart="alert(1)">text</marquee></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("marquee element result: {}", result);
@@ -1636,7 +1665,7 @@ mod tests {
     #[test]
     fn test_bypass_isindex_element() {
         // HTML isindex element (deprecated but potentially dangerous)
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><isindex action="javascript:alert(1)"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("isindex element result: {}", result);
@@ -1649,7 +1678,7 @@ mod tests {
     #[test]
     fn test_bypass_math_element() {
         // MathML element (could contain scripts in some contexts)
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><math><maction actiontype="statusline">test</maction></math></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("math element result: {}", result);
@@ -1662,7 +1691,7 @@ mod tests {
     #[test]
     fn test_bypass_template_element() {
         // HTML template element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><template><script>alert(1)</script></template></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("template element result: {}", result);
@@ -1675,7 +1704,7 @@ mod tests {
     #[test]
     fn test_bypass_slot_element() {
         // HTML slot element (web components)
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><slot name="x" onclick="alert(1)"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("slot element result: {}", result);
@@ -1688,7 +1717,7 @@ mod tests {
     #[test]
     fn test_bypass_portal_element() {
         // HTML portal element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><portal src="https://evil.com/"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("portal element result: {}", result);
@@ -1701,7 +1730,7 @@ mod tests {
     #[test]
     fn test_bypass_noscript_element() {
         // noscript element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><noscript><img src=x onerror="alert(1)"/></noscript></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("noscript element result: {}", result);
@@ -1714,7 +1743,7 @@ mod tests {
     #[test]
     fn test_bypass_xmp_element() {
         // xmp element (legacy)
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><xmp><script>alert(1)</script></xmp></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("xmp element result: {}", result);
@@ -1727,7 +1756,7 @@ mod tests {
     #[test]
     fn test_bypass_plaintext_element() {
         // plaintext element (legacy)
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><plaintext><script>alert(1)</script></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("plaintext element result: {}", result);
@@ -1740,7 +1769,7 @@ mod tests {
     #[test]
     fn test_bypass_bgsound_element() {
         // bgsound element (IE legacy)
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><bgsound src="https://evil.com/sound.wav"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("bgsound element result: {}", result);
@@ -1753,7 +1782,7 @@ mod tests {
     #[test]
     fn test_bypass_applet_element() {
         // applet element (deprecated)
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><applet code="Evil.class" codebase="https://evil.com/"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("applet element result: {}", result);
@@ -1766,7 +1795,7 @@ mod tests {
     #[test]
     fn test_bypass_keygen_element() {
         // keygen element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><keygen autofocus onfocus="alert(1)"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("keygen element result: {}", result);
@@ -1779,7 +1808,7 @@ mod tests {
     #[test]
     fn test_bypass_source_element() {
         // source element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><source src="https://evil.com/video.mp4"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("source element result: {}", result);
@@ -1792,7 +1821,7 @@ mod tests {
     #[test]
     fn test_bypass_track_element() {
         // track element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><track src="https://evil.com/subtitles.vtt"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("track element result: {}", result);
@@ -1805,7 +1834,7 @@ mod tests {
     #[test]
     fn test_bypass_param_element() {
         // param element
-        let sanitizer = SvgSanitizer::_default();
+        let sanitizer = SvgSanitizer::default();
         let payload = r#"<svg><param name="movie" value="https://evil.com/evil.swf"/></svg>"#;
         let result = sanitizer.clean(payload.to_string()).unwrap();
         println!("param element result: {}", result);
