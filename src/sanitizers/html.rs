@@ -111,7 +111,6 @@ impl HtmlSanitizer {
 
 #[php_impl]
 impl HtmlSanitizer {
-
     /// Constructs a sanitizer with default configuration.
     ///
     /// # Returns
