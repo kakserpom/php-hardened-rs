@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/kakserpom/php-hardened-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/kakserpom/php-hardened-rs/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PHP 8.1+](https://img.shields.io/badge/PHP-8.1%2B-8892BF.svg)](https://php.net)
+[![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-8892BF.svg)](https://php.net)
 [![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 
 A PHP extension powered by **Rust** 🦀 and [ext-php-rs](https://github.com/extphprs/ext-php-rs), delivering
