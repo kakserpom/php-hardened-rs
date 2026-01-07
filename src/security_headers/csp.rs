@@ -191,7 +191,8 @@ pub enum Keyword {
 pub type Source = String;
 pub type CspSettings = (Vec<Keyword>, Vec<Source>);
 
-/// Your application’s CSP config.
+/// Your application's CSP config.
+#[derive(Default)]
 #[php_class]
 #[php(name = "Hardened\\SecurityHeaders\\ContentSecurityPolicy")]
 pub struct ContentSecurityPolicy {
@@ -341,15 +342,6 @@ impl ContentSecurityPolicy {
     /// Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.
     fn reset_nonce(&mut self) {
         self.nonce = None;
-    }
-}
-
-impl Default for ContentSecurityPolicy {
-    fn default() -> Self {
-        Self {
-            src_map: Default::default(),
-            nonce: None,
-        }
     }
 }
 

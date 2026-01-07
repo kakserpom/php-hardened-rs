@@ -4,6 +4,7 @@ use ext_php_rs::{php_class, php_const, php_impl};
 use std::collections::HashMap;
 
 /// CORS policy builder for HTTP responses.
+#[derive(Default)]
 #[php_class]
 #[php(name = "Hardened\\SecurityHeaders\\CrossOrigin\\ResourceSharing")]
 pub struct ResourceSharing {
@@ -195,19 +196,6 @@ impl ResourceSharing {
                 .map_err(|e| SecurityHeaderError::HeaderCallFailed(e.to_string()))?;
         }
         Ok(())
-    }
-}
-
-impl Default for ResourceSharing {
-    fn default() -> Self {
-        Self {
-            allow_origins: Vec::new(),
-            allow_methods: Vec::new(),
-            allow_headers: Vec::new(),
-            allow_credentials: false,
-            expose_headers: Vec::new(),
-            max_age: 0,
-        }
     }
 }
 
