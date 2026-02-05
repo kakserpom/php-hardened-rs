@@ -10,6 +10,7 @@ pub(crate) fn build(mut module: ModuleBuilder) -> ModuleBuilder {
     #[cfg(feature = "html_sanitizer")]
     {
         module = module.class::<html::HtmlSanitizer>();
+        module = module.enumeration::<html::Flag>();
     }
     #[cfg(feature = "file_sanitizers")]
     {

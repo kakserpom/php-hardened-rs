@@ -6,7 +6,7 @@ use Hardened\SecurityHeaders\CrossOrigin\ResourceSharing;
 $policy = new ResourceSharing();
 
 // Allow specific origins or use ['*'] for wildcard
-$policy->allowOrigins(['https://example.com', 'https://api.example.com', ResourceSharing::SELF]);
+$policy->allowOrigins(['https://example.com', 'https://api.example.com', ResourceSharing::ORIGIN_SELF]);
 
 // Permit HTTP methods
 $policy->allowMethods(['GET', 'POST', 'OPTIONS']);

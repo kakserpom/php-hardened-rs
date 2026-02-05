@@ -320,14 +320,15 @@ $result2 = Hardened\safe_exec('git', $args);
 
 - Provides a powerful fine-grained HTML sanitization using [Ammonia](https://github.com/rust-ammonia/ammonia).
 - Configuration methods for URL policies, tags, attributes, and filters.
-- Attribute filter callback support
+- Attribute filter callback support.
+- **Enum:** `HtmlSanitizerFlag` for truncation modes (`ExtendedGraphemes`, `Graphemes`, `Unicode`, `Ascii`, `PreserveWords`).
 - *A built-in truncator:*
-  `cleanAndTruncate($html, $max, $flags = ['e'], $etc = '…')` is useful when you need to get a snippet of a dynamic HTML
-  content. Length of `$etc` is included in the limit. Supported flags:
-    - `extended-graphemes` (or `e`) — units of `$max` will be Unicode extended grapheme clusters.
-    - `graphemes` (or `g`) — units of `$max` will be Unicode grapheme clusters.
-    - __default__` unicode` (or `u`) — units of  `$max` will be Unicode code points.
-    - `ascii` (or `a`) — units of  `$max` will be bytes. Even this mode doesn't chop Unicode code points in half.
+  `cleanAndTruncate($html, $max, $flags, $etc = '…')` is useful when you need to get a snippet of a dynamic HTML
+  content. Length of `$etc` is included in the limit. Supported flags (use `HtmlSanitizerFlag` enum):
+    - `HtmlSanitizerFlag::ExtendedGraphemes` — units of `$max` will be Unicode extended grapheme clusters.
+    - `HtmlSanitizerFlag::Graphemes` — units of `$max` will be Unicode grapheme clusters.
+    - `HtmlSanitizerFlag::Unicode` — _(default)_ units of `$max` will be Unicode code points.
+    - `HtmlSanitizerFlag::Ascii` — units of `$max` will be bytes. Even this mode doesn't chop Unicode code points in half.
 
 > Open HTML tags will automatically close at all times, but beware that added closing tags may cause the result length
 > to flow over `$max` if you are truncating.
@@ -339,6 +340,7 @@ $result2 = Hardened\safe_exec('git', $args);
 
 ```php
 use Hardened\Sanitizers\HtmlSanitizer;
+use Hardened\Sanitizers\HtmlSanitizerFlag;
 
 $sanitizer = HtmlSanitizer::default();
 var_dump($sanitizer->urlRelativeDeny()
@@ -362,19 +364,19 @@ var_dump($sanitizer->isValidUrl("foo"));
 // bool(false)
 
 // Truncate by extended grapheme clusters (default ellipsis)
-var_dump($sanitizer->cleanAndTruncate("<p>你好世界！</p>", 7, 'e'));
+var_dump($sanitizer->cleanAndTruncate("<p>你好世界！</p>", 7, [HtmlSanitizerFlag::ExtendedGraphemes]));
 // string(19) "<p>你好世…</p>"
 
 // Truncate by simple graphemes with custom suffix
-var_dump($sanitizer->cleanAndTruncate("<p>Курва<p>!!</p>!</p>", 20, 'g', ' (more)'));
+var_dump($sanitizer->cleanAndTruncate("<p>Курва<p>!!</p>!</p>", 20, [HtmlSanitizerFlag::Graphemes], ' (more)'));
 // Outputs: <p>abcdefghij (more)</p>
 
-// Truncate by characters
-var_dump($sanitizer->cleanAndTruncate("<p>Hello, world!</p>", 10, 'a'));
+// Truncate by characters (ASCII mode)
+var_dump($sanitizer->cleanAndTruncate("<p>Hello, world!</p>", 10, [HtmlSanitizerFlag::Ascii]));
 // Outputs: <p>12345…</p>
 
-// Truncate by bytes (valid UTF-8 boundary)
-var_dump($sanitizer->cleanAndTruncate("<p>доброеутро</p>", 20, 'u'));
+// Truncate by Unicode code points (valid UTF-8 boundary)
+var_dump($sanitizer->cleanAndTruncate("<p>доброеутро</p>", 20, [HtmlSanitizerFlag::Unicode]));
 // Outputs may vary but will not break UTF-8 sequences, e.g.: <p>доброеут…</p>
 ```
 
@@ -386,7 +388,7 @@ var_dump($sanitizer->cleanAndTruncate("<p>доброеутро</p>", 20, 'u'));
 |---------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
 | `default(): HtmlSanitizer`                                                                  | Construct a sanitizer with default configuration.                                                                     |
 | `clean(string $html): string`                                                               | Sanitize the given HTML string.                                                                                       |
-| `cleanAndTruncate(string $html, int $max, array[string] $flags, string $etc = '…'): string` | Sanitize HTML and truncate joining `$etc` if truncated.                                                               |
+| `cleanAndTruncate(string $html, int $max, HtmlSanitizerFlag[] $flags, string $etc = '…'): string` | Sanitize HTML and truncate joining `$etc` if truncated.                                                               |
 | `urlRelativeDeny(): void`                                                                   | Deny all relative URLs in attributes.                                                                                 |
 | `urlRelativePassthrough(): void`                                                            | Pass through relative URLs unchanged.                                                                                 |
 | `urlRelativeRewriteWithBase(string $base_url): void`                                        | Rewrite relative URLs using the given base URL.                                                                       |
@@ -690,58 +692,61 @@ try {
 ### `Hardened\SecurityHeaders\ContentSecurityPolicy`
 
 - Builder for HTTP Content-Security-Policy headers.
-- Configure directives (`default-src`, `script-src`, etc.) with keyword tokens and host sources via `setRule()`.
+- Configure directives (`default-src`, `script-src`, etc.) with `CspRule` enum and keyword tokens via `CspKeyword` enum.
 - Automatically generates nonces for `'nonce-…'` directives.
 - Produces a valid header string with `build()`, and convenience method `send()` to emit it.
 - Retrieve the last-generated nonce with `getNonce()`.
+- **Enums:** `CspRule` (directive names), `CspKeyword` (keyword tokens like `SelfOrigin`, `Nonce`, `UnsafeInline`, etc.)
 
 <details>
 <summary>Example</summary>
 
 ```php
 use Hardened\SecurityHeaders\ContentSecurityPolicy;
+use Hardened\SecurityHeaders\CspRule;
+use Hardened\SecurityHeaders\CspKeyword;
 
 // Create a new CSP builder
 $policy = new ContentSecurityPolicy();
 
 // default-src 'self' *.site.tld blob:
 $policy->setRule(
-    ContentSecurityPolicy::DEFAULT_SRC,
-    [ContentSecurityPolicy::SELF],
+    CspRule::DefaultSrc,
+    [CspKeyword::SelfOrigin],
     ['*.site.tld', 'blob:']
 );
 
 // script-src 'self' 'nonce-…' https://cdn.site.tld/js
 $policy->setRule(
-    ContentSecurityPolicy::SCRIPT_SRC,
-    [ContentSecurityPolicy::SELF, ContentSecurityPolicy::NONCE],
+    CspRule::ScriptSrc,
+    [CspKeyword::SelfOrigin, CspKeyword::Nonce],
     ['https://cdn.site.tld/js']
 );
 
 // style-src 'self' 'nonce-…' https://fonts.googleapis.com
 $policy->setRule(
-    ContentSecurityPolicy::STYLE_SRC,
-    [ContentSecurityPolicy::SELF, ContentSecurityPolicy::NONCE],
+    CspRule::StyleSrc,
+    [CspKeyword::SelfOrigin, CspKeyword::Nonce],
     ['https://fonts.googleapis.com']
 );
 
 // img-src 'self' data: *.images.site.tld
 $policy->setRule(
-    ContentSecurityPolicy::IMG_SRC,
-    [ContentSecurityPolicy::SELF],
+    CspRule::ImgSrc,
+    [CspKeyword::SelfOrigin],
     ['data:', '*.images.site.tld']
 );
 
 // connect-src 'self' https://api.site.tld
 $policy->setRule(
-    ContentSecurityPolicy::CONNECT_SRC,
-    [ContentSecurityPolicy::SELF],
+    CspRule::ConnectSrc,
+    [CspKeyword::SelfOrigin],
     ['https://api.site.tld']
 );
 
 // frame-ancestors 'none'
 $policy->setRule(
-    ContentSecurityPolicy::FRAME_ANCESTORS,
+    CspRule::FrameAncestors,
     [],        // no keywords
     []         // empty list => effectively 'none'
 );
@@ -760,15 +765,15 @@ $policy->send();
 
 <details><summary>API Reference</summary>
 
-| Method                                                           | Description                                                                                                     |
-|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
-| `__construct()`                                                  | Alias for `new()`, initializes an empty CSP builder.                                                            |
-| `new(): ContentSecurityPolicy`                                   | Construct a new CSP builder with no directives set.                                                             |
-| `setRule(string $rule, array $keywords, ?array $sources): mixed` | Set or replace a CSP directive with the given keywords (`'self'`, `'nonce'`, etc.) and host sources.            |
-| `build(): string`                                                | Build the `Content-Security-Policy` header value from the configured directives.                                |
-| `send(): mixed`                                                  | Send the constructed CSP header to the client (via PHP SAPI).                                                   |
-| `getNonce(): ?string`                                            | Return the most recently generated nonce (without the `'nonce-'` prefix), or `null` if none has been generated. |
-| `resetNonce(): void`                                             | Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.                     |
+| Method                                                                      | Description                                                                                                     |
+|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| `__construct()`                                                             | Alias for `new()`, initializes an empty CSP builder.                                                            |
+| `new(): ContentSecurityPolicy`                                              | Construct a new CSP builder with no directives set.                                                             |
+| `setRule(CspRule $rule, CspKeyword[] $keywords, ?string[] $sources): void`  | Set or replace a CSP directive with the given keywords and host sources.                                        |
+| `build(): string`                                                           | Build the `Content-Security-Policy` header value from the configured directives.                                |
+| `send(): void`                                                              | Send the constructed CSP header to the client (via PHP SAPI).                                                   |
+| `getNonce(): ?string`                                                       | Return the most recently generated nonce (without the `'nonce-'` prefix), or `null` if none has been generated. |
+| `resetNonce(): void`                                                        | Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.                     |
 
 </details>
 
@@ -879,18 +884,20 @@ $policy->send();
 ### Hardened\SecurityHeaders\CrossOrigin\EmbedderPolicy
 
 - **Cross-Origin-Embedder-Policy** header builder.
+- **Enum:** `EmbedderPolicyValue` provides `UnsafeNone`, `RequireCorp`, and `Credentialless` values.
 
 <details>
 <summary>Example</summary>
 
 ```php
 use Hardened\SecurityHeaders\CrossOrigin\EmbedderPolicy;
+use Hardened\SecurityHeaders\CrossOrigin\EmbedderPolicyValue;
 
 $policy = new EmbedderPolicy(); // defaults to "unsafe-none"
 echo $policy->build(); // outputs "unsafe-none"
 
-$policy = new EmbedderPolicy("require-corp");
-$policy->set(EmbedderPolicy::CREDENTIALLESS);
+$policy = new EmbedderPolicy(EmbedderPolicyValue::RequireCorp);
+$policy->set(EmbedderPolicyValue::Credentialless);
 echo $policy->build(); // "credentialless"
 
 $policy->send(); // sends header
@@ -902,12 +909,13 @@ $policy->send(); // sends header
 <details>
 <summary>API Reference</summary>
 
-| Method                                      | Description                                                                                                                       |
-|---------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
-| `__construct(?string $policy = null): self` | Create a new COEP builder, defaults to `"unsafe-none"` if no policy is provided.                                                  |
-| `set(string $policy): void`                 | Set the Cross-Origin-Embedder-Policy to one of `"unsafe-none"`, `"require-corp"`, or `"credentialless"`. Throws on invalid token. |
-| `build(): string`                           | Return the header value, e.g. `"require-corp"`.                                                                                   |
-| `send(): void`                              | Emit `Cross-Origin-Embedder-Policy: <value>` via PHP `header()`; errors if `header()` cannot be called.                           |
+| Method                                                   | Description                                                                                             |
+|----------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
+| `__construct(?EmbedderPolicyValue $policy = null): self` | Create a new COEP builder, defaults to `UnsafeNone` if no policy is provided.                           |
+| `set(EmbedderPolicyValue $policy): void`                 | Set the Cross-Origin-Embedder-Policy to `UnsafeNone`, `RequireCorp`, or `Credentialless`.               |
+| `get(): string`                                          | Get the current policy value as a string.                                                               |
+| `build(): string`                                        | Return the header value, e.g. `"require-corp"`.                                                         |
+| `send(): void`                                           | Emit `Cross-Origin-Embedder-Policy: <value>` via PHP `header()`; errors if `header()` cannot be called. |
 
 </details>
 
@@ -1028,12 +1036,15 @@ $rp->send();
 
 ### Hardened\SecurityHeaders\Whatnot
 
-- Builder for miscellaneous HTTP security headers:  
-  `X-Frame-Options`, `X-XSS-Protection`, `X-Content-Type-Options`,  
-  `X-Permitted-Cross-Domain-Policies`, `Report-To`, `Integrity-Policy`,  
+- Builder for miscellaneous HTTP security headers:
+  `X-Frame-Options`, `X-XSS-Protection`, `X-Content-Type-Options`,
+  `X-Permitted-Cross-Domain-Policies`, `Report-To`, `Integrity-Policy`,
   and `Integrity-Policy-Report-Only`.
-- Strongly-typed enums for frame & XSS modes, with optional URIs for `ALLOW-FROM` and reporting.
 - Configure each header with `set…()` methods, then gather with `build()` or emit via `send()`.
+- **Enums:**
+  - `FrameOptions` — `Deny`, `SameOrigin`, `AllowFrom` for `X-Frame-Options`
+  - `XssProtection` — `Off`, `On`, `Block` for `X-XSS-Protection`
+  - `CrossDomainPolicy` — `None`, `MasterOnly`, `ByContentType`, `All` for `X-Permitted-Cross-Domain-Policies`
 
 <details>
 
@@ -1041,23 +1052,26 @@ $rp->send();
 
 ```php
 use Hardened\SecurityHeaders\Whatnot;
+use Hardened\SecurityHeaders\FrameOptions;
+use Hardened\SecurityHeaders\XssProtection;
+use Hardened\SecurityHeaders\CrossDomainPolicy;
 
 $policy = new Whatnot();
 
 // Frame options
-$policy->setFrameOptions('DENY');
-$policy->setFrameOptions('ALLOW-FROM', 'https://example.com');
+$policy->setFrameOptions(FrameOptions::Deny);
+$policy->setFrameOptions(FrameOptions::AllowFrom, 'https://example.com');
 
 // XSS protection
-$policy->setXssProtection('on');
-$policy->setXssProtection('block');
-$policy->setXssProtection('block', 'https://report.example.com'); // Block with a report URI
+$policy->setXssProtection(XssProtection::On);
+$policy->setXssProtection(XssProtection::Block);
+$policy->setXssProtection(XssProtection::Block, 'https://report.example.com'); // Block with a report URI
 
 // No-sniff
 $policy->setNosniff(true);
 
 // Cross-domain policies
-$policy->setPermittedCrossDomainPolicies('none');
+$policy->setPermittedCrossDomainPolicies(CrossDomainPolicy::None);
 
 $policy->setReportTo(
     'csp-endpoint',          // group
@@ -1071,6 +1085,13 @@ $policy->setIntegrityPolicy(
     ['script'],                    // blocked-destinations
     ['inline'],                    // sources (optional, defaults to ['inline'])
     ['csp-endpoint','backup']      // endpoints (optional)
+);
+
+// Structured Integrity-Policy-Report-Only (same arguments as setIntegrityPolicy)
+$policy->setIntegrityPolicyReportOnly(
+    ['script'],                    // blocked-destinations
+    ['inline'],                    // sources (optional)
+    ['report-endpoint']            // endpoints (optional)
 );
 
 // Apply headers
@@ -1090,13 +1111,13 @@ $policy->send();
 | Method                                                                                     | Description                                                                                                     |
 |--------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
 | `__construct(): void`                                                                      | Initialize builder with all headers disabled.                                                                   |
-| `setFrameOptions(string $mode, ?string $uri): void`                                        | Set `X-Frame-Options`: `"DENY"`, `"SAMEORIGIN"`, or `"ALLOW-FROM"` (URI required for `ALLOW-FROM`).             |
-| `setXssProtection(string $mode, ?string $reportUri): void`                                 | Set `X-XSS-Protection`: `"0"`/`"off"`, `"1"`/`"on"`, or `"1; mode=block"`; optional report URI when mode=`"1"`. |
+| `setFrameOptions(FrameOptions $mode, ?string $uri): void`                                  | Set `X-Frame-Options`: `Deny`, `SameOrigin`, or `AllowFrom` (URI required for `AllowFrom`).                     |
+| `setXssProtection(XssProtection $mode, ?string $reportUri): void`                          | Set `X-XSS-Protection`: `Off`, `On`, or `Block`; optional report URI when mode is `On` or `Block`.              |
 | `setNosniff(bool $enable): void`                                                           | Enable or disable `X-Content-Type-Options: nosniff`.                                                            |
-| `setPermittedCrossDomainPolicies(string $value): void`                                     | Set `X-Permitted-Cross-Domain-Policies`: `"none"`, `"master-only"`, `"by-content-type"`, or `"all"`.            |
+| `setPermittedCrossDomainPolicies(CrossDomainPolicy $policy): void`                         | Set `X-Permitted-Cross-Domain-Policies`: `None`, `MasterOnly`, `ByContentType`, or `All`.                       |
 | `setReportTo(string $group, int $maxAge, bool $includeSubdomains, array $endpoints): void` | Configure `Report-To` header with group name, retention (`max_age`), subdomain flag, and list of endpoint URLs. |
-| `setIntegrityPolicy(string $policy): void`                                                 | Set `Integrity-Policy` header value.                                                                            |
-| `setIntegrityPolicyReportOnly(string $policy): void`                                       | Set `Integrity-Policy-Report-Only` header value.                                                                |
+| `setIntegrityPolicy(array $blockedDest, ?array $sources, ?array $endpoints): void`         | Set structured `Integrity-Policy` header with blocked destinations, sources, and endpoints.                     |
+| `setIntegrityPolicyReportOnly(array $blockedDest, ?array $sources, ?array $endpoints): void` | Set structured `Integrity-Policy-Report-Only` header (same arguments as `setIntegrityPolicy`).                  |
 | `build(): array<string,string>`                                                            | Return all configured headers & values as an associative array of header names to values.                       |
 | `send(): void`                                                                             | Emit each header via PHP `header()` calls.                                                                      |
 
@@ -1106,12 +1127,14 @@ $policy->send();
 
 - Builder for the `Permissions-Policy` header.
 - Use `allow(feature, origins)` to enable a feature for a list of origins, or `deny(feature)` for an empty allowlist.
+- **Enum:** `PermissionsPolicyFeature` provides all standard Permissions-Policy features (e.g., `Geolocation`, `Camera`, `Microphone`, `Fullscreen`, etc.)
 
 <details>
 <summary>Example</summary>
 
 ```php
 use Hardened\SecurityHeaders\PermissionsPolicy;
+use Hardened\SecurityHeaders\PermissionsPolicyFeature;
 
 // 1) Instantiate the builder
 $policy = new PermissionsPolicy();
@@ -1119,22 +1142,22 @@ $policy = new PermissionsPolicy();
 // 2) Allow features with specific allowlists:
 //    - geolocation: only same-origin and https://api.example.com
 $policy->allow(
-    PermissionsPolicy::GEOLOCATION,
+    PermissionsPolicyFeature::Geolocation,
     [ PermissionsPolicy::ORIGIN_SELF, 'https://api.example.com' ]
 );
 
-//    - sync-xhr: only the “src” allowlist token
+//    - bluetooth: only the "src" allowlist token
 $policy->allow(
-    PermissionsPolicy::BLUETOOTH,
+    PermissionsPolicyFeature::Bluetooth,
     [ PermissionsPolicy::ORIGIN_SRC ]
 );
 
 // 3) Deny features entirely (empty allowlist):
 //    - camera
-$policy->deny(PermissionsPolicy::CAMERA);
+$policy->deny(PermissionsPolicyFeature::Camera);
 
 //    - microphone
-$policy->deny(PermissionsPolicy::MICROPHONE);
+$policy->deny(PermissionsPolicyFeature::Microphone);
 
 // 4) Build the header value and emit it
 header('Permissions-Policy: ' . $policy->build());
@@ -1148,13 +1171,13 @@ header('Permissions-Policy: ' . $policy->build());
 <details>
 <summary>API Reference</summary>
 
-| Method                                         | Description                                                                                                                                                                  |
-|------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `__construct(?array $features = null)`         | Initialize the builder, optionally pre‑populating a map of feature ⇒ allowlist entries (each allowlist is `string[]`).                                                       |
-| `set(string $feature, array $allowlist): void` | Define or override the allowlist for a given feature. Valid allowlist entries are: `'*'`, `''` (empty), `'self'`, `'src'`, or specific origins like `'https://example.com'`. |
-| `unset(string $feature): void`                 | Remove a feature so that it will not appear in the final header.                                                                                                             |
-| `build(): string`                              | Render the header value, e.g. `geolocation=(self "https://maps.example.com"), fullscreen=(*)`.                                                                               |
-| `send(): void`                                 | Emit `Permissions-Policy: <value>` via PHP `header()` calls.                                                                                                                 |
+| Method                                                              | Description                                                                                                        |
+|---------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| `__construct()`                                                     | Initialize an empty builder.                                                                                       |
+| `allow(PermissionsPolicyFeature $feature, string[] $origins): void` | Allow a feature for the given list of origins. Valid entries: `'*'`, `'self'`, `'src'`, or specific origins.       |
+| `deny(PermissionsPolicyFeature $feature): void`                     | Deny a feature entirely (empty allowlist).                                                                         |
+| `build(): string`                                                   | Render the header value, e.g. `geolocation=(self "https://maps.example.com"), fullscreen=(*)`.                     |
+| `send(): void`                                                      | Emit `Permissions-Policy: <value>` via PHP `header()` calls.                                                       |
 
 </details>
 

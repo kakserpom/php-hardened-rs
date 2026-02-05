@@ -2,23 +2,26 @@
 declare(strict_types=1);
 
 use Hardened\SecurityHeaders\Whatnot;
+use Hardened\SecurityHeaders\FrameOptions;
+use Hardened\SecurityHeaders\XssProtection;
+use Hardened\SecurityHeaders\CrossDomainPolicy;
 
 $policy = new Whatnot();
 
 // Frame options
-$policy->setFrameOptions('DENY');
-$policy->setFrameOptions('ALLOW-FROM', 'https://example.com');
+$policy->setFrameOptions(FrameOptions::Deny);
+$policy->setFrameOptions(FrameOptions::AllowFrom, 'https://example.com');
 
 // XSS protection
-$policy->setXssProtection('on');
-$policy->setXssProtection('block');
-$policy->setXssProtection('block', 'https://report.example.com'); // Block with a report URI
+$policy->setXssProtection(XssProtection::On);
+$policy->setXssProtection(XssProtection::Block);
+$policy->setXssProtection(XssProtection::Block, 'https://report.example.com'); // Block with a report URI
 
 // No-sniff
 $policy->setNosniff(true);
 
 // Cross-domain policies
-$policy->setPermittedCrossDomainPolicies('none');
+$policy->setPermittedCrossDomainPolicies(CrossDomainPolicy::None);
 
 $policy->setReportTo(
     'csp-endpoint',          // group
@@ -32,6 +35,13 @@ $policy->setIntegrityPolicy(
     ['script'],                    // blocked-destinations
     ['inline'],                    // sources (optional, defaults to ['inline'])
     ['csp-endpoint','backup']      // endpoints (optional)
+);
+
+// Structured Integrity-Policy-Report-Only (same arguments as setIntegrityPolicy)
+$policy->setIntegrityPolicyReportOnly(
+    ['script'],                    // blocked-destinations
+    ['inline'],                    // sources (optional)
+    ['report-endpoint']            // endpoints (optional)
 );
 
 // Apply headers

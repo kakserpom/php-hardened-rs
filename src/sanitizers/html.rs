@@ -77,10 +77,10 @@ pub type Result<T> = std::result::Result<T, Error>;
 use ext_php_rs::prelude::ZendCallable;
 use ext_php_rs::types::ZendClassObject;
 use ext_php_rs::types::Zval;
-use ext_php_rs::{php_class, php_impl};
+use ext_php_rs::{php_class, php_enum, php_impl};
 use std::cell::RefCell;
 use std::collections::HashSet;
-use strum_macros::{Display, EnumIter, EnumString};
+use strum_macros::{Display, EnumIter};
 use unicode_segmentation::UnicodeSegmentation;
 use url::Url;
 
@@ -902,26 +902,9 @@ impl HtmlSanitizer {
         &mut self,
         html: String,
         max: usize,
-        flags: &Zval,
+        flags: Vec<Flag>,
         etc: Option<String>,
     ) -> Result<String> {
-        let flags = if let Some(array) = flags.array()
-            && array.has_sequential_keys()
-        {
-            array
-                .into_iter()
-                .map(|(_, str)| {
-                    let str = str
-                        .str()
-                        .ok_or_else(|| Error::InvalidFlag(format!("{str:?}")))?;
-                    Flag::try_from(str).map_err(|_| Error::InvalidFlag(str.to_string()))
-                })
-                .collect::<std::result::Result<Vec<Flag>, Error>>()?
-        } else if let Some(str) = flags.str() {
-            vec![Flag::try_from(str).map_err(|_| Error::InvalidFlag(str.to_string()))?]
-        } else {
-            return Err(Error::WrongFlagsArgument);
-        };
         self._clean_and_truncate(html, max, flags.as_slice(), etc)
     }
 }
@@ -1072,18 +1055,20 @@ impl HtmlSanitizer {
         }
     }
 }
-#[derive(EnumIter, EnumString, Display, Debug, Clone)]
-#[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
+#[php_enum]
+#[php(name = "Hardened\\Sanitizers\\HtmlSanitizerFlag")]
+#[derive(EnumIter, Display, Debug, Clone, PartialEq, Eq)]
+#[strum(serialize_all = "kebab-case")]
 pub enum Flag {
-    #[strum(serialize = "e", serialize = "extended-graphemes")]
+    #[php(value = "extended-graphemes")]
     ExtendedGraphemes,
-    #[strum(serialize = "g", serialize = "graphemes")]
+    #[php(value = "graphemes")]
     Graphemes,
-    #[strum(serialize = "u", serialize = "unicode")]
+    #[php(value = "unicode")]
     Unicode,
-    #[strum(serialize = "a", serialize = "ascii")]
+    #[php(value = "ascii")]
     Ascii,
-    #[strum(serialize = "pw", serialize = "preserve-words")]
+    #[php(value = "preserve-words")]
     PreserveWords,
 }
 #[cfg(test)]

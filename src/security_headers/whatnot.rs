@@ -1,7 +1,7 @@
 use super::{Error as SecurityHeaderError, Result};
 use ext_php_rs::types::Zval;
 use ext_php_rs::zend::Function;
-use ext_php_rs::{php_class, php_impl};
+use ext_php_rs::{php_class, php_enum, php_impl};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -9,35 +9,50 @@ use std::str::FromStr;
 use strum_macros::{Display, EnumString};
 
 /// Values for the `X-Permitted-Cross-Domain-Policies` header.
-#[derive(EnumString, Display, Debug, Clone, PartialEq, Eq)]
-#[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
+#[php_enum]
+#[php(name = "Hardened\\SecurityHeaders\\CrossDomainPolicy")]
+#[derive(Display, Debug, Clone, PartialEq, Eq)]
+#[strum(serialize_all = "kebab-case")]
 pub enum PermittedCrossDomainPolicies {
+    #[php(value = "none")]
     None,
+    #[php(value = "master-only")]
     MasterOnly,
+    #[php(value = "by-content-type")]
     ByContentType,
+    #[php(value = "all")]
     All,
 }
 
 /// Possible values for the `X-Frame-Options` header.
-#[derive(EnumString, Display, Debug, Clone, PartialEq, Eq)]
-#[strum(serialize_all = "UPPERCASE", ascii_case_insensitive)]
+#[php_enum]
+#[php(name = "Hardened\\SecurityHeaders\\FrameOptions")]
+#[derive(Display, Debug, Clone, PartialEq, Eq)]
+#[strum(serialize_all = "UPPERCASE")]
 pub enum FrameOptions {
+    #[php(value = "DENY")]
     Deny,
+    #[php(value = "SAMEORIGIN")]
     SameOrigin,
+    #[php(value = "ALLOW-FROM")]
     #[strum(serialize = "ALLOW-FROM")]
     AllowFrom,
 }
 
 /// Possible values for the `X-XSS-Protection` header.
-#[derive(EnumString, Display, Debug, Clone, PartialEq, Eq)]
-#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
+#[php_enum]
+#[php(name = "Hardened\\SecurityHeaders\\XssProtection")]
+#[derive(Display, Debug, Clone, PartialEq, Eq)]
 pub enum XssProtection {
-    #[strum(serialize = "off", serialize = "0", to_string = "0")]
+    #[php(value = "off")]
+    #[strum(serialize = "0")]
     Off,
-    #[strum(serialize = "on", serialize = "1", to_string = "1")]
+    #[php(value = "on")]
+    #[strum(serialize = "1")]
     On,
-    #[strum(serialize = "block", to_string = "1; mode=block")]
-    ModeBlock,
+    #[php(value = "block")]
+    #[strum(serialize = "1; mode=block")]
+    Block,
 }
 /// Allowed destinations for Integrity-Policy `blocked-destinations`.
 #[derive(EnumString, Display, Debug, Clone, PartialEq, Eq)]
@@ -111,7 +126,53 @@ pub struct Whatnot {
     permitted_policies: Option<PermittedCrossDomainPolicies>,
     report_to: Option<String>,
     integrity_policy: Option<IntegrityPolicy>,
-    integrity_policy_report_only: Option<String>,
+    integrity_policy_report_only: Option<IntegrityPolicy>,
+}
+
+impl Whatnot {
+    /// Parse integrity policy arguments into an `IntegrityPolicy` struct.
+    fn parse_integrity_policy(
+        blocked_destinations: &Zval,
+        sources: Option<Vec<String>>,
+        endpoints: Option<Vec<String>>,
+    ) -> Result<IntegrityPolicy> {
+        // blocked-destinations
+        let bd_table = blocked_destinations
+            .array()
+            .ok_or(SecurityHeaderError::EmptyBlockedDestinations)?;
+        let mut blocked = Vec::new();
+        for v in bd_table.values() {
+            let s = v
+                .string()
+                .ok_or(SecurityHeaderError::InvalidBlockedDestination)?;
+            let dest = IntegrityBlockedDestination::from_str(&s)
+                .map_err(|_| SecurityHeaderError::InvalidBlockedDestination)?;
+            blocked.push(dest);
+        }
+        if blocked.is_empty() {
+            return Err(SecurityHeaderError::EmptyBlockedDestinations);
+        }
+
+        // sources (optional)
+        let sources = sources
+            .map(|sources| {
+                sources
+                    .into_iter()
+                    .map(|source| {
+                        IntegritySource::from_str(&source)
+                            .map_err(|_| SecurityHeaderError::InvalidSource(source))
+                    })
+                    .collect::<std::result::Result<Vec<IntegritySource>, _>>()
+            })
+            .transpose()?
+            .unwrap_or_default();
+
+        Ok(IntegrityPolicy {
+            blocked_destinations: blocked,
+            sources,
+            endpoints,
+        })
+    }
 }
 
 #[php_impl]
@@ -132,40 +193,32 @@ impl Whatnot {
     /// Set `X-Frame-Options` header.
     ///
     /// # Parameters
-    /// - `mode`: `"DENY"`, `"SAMEORIGIN"`, or `"ALLOW-FROM"`.
-    /// - `uri`: Optional URI, required if `mode` is `"ALLOW-FROM"`.
+    /// - `mode`: `FrameOptions::Deny`, `FrameOptions::SameOrigin`, or `FrameOptions::AllowFrom`.
+    /// - `uri`: Optional URI, required if `mode` is `AllowFrom`.
     ///
     /// # Exceptions
-    /// - Throws if `mode` is invalid or `"ALLOW-FROM"` is given without a URI.
-    fn set_frame_options(&mut self, mode: &str, uri: Option<String>) -> Result<()> {
-        let opt = FrameOptions::from_str(mode).map_err(|_| SecurityHeaderError::InvalidValue {
-            header_type: "X-Frame-Options".into(),
-            value: mode.into(),
-        })?;
-        if opt == FrameOptions::AllowFrom && uri.is_none() {
+    /// - Throws if `AllowFrom` is given without a URI.
+    fn set_frame_options(&mut self, mode: FrameOptions, uri: Option<String>) -> Result<()> {
+        if mode == FrameOptions::AllowFrom && uri.is_none() {
             return Err(SecurityHeaderError::AllowFromRequiresUri);
         }
-        self.frame = Some((opt, uri));
+        self.frame = Some((mode, uri));
         Ok(())
     }
 
     /// Set `X-XSS-Protection` header.
     ///
     /// # Parameters
-    /// - `mode`: one of `"off"`, `"on"` or `"block"`.
-    /// - `report_uri`: Optional reporting URI, only allowed when `mode` is `"1"`.
+    /// - `mode`: `XssProtection::Off`, `XssProtection::On`, or `XssProtection::Block`.
+    /// - `report_uri`: Optional reporting URI, only allowed when `mode` is `On` or `Block`.
     ///
     /// # Exceptions
-    /// - Throws if `mode` is invalid or a `report_uri` is provided for 'off' mode.
-    fn set_xss_protection(&mut self, mode: &str, report_uri: Option<String>) -> Result<()> {
-        let opt = XssProtection::from_str(mode).map_err(|_| SecurityHeaderError::InvalidValue {
-            header_type: "X-XSS-Protection".into(),
-            value: mode.into(),
-        })?;
-        if report_uri.is_some() && opt == XssProtection::Off {
+    /// - Throws if a `report_uri` is provided for `Off` mode.
+    fn set_xss_protection(&mut self, mode: XssProtection, report_uri: Option<String>) -> Result<()> {
+        if report_uri.is_some() && mode == XssProtection::Off {
             return Err(SecurityHeaderError::ReportUriIncompatible);
         }
-        self.xss = Some((opt, report_uri));
+        self.xss = Some((mode, report_uri));
         Ok(())
     }
 
@@ -177,19 +230,9 @@ impl Whatnot {
     /// Set `X-Permitted-Cross-Domain-Policies` header.
     ///
     /// # Parameters
-    /// - `mode`: one of `"none"`, `"master-only"`, `"by-content-type"`, or `"all"`.
-    ///
-    /// # Exceptions
-    /// - Throws if `mode` is not a valid policy token.
-    fn set_permitted_cross_domain_policies(&mut self, mode: &str) -> Result<()> {
-        let policy = PermittedCrossDomainPolicies::from_str(mode).map_err(|_| {
-            SecurityHeaderError::InvalidValue {
-                header_type: "X-Permitted-Cross-Domain-Policies".into(),
-                value: mode.into(),
-            }
-        })?;
+    /// - `policy`: `CrossDomainPolicy::None`, `MasterOnly`, `ByContentType`, or `All`.
+    fn set_permitted_cross_domain_policies(&mut self, policy: PermittedCrossDomainPolicies) {
         self.permitted_policies = Some(policy);
-        Ok(())
     }
 
     /// Configure the `Report-To` header from structured arguments.
@@ -239,48 +282,34 @@ impl Whatnot {
         sources: Option<Vec<String>>,
         endpoints: Option<Vec<String>>,
     ) -> Result<()> {
-        // blocked-destinations
-        let bd_table = blocked_destinations
-            .array()
-            .ok_or(SecurityHeaderError::EmptyBlockedDestinations)?;
-        let mut blocked = Vec::new();
-        for v in bd_table.values() {
-            let s = v
-                .string()
-                .ok_or(SecurityHeaderError::InvalidBlockedDestination)?;
-            let dest = IntegrityBlockedDestination::from_str(&s)
-                .map_err(|_| SecurityHeaderError::InvalidBlockedDestination)?;
-            blocked.push(dest);
-        }
-        if blocked.is_empty() {
-            return Err(SecurityHeaderError::EmptyBlockedDestinations);
-        }
-
-        // sources (optional)
-        let sources = sources
-            .map(|sources| {
-                sources
-                    .into_iter()
-                    .map(|source| {
-                        IntegritySource::from_str(&source)
-                            .map_err(|_| SecurityHeaderError::InvalidSource(source))
-                    })
-                    .collect::<std::result::Result<Vec<IntegritySource>, _>>()
-            })
-            .transpose()?
-            .unwrap_or_default();
-
-        self.integrity_policy = Some(IntegrityPolicy {
-            blocked_destinations: blocked,
+        self.integrity_policy = Some(Self::parse_integrity_policy(
+            blocked_destinations,
             sources,
             endpoints,
-        });
+        )?);
         Ok(())
     }
 
-    /// Set `Integrity-Policy-Report-Only` header value.
-    fn set_integrity_policy_report_only(&mut self, policy: &str) -> Result<()> {
-        self.integrity_policy_report_only = Some(policy.to_string());
+    /// Set a structured `Integrity-Policy-Report-Only` header.
+    ///
+    /// # Parameters
+    /// - `blocked_destinations`: PHP array of destinations, e.g. `['script']`.
+    /// - `sources`: Optional PHP array of sources, e.g. `['inline']`.
+    /// - `endpoints`: Optional PHP array of reporting endpoint names.
+    ///
+    /// # Exceptions
+    /// - Throws if any required array is missing or contains invalid entries.
+    fn set_integrity_policy_report_only(
+        &mut self,
+        blocked_destinations: &Zval,
+        sources: Option<Vec<String>>,
+        endpoints: Option<Vec<String>>,
+    ) -> Result<()> {
+        self.integrity_policy_report_only = Some(Self::parse_integrity_policy(
+            blocked_destinations,
+            sources,
+            endpoints,
+        )?);
         Ok(())
     }
 
@@ -322,7 +351,7 @@ impl Whatnot {
         }
 
         if let Some(v) = &self.integrity_policy_report_only {
-            headers.insert("Integrity-Policy-Report-Only", v.clone());
+            headers.insert("Integrity-Policy-Report-Only", v.build());
         }
 
         headers
@@ -344,7 +373,7 @@ impl Whatnot {
 
 #[cfg(test)]
 mod tests {
-    use super::Whatnot;
+    use super::{FrameOptions, PermittedCrossDomainPolicies, Whatnot, XssProtection};
     use crate::run_php_example;
     use std::collections::HashMap;
 
@@ -358,7 +387,7 @@ mod tests {
     #[test]
     fn test_set_frame_options_deny() {
         let mut m = Whatnot::__construct();
-        m.set_frame_options("DENY", None).unwrap();
+        m.set_frame_options(FrameOptions::Deny, None).unwrap();
         let headers = m.build();
         assert_eq!(
             headers.get("X-Frame-Options").map(String::as_str),
@@ -369,7 +398,7 @@ mod tests {
     #[test]
     fn test_set_frame_options_allow_from() {
         let mut m = Whatnot::__construct();
-        m.set_frame_options("ALLOW-FROM", Some(String::from("https://example.com")))
+        m.set_frame_options(FrameOptions::AllowFrom, Some(String::from("https://example.com")))
             .unwrap();
         let headers = m.build();
         assert_eq!(
@@ -381,14 +410,14 @@ mod tests {
     #[test]
     fn test_set_frame_options_errors() {
         let mut m = Whatnot::__construct();
-        assert!(m.set_frame_options("INVALID", None).is_err());
-        assert!(m.set_frame_options("ALLOW-FROM", None).is_err());
+        // AllowFrom without URI is an error
+        assert!(m.set_frame_options(FrameOptions::AllowFrom, None).is_err());
     }
 
     #[test]
     fn test_set_xss_protection_modes() {
         let mut m = Whatnot::__construct();
-        m.set_xss_protection("off", None).unwrap();
+        m.set_xss_protection(XssProtection::Off, None).unwrap();
         let headers = m.build();
         assert_eq!(
             headers.get("X-XSS-Protection").map(String::as_str),
@@ -396,7 +425,7 @@ mod tests {
         );
 
         let mut m = Whatnot::__construct();
-        m.set_xss_protection("on", None).unwrap();
+        m.set_xss_protection(XssProtection::On, None).unwrap();
         let headers = m.build();
         assert_eq!(
             headers.get("X-XSS-Protection").map(String::as_str),
@@ -404,7 +433,7 @@ mod tests {
         );
 
         let mut m = Whatnot::__construct();
-        m.set_xss_protection("block", None).unwrap();
+        m.set_xss_protection(XssProtection::Block, None).unwrap();
         let headers = m.build();
         assert_eq!(
             headers.get("X-XSS-Protection").map(String::as_str),
@@ -415,7 +444,7 @@ mod tests {
     #[test]
     fn test_set_xss_protection_with_report() {
         let mut m = Whatnot::__construct();
-        m.set_xss_protection("on", Some(String::from("https://report.com")))
+        m.set_xss_protection(XssProtection::On, Some(String::from("https://report.com")))
             .unwrap();
         let headers = m.build();
         assert_eq!(
@@ -427,13 +456,11 @@ mod tests {
     #[test]
     fn test_set_xss_protection_errors() {
         let mut m = Whatnot::__construct();
-        // report_uri only allowed with "on"
+        // report_uri only allowed with "on" or "block"
         assert!(
-            m.set_xss_protection("off", Some(String::from("uri")))
+            m.set_xss_protection(XssProtection::Off, Some(String::from("uri")))
                 .is_err()
         );
-        // invalid mode
-        assert!(m.set_xss_protection("invalid", None).is_err());
     }
 
     #[test]
@@ -450,7 +477,7 @@ mod tests {
     #[test]
     fn test_set_permitted_cross_domain_policies() {
         let mut m = Whatnot::__construct();
-        m.set_permitted_cross_domain_policies("none").unwrap();
+        m.set_permitted_cross_domain_policies(PermittedCrossDomainPolicies::None);
         let headers = m.build();
         assert_eq!(
             headers
@@ -458,8 +485,6 @@ mod tests {
                 .map(String::as_str),
             Some("none")
         );
-        // invalid
-        assert!(m.set_permitted_cross_domain_policies("invalid").is_err());
     }
 
     #[test]
@@ -477,27 +502,13 @@ mod tests {
     }
 
     #[test]
-    fn test_set_integrity_policy_report_only() {
-        let mut m = Whatnot::__construct();
-        m.set_integrity_policy_report_only("policy-value").unwrap();
-        let headers = m.build();
-        assert_eq!(
-            headers
-                .get("Integrity-Policy-Report-Only")
-                .map(String::as_str),
-            Some("policy-value")
-        );
-    }
-
-    #[test]
     fn test_combined_headers() {
         let mut m = Whatnot::__construct();
-        m.set_frame_options("SAMEORIGIN", None).unwrap();
-        m.set_xss_protection("on", None).unwrap();
+        m.set_frame_options(FrameOptions::SameOrigin, None).unwrap();
+        m.set_xss_protection(XssProtection::On, None).unwrap();
         m.set_nosniff(true);
-        m.set_permitted_cross_domain_policies("all").unwrap();
+        m.set_permitted_cross_domain_policies(PermittedCrossDomainPolicies::All);
         m.set_report_to("g", 10, false, vec!["e"]).unwrap();
-        m.set_integrity_policy_report_only("p").unwrap();
 
         let headers = m.build();
         let expect: HashMap<_, _> = vec![
@@ -506,7 +517,6 @@ mod tests {
             ("X-Content-Type-Options", "nosniff"),
             ("X-Permitted-Cross-Domain-Policies", "all"),
             ("Report-To", headers.get("Report-To").unwrap().as_str()),
-            ("Integrity-Policy-Report-Only", "p"),
         ]
         .into_iter()
         .collect();

@@ -1,7 +1,8 @@
 <?php
 use Hardened\Sanitizers\HtmlSanitizer;
+use Hardened\Sanitizers\HtmlSanitizerFlag;
 
-$sanitizer = HtmlSanitizer::default();
+$sanitizer = new HtmlSanitizer();
 var_dump($sanitizer->urlRelativeDeny()
     ->filterStyleProperties(["color", "font-size"])
     ->setTagAttributeValue('a', 'target', '_blank')
@@ -23,17 +24,17 @@ var_dump($sanitizer->isValidUrl("foo"));
 // bool(false)
 
 // Truncate by extended grapheme clusters (default ellipsis)
-var_dump($sanitizer->cleanAndTruncate("<p>你好世界！</p>", 7, 'e'));
+var_dump($sanitizer->cleanAndTruncate("<p>你好世界！</p>", 7, [HtmlSanitizerFlag::ExtendedGraphemes]));
 // string(19) "<p>你好世…</p>"
 
 // Truncate by simple graphemes with custom suffix
-var_dump($sanitizer->cleanAndTruncate("<p>Курва<p>!!</p>!</p>", 20, 'g', ' (more)'));
+var_dump($sanitizer->cleanAndTruncate("<p>Курва<p>!!</p>!</p>", 20, [HtmlSanitizerFlag::Graphemes], ' (more)'));
 // Outputs: <p>abcdefghij (more)</p>
 
 // Truncate by characters
-var_dump($sanitizer->cleanAndTruncate("<p>Hello, world!</p>", 10, 'a'));
+var_dump($sanitizer->cleanAndTruncate("<p>Hello, world!</p>", 10, [HtmlSanitizerFlag::Ascii]));
 // Outputs: <p>12345…</p>
 
 // Truncate by bytes (valid UTF-8 boundary)
-var_dump($sanitizer->cleanAndTruncate("<p>доброеутро</p>", 20, 'u'));
+var_dump($sanitizer->cleanAndTruncate("<p>доброеутро</p>", 20, [HtmlSanitizerFlag::Unicode]));
 // Outputs may vary but will not break UTF-8 sequences, e.g.: <p>доброеут…</p>

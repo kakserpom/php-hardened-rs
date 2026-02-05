@@ -1,109 +1,137 @@
 use super::{Error as SecurityHeaderError, Result};
 use ext_php_rs::zend::Function;
-use ext_php_rs::{php_class, php_const, php_impl};
+use ext_php_rs::{php_class, php_enum, php_impl};
 use fmt::Write;
-use php_hardened_macro::php_enum_constants;
 use rand::distr::Alphanumeric;
 use rand::{Rng, rng};
 use std::collections::BTreeMap;
 use std::fmt;
-use std::str::FromStr;
-use strum::EnumString;
+use strum_macros::Display;
 use trim_in_place::TrimInPlace;
 
 /// All the CSP directives you want to support.
-#[derive(Debug, Eq, PartialEq, Hash, EnumString, strum_macros::Display, Ord, PartialOrd)]
-#[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 /// Supported Content Security Policy (CSP) directives.
 ///
 /// These correspond to the various directives you can set in a
 /// Content-Security-Policy header.
+#[php_enum]
+#[php(name = "Hardened\\SecurityHeaders\\CspRule")]
+#[derive(Debug, Eq, PartialEq, Hash, Display, Ord, PartialOrd, Clone)]
+#[strum(serialize_all = "kebab-case")]
 pub enum Rule {
     /// Fallback for other fetch directives.
+    #[php(value = "default-src")]
     DefaultSrc,
 
     /// Controls allowed sources for scripts.
+    #[php(value = "script-src")]
     ScriptSrc,
 
     /// Controls allowed sources for stylesheets.
+    #[php(value = "style-src")]
     StyleSrc,
 
     /// Controls allowed sources for images.
+    #[php(value = "img-src")]
     ImgSrc,
 
     /// Restricts which parent origins can embed this resource.
+    #[php(value = "frame-ancestors")]
     FrameAncestors,
 
     /// Controls allowed endpoints for fetch, XHR, WebSocket, etc.
+    #[php(value = "connect-src")]
     ConnectSrc,
 
     /// Controls allowed sources for font resources.
+    #[php(value = "font-src")]
     FontSrc,
 
     /// Alias for controlling allowed embedding contexts.
+    #[php(value = "child-src")]
     ChildSrc,
 
     /// Controls allowed sources for web app manifests.
+    #[php(value = "manifest-src")]
     ManifestSrc,
 
     /// Controls allowed sources for media elements.
+    #[php(value = "media-src")]
     MediaSrc,
 
     /// Controls allowed sources for plugin content.
+    #[php(value = "object-src")]
     ObjectSrc,
 
     /// Controls allowed sources for prefetch operations.
+    #[php(value = "prefetch-src")]
     PrefetchSrc,
 
     /// Controls allowed sources for script elements.
+    #[php(value = "script-src-elem")]
     ScriptSrcElem,
 
     /// Controls allowed sources for inline event handlers.
+    #[php(value = "script-src-attr")]
     ScriptSrcAttr,
 
     /// Controls allowed sources for style elements.
+    #[php(value = "style-src-elem")]
     StyleSrcElem,
 
     /// Controls allowed sources for inline style attributes.
+    #[php(value = "style-src-attr")]
     StyleSrcAttr,
 
     /// Controls allowed sources for worker scripts.
+    #[php(value = "worker-src")]
     WorkerSrc,
 
     // Document-level directives:
-    /// Restricts the set of URLs usable in the document’s base element.
+    /// Restricts the set of URLs usable in the document's base element.
+    #[php(value = "base-uri")]
     BaseUri,
 
     /// Restricts the URLs that forms can submit to.
+    #[php(value = "form-action")]
     FormAction,
 
     /// Applies sandboxing rules to the document.
+    #[php(value = "sandbox")]
     Sandbox,
 
     /// Restricts the types of plugins that may be loaded.
+    #[php(value = "plugin-types")]
     PluginTypes,
 
     /// Disallows all mixed HTTP content on secure pages.
+    #[php(value = "block-all-mixed-content")]
     BlockAllMixedContent,
 
     /// Instructs browsers to upgrade insecure requests to HTTPS.
+    #[php(value = "upgrade-insecure-requests")]
     UpgradeInsecureRequests,
 
     // Reporting directives:
     /// Specifies a URI to which policy violation reports are sent.
+    #[php(value = "report-uri")]
     ReportUri,
 
     /// Specifies a reporting group for violation reports.
+    #[php(value = "report-to")]
     ReportTo,
 
     // Integrity and trust directives:
     /// Requires Subresource Integrity checks for specified resource types.
+    #[php(value = "require-sri-for")]
     RequireSriFor,
 
     /// Restricts creation of DOM sinks to a trusted-types policy.
+    #[php(value = "trusted-types")]
     TrustedTypes,
 
     /// Enforces Trusted Types for specified sinks.
+    #[php(value = "require-trusted-types-for")]
     RequireTrustedTypesFor,
 }
 
@@ -111,80 +139,105 @@ pub enum Rule {
 ///
 /// These include host-independent keywords, nonce placeholders, resource-type tokens,
 /// and sandbox flags that can appear after a directive name.
-#[derive(Clone, EnumString, strum_macros::Display)]
-#[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
+#[php_enum]
+#[php(name = "Hardened\\SecurityHeaders\\CspKeyword")]
+#[derive(Clone, Display, Debug, PartialEq, Eq)]
+#[strum(serialize_all = "kebab-case")]
 pub enum Keyword {
     /// The `'self'` keyword, allowing the same origin.
     #[strum(serialize = "self")]
+    #[php(value = "self")]
     SelfOrigin,
 
     /// The `'unsafe-inline'` keyword, allowing inline scripts or styles.
+    #[php(value = "unsafe-inline")]
     UnsafeInline,
 
     /// The `'unsafe-eval'` keyword, allowing `eval()` and similar.
+    #[php(value = "unsafe-eval")]
     UnsafeEval,
 
     /// The `'unsafe-hashes'` keyword, allowing hash-based inline resources.
+    #[php(value = "unsafe-hashes")]
     UnsafeHashes,
 
     /// The `'strict-dynamic'` keyword, enabling strict dynamic loading.
+    #[php(value = "strict-dynamic")]
     StrictDynamic,
 
     /// The `'nonce-…'` placeholder for single-use nonces.
+    #[php(value = "nonce")]
     Nonce,
 
     // Resource-type tokens for integrity/trusted-types directives:
     /// The `script` token for SRI or Trusted Types policies.
+    #[php(value = "script")]
     Script,
 
     /// The `style` token for SRI or Trusted Types policies.
+    #[php(value = "style")]
     Style,
 
     // Sandbox flags for the `sandbox` directive:
     /// Allows form submission in a sandboxed context.
+    #[php(value = "allow-forms")]
     AllowForms,
 
     /// Allows modal dialogs in a sandboxed context.
+    #[php(value = "allow-modals")]
     AllowModals,
 
     /// Allows orientation lock in a sandboxed context.
+    #[php(value = "allow-orientation-lock")]
     AllowOrientationLock,
 
     /// Allows pointer lock in a sandboxed context.
+    #[php(value = "allow-pointer-lock")]
     AllowPointerLock,
 
     /// Allows presentation mode in a sandboxed context.
+    #[php(value = "allow-presentation")]
     AllowPresentation,
 
     /// Allows pop-ups in a sandboxed context.
+    #[php(value = "allow-popups")]
     AllowPopups,
 
     /// Allows pop-ups to escape sandbox restrictions.
+    #[php(value = "allow-popups-to-escape-sandbox")]
     AllowPopupsToEscapeSandbox,
 
     /// Allows same-origin access in a sandboxed context.
+    #[php(value = "allow-same-origin")]
     AllowSameOrigin,
 
     /// Allows script execution in a sandboxed context.
+    #[php(value = "allow-scripts")]
     AllowScripts,
 
     /// Allows storage access via user activation in a sandbox.
+    #[php(value = "allow-storage-access-by-user-activation")]
     AllowStorageAccessByUserActivation,
 
     /// Allows top-level navigation via user activation.
+    #[php(value = "allow-top-navigation-by-user-activation")]
     AllowTopNavigationByUserActivation,
 
     // Other miscellaneous keywords:
     /// Allows duplicate directives.
+    #[php(value = "allow-duplicates")]
     AllowDuplicates,
 
     /// Allows WebAssembly to use `eval()`.
+    #[php(value = "wasm-unsafe-eval")]
     WasmUnsafeEval,
 
     /// Enables inline speculation rules.
+    #[php(value = "inline-speculation-rules")]
     InlineSpeculationRules,
 
     /// Includes sample reports in violation reports.
+    #[php(value = "report-sample")]
     ReportSample,
 }
 
@@ -199,8 +252,6 @@ pub struct ContentSecurityPolicy {
     pub src_map: BTreeMap<Rule, CspSettings>,
     pub nonce: Option<String>,
 }
-#[php_enum_constants(Keyword, "src/security_headers/csp.rs")]
-#[php_enum_constants(Rule, "src/security_headers/csp.rs")]
 #[php_impl]
 impl ContentSecurityPolicy {
     /// Constructs a new `ContentSecurityPolicy` builder with no directives set.
@@ -241,29 +292,17 @@ impl ContentSecurityPolicy {
     /// - Throws `Exception` if `rule` is not a valid CSP directive.
     fn set_rule(
         &mut self,
-        rule: &str,
-        keywords: Vec<&str>,
+        rule: Rule,
+        keywords: Vec<Keyword>,
         mut sources: Option<Vec<String>>,
-    ) -> Result<()> {
-        let mut keywords_vec = Vec::with_capacity(keywords.len());
-        for keyword in keywords {
-            let keyword = Keyword::from_str(keyword)
-                .map_err(|_| SecurityHeaderError::InvalidKeyword(keyword.to_string()))?;
-            keywords_vec.push(keyword);
-        }
+    ) {
         if let Some(vec_sources) = sources.as_mut() {
             for source in vec_sources {
-                if source.contains(['\'', '"']) {
-                    return Err(SecurityHeaderError::QuotesInSource(source.clone()));
-                }
                 source.trim_in_place();
             }
         }
-        self.src_map.insert(
-            Rule::from_str(rule).map_err(|_| SecurityHeaderError::InvalidRule(rule.to_string()))?,
-            (keywords_vec, sources.unwrap_or_default()),
-        );
-        Ok(())
+        self.src_map
+            .insert(rule, (keywords, sources.unwrap_or_default()));
     }
 
     /// Builds the `Content-Security-Policy` header value from the configured directives.

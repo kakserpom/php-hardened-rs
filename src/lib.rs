@@ -12,15 +12,18 @@ use crate::csrf::Csrf;
 pub use crate::hostname::Hostname;
 use crate::path::PathObj;
 use crate::rng::Rng;
-use crate::security_headers::cross_origin::embedder_policy::EmbedderPolicy;
+use crate::security_headers::cross_origin::embedder_policy::{EmbedderPolicy, Policy as EmbedderPolicyValue};
 use crate::security_headers::cross_origin::opener_policy::OpenerPolicy;
 use crate::security_headers::cross_origin::resource_policy::ResourcePolicy;
 use crate::security_headers::cross_origin::resource_sharing::ResourceSharing;
-use crate::security_headers::csp::ContentSecurityPolicy;
+use crate::security_headers::csp::{ContentSecurityPolicy, Keyword as CspKeyword, Rule as CspRule};
 use crate::security_headers::hsts::StrictTransportSecurity;
-use crate::security_headers::permissions::PermissionsPolicy;
+use crate::security_headers::permissions::{Feature as PermissionsPolicyFeature, PermissionsPolicy};
 use crate::security_headers::referrer_policy::ReferrerPolicy;
-use crate::security_headers::whatnot::Whatnot;
+use crate::security_headers::whatnot::{
+    FrameOptions, PermittedCrossDomainPolicies as CrossDomainPolicy, Whatnot,
+    XssProtection,
+};
 use ext_php_rs::prelude::*;
 use ext_php_rs::types::Zval;
 use thiserror::Error;
@@ -93,12 +96,19 @@ fn get_module(mut module: ModuleBuilder) -> ModuleBuilder {
     #[cfg(feature = "headers")]
     {
         module = module.class::<ContentSecurityPolicy>();
+        module = module.enumeration::<CspKeyword>();
+        module = module.enumeration::<CspRule>();
         module = module.class::<StrictTransportSecurity>();
         module = module.class::<Whatnot>();
+        module = module.enumeration::<FrameOptions>();
+        module = module.enumeration::<XssProtection>();
+        module = module.enumeration::<CrossDomainPolicy>();
         module = module.class::<PermissionsPolicy>();
+        module = module.enumeration::<PermissionsPolicyFeature>();
         module = module.class::<ReferrerPolicy>();
         module = module.class::<ResourceSharing>();
         module = module.class::<EmbedderPolicy>();
+        module = module.enumeration::<EmbedderPolicyValue>();
         module = module.class::<ResourcePolicy>();
         module = module.class::<OpenerPolicy>();
     }
