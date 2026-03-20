@@ -3,7 +3,7 @@ use ext_php_rs::zend::Function;
 use ext_php_rs::{php_class, php_enum, php_impl};
 use fmt::Write;
 use rand::distr::Alphanumeric;
-use rand::{Rng, rng};
+use rand::{RngExt, rng};
 use std::collections::BTreeMap;
 use std::fmt;
 use strum_macros::Display;
@@ -290,12 +290,7 @@ impl ContentSecurityPolicy {
     /// # Exceptions
     /// - Throws `Exception` if any array item in `keywords` is not a string.
     /// - Throws `Exception` if `rule` is not a valid CSP directive.
-    fn set_rule(
-        &mut self,
-        rule: Rule,
-        keywords: Vec<Keyword>,
-        mut sources: Option<Vec<String>>,
-    ) {
+    fn set_rule(&mut self, rule: Rule, keywords: Vec<Keyword>, mut sources: Option<Vec<String>>) {
         if let Some(vec_sources) = sources.as_mut() {
             for source in vec_sources {
                 source.trim_in_place();

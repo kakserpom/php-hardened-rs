@@ -4,7 +4,7 @@ use ext_php_rs::types::Zval;
 use ext_php_rs::zend::ce;
 use ext_php_rs::{php_class, php_impl};
 use rand::distr::{Alphabetic, Alphanumeric, SampleString, Uniform};
-use rand::{Rng as _, rng, seq::IndexedRandom};
+use rand::{RngExt, rng, seq::IndexedRandom};
 use thiserror::Error;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -274,7 +274,7 @@ impl Rng {
     fn choose_multiple(amount: usize, choices: Vec<&Zval>) -> Vec<Zval> {
         let mut rng = rand::rng();
         choices
-            .choose_multiple(&mut rng, amount)
+            .sample(&mut rng, amount)
             .map(|choice| choice.shallow_clone())
             .collect()
     }
@@ -343,7 +343,7 @@ impl Rng {
             },
         )?;
         Ok(vec
-            .choose_multiple_weighted(&mut rng, amount, |pair| pair.1)
+            .sample_weighted(&mut rng, amount, |pair| pair.1)
             .map_err(|e| Error::WeightError(e.to_string()))?
             .map(|pair| pair.0.shallow_clone())
             .collect())

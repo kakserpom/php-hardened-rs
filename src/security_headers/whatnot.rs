@@ -214,7 +214,11 @@ impl Whatnot {
     ///
     /// # Exceptions
     /// - Throws if a `report_uri` is provided for `Off` mode.
-    fn set_xss_protection(&mut self, mode: XssProtection, report_uri: Option<String>) -> Result<()> {
+    fn set_xss_protection(
+        &mut self,
+        mode: XssProtection,
+        report_uri: Option<String>,
+    ) -> Result<()> {
         if report_uri.is_some() && mode == XssProtection::Off {
             return Err(SecurityHeaderError::ReportUriIncompatible);
         }
@@ -398,8 +402,11 @@ mod tests {
     #[test]
     fn test_set_frame_options_allow_from() {
         let mut m = Whatnot::__construct();
-        m.set_frame_options(FrameOptions::AllowFrom, Some(String::from("https://example.com")))
-            .unwrap();
+        m.set_frame_options(
+            FrameOptions::AllowFrom,
+            Some(String::from("https://example.com")),
+        )
+        .unwrap();
         let headers = m.build();
         assert_eq!(
             headers.get("X-Frame-Options").map(String::as_str),

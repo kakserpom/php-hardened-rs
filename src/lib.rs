@@ -12,17 +12,20 @@ use crate::csrf::Csrf;
 pub use crate::hostname::Hostname;
 use crate::path::PathObj;
 use crate::rng::Rng;
-use crate::security_headers::cross_origin::embedder_policy::{EmbedderPolicy, Policy as EmbedderPolicyValue};
+use crate::security_headers::cross_origin::embedder_policy::{
+    EmbedderPolicy, Policy as EmbedderPolicyValue,
+};
 use crate::security_headers::cross_origin::opener_policy::OpenerPolicy;
 use crate::security_headers::cross_origin::resource_policy::ResourcePolicy;
 use crate::security_headers::cross_origin::resource_sharing::ResourceSharing;
 use crate::security_headers::csp::{ContentSecurityPolicy, Keyword as CspKeyword, Rule as CspRule};
 use crate::security_headers::hsts::StrictTransportSecurity;
-use crate::security_headers::permissions::{Feature as PermissionsPolicyFeature, PermissionsPolicy};
+use crate::security_headers::permissions::{
+    Feature as PermissionsPolicyFeature, PermissionsPolicy,
+};
 use crate::security_headers::referrer_policy::ReferrerPolicy;
 use crate::security_headers::whatnot::{
-    FrameOptions, PermittedCrossDomainPolicies as CrossDomainPolicy, Whatnot,
-    XssProtection,
+    FrameOptions, PermittedCrossDomainPolicies as CrossDomainPolicy, Whatnot, XssProtection,
 };
 use ext_php_rs::prelude::*;
 use ext_php_rs::types::Zval;

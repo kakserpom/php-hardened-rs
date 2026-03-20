@@ -540,9 +540,9 @@ impl ShellCommand {
     /// enforces the configured timeout, and optionally captures output into PHP variables.
     ///
     /// # Parameters
-    /// - `stdout`: `?string &$stdout`
+    /// - `capture_stdout`: `?string &$stdout`
     ///   Optional reference to a PHP variable; if provided, the collected stdout will be written here.
-    /// - `stderr`: `?string &$stderr`
+    /// - `capture_stderr`: `?string &$stderr`
     ///   Optional reference to a PHP variable; if provided, the collected stderr will be written here.
     ///
     /// # Returns
