@@ -27,6 +27,7 @@ regex = { version = "1.12", optional = true }
 lazy_static = { version = "1.5", optional = true }
 subtle = { version = "2.6", optional = true }
 ipnet = { version = "2.11", optional = true }
+imagesize = { version = "0.14", optional = true }
 
 [features]
 default = ["mimalloc", "shell_command", "html_sanitizer", "svg_sanitizer", "file_sanitizers", "hostname", "path", "rng", "csrf", "headers", "ct", "text", "redirect", "ssrf"]
@@ -34,7 +35,7 @@ mimalloc = ["dep:mimalloc"]
 shell_command = ["dep:shell-words"]
 html_sanitizer = ["dep:ammonia"]
 svg_sanitizer = ["dep:ammonia", "dep:regex", "dep:lazy_static"]
-file_sanitizers = ["dep:zip", "dep:unrar", "dep:png"]
+file_sanitizers = ["dep:zip", "dep:unrar", "dep:png", "dep:imagesize"]
 hostname = ["dep:url"]
 path = []
 rng = ["dep:rand"]

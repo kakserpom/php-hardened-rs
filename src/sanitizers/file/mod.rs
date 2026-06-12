@@ -3,6 +3,7 @@ use ext_php_rs::zend::ce;
 use thiserror::Error;
 
 pub mod archive;
+pub mod image;
 pub mod png;
 
 // Error codes for file sanitizer errors: 1600-1699
@@ -17,6 +18,11 @@ pub mod error_codes {
     pub const PNG_BOMB: i32 = 1607;
     pub const ZIP_BOMB: i32 = 1608;
     pub const RAR_BOMB: i32 = 1609;
+    pub const UNKNOWN_IMAGE_FORMAT: i32 = 1610;
+    pub const IMAGE_BOMB: i32 = 1611;
+    pub const IMAGE_POLYGLOT: i32 = 1612;
+    pub const METADATA_STRIP_UNSUPPORTED: i32 = 1613;
+    pub const MALFORMED_IMAGE: i32 = 1614;
 }
 
 /// Errors that can occur during file sanitization operations.
@@ -51,6 +57,21 @@ pub enum Error {
 
     #[error("RAR archive looks like a bomb")]
     RarBomb,
+
+    #[error("Unknown or unsupported image format: {0}")]
+    UnknownImageFormat(String),
+
+    #[error("Image dimensions exceed the limit (width: {width}, height: {height})")]
+    ImageBomb { width: usize, height: usize },
+
+    #[error("Image contains active content marker {0:?} (polyglot)")]
+    ImagePolyglot(String),
+
+    #[error("Metadata stripping is not supported for format {0:?}")]
+    MetadataStripUnsupported(String),
+
+    #[error("Malformed image: {0}")]
+    MalformedImage(String),
 }
 
 impl Error {
@@ -67,6 +88,11 @@ impl Error {
             Error::PngBomb { .. } => error_codes::PNG_BOMB,
             Error::ZipBomb => error_codes::ZIP_BOMB,
             Error::RarBomb => error_codes::RAR_BOMB,
+            Error::UnknownImageFormat(_) => error_codes::UNKNOWN_IMAGE_FORMAT,
+            Error::ImageBomb { .. } => error_codes::IMAGE_BOMB,
+            Error::ImagePolyglot(_) => error_codes::IMAGE_POLYGLOT,
+            Error::MetadataStripUnsupported(_) => error_codes::METADATA_STRIP_UNSUPPORTED,
+            Error::MalformedImage(_) => error_codes::MALFORMED_IMAGE,
         }
     }
 }

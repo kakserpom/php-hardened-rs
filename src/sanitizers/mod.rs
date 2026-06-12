@@ -16,6 +16,7 @@ pub(crate) fn build(mut module: ModuleBuilder) -> ModuleBuilder {
     {
         module = module.class::<file::png::PngSanitizer>();
         module = module.class::<file::archive::ArchiveSanitizer>();
+        module = module.class::<file::image::ImageSanitizer>();
     }
     #[cfg(feature = "svg_sanitizer")]
     {

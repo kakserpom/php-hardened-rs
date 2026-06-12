@@ -33,6 +33,9 @@ As well as blazingly fast sanitizers:
   via [Ammonia](https://github.com/rust-ammonia/ammonia). There's also `truncateAndClean()` for safe HTML truncation.
 - **Hardened\Sanitizers\File\ArchiveSanitizer** — sanitization against ZIP/RAR bombs.
 - **Hardened\Sanitizers\File\PngSanitizer** — sanitization against PNG bombs.
+- **Hardened\Sanitizers\File\ImageSanitizer** — header-only image hardening: dimension/bomb checks,
+  magic-byte vs extension/MIME verification, polyglot detection, and metadata stripping — all without
+  invoking an image decoder.
 
 Ergonomic builders of HTTP security headers:
 
@@ -94,7 +97,7 @@ For example, `cargo php install --release --yes --features rng, `
 | **mimalloc**         | Use [mimalloc](https://docs.rs/mimalloc/latest/mimalloc/index.html) allocator.                                                                                                     |
 | **shell\_command**   | Safe subprocess API & `Hardened\ShellCommand`                                                                                                                                      |
 | **html\_sanitizer**  | The `Hardened\Sanitizers\HtmlSanitizer` wrapper around [Ammonia](https://github.com/rust-ammonia/ammonia)                                                                          |
-| **file\_sanitizers** | File sanitizers. `Hardened\Sanitizers\File\Archive` and `Hardened\Sanitizers\File\Png`                                                                                             |
+| **file\_sanitizers** | File sanitizers: `Hardened\Sanitizers\File\ArchiveSanitizer`, `PngSanitizer`, and `ImageSanitizer` (requires [`imagesize`](https://docs.rs/imagesize))                                                                                             |
 | **hostname**         | The `Hardened\Hostname` utility                                                                                                                                                    |
 | **path**             | The `Hardened\Path` utility                                                                                                                                                        |
 | **rng**              | The `Hardened\Rng` random-data generator                                                                                                                                           |
@@ -512,6 +515,72 @@ try {
 | Method                       | Description                                                                                                                  |
 |------------------------------|------------------------------------------------------------------------------------------------------------------------------|
 | `defuse(string $path): void` | Inspect the file at `$path`. Throws if it’s a valid PNG with width>10000 or height>10000, or if the IHDR chunk is malformed. |
+
+</details>
+
+### `Hardened\Sanitizers\File\ImageSanitizer`
+
+- Header-only image hardening: inspect untrusted uploads **without ever invoking an image decoder**
+  (`imagecreatefromstring()` runs the full C codec on attacker bytes with no sandbox).
+- Magic-byte format detection for JPEG/PNG/GIF/WebP/BMP/TIFF/ICO/AVIF/HEIF/JXL and more — never
+  trusts the extension or the client-declared MIME type.
+- Decompression-bomb guards from header-declared dimensions: per-side limits and a pixel budget
+  for extreme aspect ratios.
+- Polyglot detection: a valid image that is also HTML/SVG/PHP (content-sniffing XSS, upload RCE).
+- Metadata stripping without decoding pixels: JPEG APP1–APP15 + COM (EXIF incl. GPS, XMP, IPTC;
+  keeps JFIF/Adobe/ICC), PNG `eXIf`/`tEXt`/`zTXt`/`iTXt`, WebP `EXIF`/`XMP` (with RIFF size and
+  VP8X flag fix-up).
+- API Highlights:
+    - `new ImageSanitizer(string $data)` / `ImageSanitizer::fromBytes(string $data)` / `ImageSanitizer::fromFile(string $path)`.
+    - `$img->format(): ?string`, `$img->mime(): ?string` — magic-byte detection.
+    - `$img->dimensions(): array` — `[width, height]` from the header only.
+    - `$img->assertDimensionsWithin(int $maxWidth, int $maxHeight): void`, `$img->assertPixelsWithin(int $maxPixels): void`.
+    - `$img->matchesExtension(string $filename): bool`, `$img->matchesMime(string $mime): bool`.
+    - `$img->isPolyglot(): bool`, `$img->assertNotPolyglot(): void`.
+    - `$img->stripMetadata(): string` — sanitized copy of the image bytes.
+
+<details>
+<summary>Example</summary>
+
+```php
+use Hardened\Sanitizers\File\ImageSanitizer;
+
+$img = ImageSanitizer::fromFile($_FILES['avatar']['tmp_name']);
+
+// Reject anything that isn't what it claims to be — before any decoder runs
+if ($img->format() === null
+    || !$img->matchesExtension($_FILES['avatar']['name'])
+    || !$img->matchesMime($_FILES['avatar']['type'])) {
+    http_response_code(415);
+    exit;
+}
+
+$img->assertDimensionsWithin(10000, 10000); // throws on decompression bombs
+$img->assertPixelsWithin(50_000_000);
+$img->assertNotPolyglot();                  // throws on embedded <?php / <script / <svg
+
+// Store a copy with EXIF/GPS/XMP removed
+file_put_contents($dest, $img->stripMetadata());
+```
+
+</details>
+
+<details><summary>API Reference</summary>
+
+| Method                                                          | Description                                                       |
+|------------------------------------------------------------------|-------------------------------------------------------------------|
+| `__construct(string $data)` / `fromBytes(string $data)`         | Wrap raw image bytes.                                             |
+| `fromFile(string $path): ImageSanitizer` *(static)*             | Read and wrap a file.                                             |
+| `format(): ?string`                                             | Detect format from magic bytes (`"jpeg"`, `"png"`, …) or `null`.  |
+| `mime(): ?string`                                               | Canonical MIME type for the detected format.                      |
+| `dimensions(): array`                                           | `[width, height]` parsed from the header only.                    |
+| `assertDimensionsWithin(int $maxWidth, int $maxHeight): void`   | Throw if either side exceeds the limit.                           |
+| `assertPixelsWithin(int $maxPixels): void`                      | Throw if width × height exceeds the budget.                       |
+| `matchesExtension(string $filename): bool`                      | Magic-byte format vs file extension.                              |
+| `matchesMime(string $mime): bool`                               | Magic-byte format vs declared MIME type.                          |
+| `isPolyglot(): bool`                                            | Detect embedded HTML/SVG/PHP markers.                             |
+| `assertNotPolyglot(): void`                                     | Throw (naming the marker) if active content is embedded.          |
+| `stripMetadata(): string`                                       | Return a copy with metadata removed (JPEG/PNG/WebP).              |
 
 </details>
 

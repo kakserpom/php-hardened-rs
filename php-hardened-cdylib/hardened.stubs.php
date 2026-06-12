@@ -1576,6 +1576,134 @@ namespace Hardened\Sanitizers\File {
     }
 
     /**
+     * Header-only image hardening: inspect untrusted image uploads without ever
+     * invoking an image decoder.
+     *
+     * `getimagesize()` is header-based, but `imagecreatefromstring()` and friends
+     * run the full C codec (libjpeg/libpng/libgd) on attacker bytes with no
+     * sandbox. This class reads only headers and container structure, so
+     * dimension checks (decompression-bomb guards), format/extension/MIME
+     * verification, polyglot detection, and metadata stripping all happen
+     * *before* any decoder sees the file.
+     */
+    class ImageSanitizer {
+        /**
+         * Constructs a sanitizer over raw image bytes.
+         *
+         * @param string $data
+         */
+        public function __construct(string $data) {}
+
+        /**
+         * Asserts that the header-declared dimensions do not exceed the limits.
+         * Use before handing the bytes to any real decoder.
+         *
+         * @param int $max_width
+         * @param int $max_height
+         * @return void
+         */
+        public function assertDimensionsWithin(int $max_width, int $max_height): void {}
+
+        /**
+         * Asserts that the byte stream contains no active-content markers.
+         *
+         * @return void
+         */
+        public function assertNotPolyglot(): void {}
+
+        /**
+         * Asserts that the header-declared pixel count (width × height) does not
+         * exceed the limit. Catches extreme aspect ratios (e.g. 1×1000000000)
+         * that per-side limits miss.
+         *
+         * @param int $max_pixels
+         * @return void
+         */
+        public function assertPixelsWithin(int $max_pixels): void {}
+
+        /**
+         * Reads the image dimensions from the header only — the pixel decoder is
+         * never invoked, so decompression bombs cannot trigger.
+         *
+         * @return array - `array{0: int, 1: int}`: `[width, height]` in pixels.
+         */
+        public function dimensions(): array {}
+
+        /**
+         * Detects the image format from magic bytes (never trusts the extension
+         * or a declared MIME type).
+         *
+         * @return string|null - `string|null`: One of `"jpeg"`, `"png"`, `"gif"`, `"webp"`, `"bmp"`, `"tiff"`, `"ico"`, `"avif"`, `"heif"`, `"jxl"`, `"psd"`, `"qoi"`, `"tga"`, or `null` if not a recognized image.
+         */
+        public function format(): ?string {}
+
+        /**
+         * Constructs a sanitizer over raw image bytes (alias for the constructor).
+         *
+         * @param string $data
+         * @return \Hardened\Sanitizers\File\ImageSanitizer
+         */
+        public static function fromBytes(string $data): \Hardened\Sanitizers\File\ImageSanitizer {}
+
+        /**
+         * Constructs a sanitizer by reading a file.
+         *
+         * @param string $path
+         * @return \Hardened\Sanitizers\File\ImageSanitizer
+         */
+        public static function fromFile(string $path): \Hardened\Sanitizers\File\ImageSanitizer {}
+
+        /**
+         * Scans the entire byte stream for active-content markers (`<?php`,
+         * `<script`, `<html`, `<svg`, …) that turn a valid image into a
+         * polyglot — content-sniffing XSS or upload-RCE when the file is ever
+         * served inline or executed.
+         *
+         * @return bool - `bool`: `true` if a marker is present.
+         */
+        public function isPolyglot(): bool {}
+
+        /**
+         * Checks whether the magic-byte format matches the file extension.
+         * Catches `shell.php` uploaded as `image/png`, double extensions whose
+         * final extension lies, and renamed files.
+         *
+         * @param string $filename
+         * @return bool - `bool`: `true` if the extension belongs to the detected format.
+         */
+        public function matchesExtension(string $filename): bool {}
+
+        /**
+         * Checks whether the magic-byte format matches a declared MIME type
+         * (e.g. the `Content-Type` of an upload — which is attacker-controlled).
+         *
+         * @param string $mime
+         * @return bool - `bool`: `true` if the declared type matches the detected format.
+         */
+        public function matchesMime(string $mime): bool {}
+
+        /**
+         * Returns the canonical MIME type for the detected format.
+         *
+         * @return string|null - `string|null`: e.g. `"image/jpeg"`, or `null` if the format is unrecognized.
+         */
+        public function mime(): ?string {}
+
+        /**
+         * Returns a copy of the image with metadata stripped, without decoding
+         * pixel data:
+         * - **JPEG**: drops APP1–APP15 (EXIF incl. GPS, XMP, IPTC) and COM
+         *   comments; keeps JFIF, Adobe and ICC-profile segments.
+         * - **PNG**: drops `eXIf`, `tEXt`, `zTXt`, `iTXt` chunks.
+         * - **WebP**: drops `EXIF` and `XMP` chunks, fixing the RIFF size and
+         *   VP8X feature flags.
+         *
+         * @return string - `string`: The sanitized image bytes.
+         */
+        public function stripMetadata(): string {}
+    }
+
+    /**
      * Engine for detecting "PNG bombs" (images with unreasonable dimensions).
      */
     class PngSanitizer {
