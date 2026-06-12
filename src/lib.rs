@@ -4,7 +4,13 @@
 pub mod constant_time;
 pub mod csrf;
 pub mod hostname;
+#[cfg(feature = "jwt")]
+pub mod jwt;
+#[cfg(feature = "password")]
+pub mod password;
 pub mod path;
+#[cfg(feature = "rate_limiter")]
+pub mod rate_limiter;
 #[cfg(feature = "redirect")]
 pub mod redirect;
 pub mod rng;
@@ -20,7 +26,13 @@ pub mod text;
 use crate::constant_time::ConstantTime;
 use crate::csrf::Csrf;
 pub use crate::hostname::Hostname;
+#[cfg(feature = "jwt")]
+use crate::jwt::JwtVerifier;
+#[cfg(feature = "password")]
+use crate::password::Password;
 use crate::path::PathObj;
+#[cfg(feature = "rate_limiter")]
+use crate::rate_limiter::RateLimiter;
 #[cfg(feature = "redirect")]
 use crate::redirect::Redirect;
 use crate::rng::Rng;
@@ -127,6 +139,18 @@ fn get_module(mut module: ModuleBuilder) -> ModuleBuilder {
     #[cfg(feature = "ssrf")]
     {
         module = module.class::<SsrfGuard>();
+    }
+    #[cfg(feature = "password")]
+    {
+        module = module.class::<Password>();
+    }
+    #[cfg(feature = "rate_limiter")]
+    {
+        module = module.class::<RateLimiter>();
+    }
+    #[cfg(feature = "jwt")]
+    {
+        module = module.class::<JwtVerifier>();
     }
     #[cfg(feature = "headers")]
     {

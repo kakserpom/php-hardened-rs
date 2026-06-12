@@ -28,9 +28,12 @@ lazy_static = { version = "1.5", optional = true }
 subtle = { version = "2.6", optional = true }
 ipnet = { version = "2.11", optional = true }
 imagesize = { version = "0.14", optional = true }
+argon2 = { version = "0.5", optional = true }
+bcrypt = { version = "0.17", optional = true }
+jsonwebtoken = { version = "9", optional = true }
 
 [features]
-default = ["mimalloc", "shell_command", "html_sanitizer", "svg_sanitizer", "file_sanitizers", "hostname", "path", "rng", "csrf", "headers", "ct", "text", "redirect", "ssrf"]
+default = ["mimalloc", "shell_command", "html_sanitizer", "svg_sanitizer", "file_sanitizers", "hostname", "path", "rng", "csrf", "headers", "ct", "text", "redirect", "ssrf", "password", "rate_limiter", "jwt"]
 mimalloc = ["dep:mimalloc"]
 shell_command = ["dep:shell-words"]
 html_sanitizer = ["dep:ammonia"]
@@ -45,6 +48,9 @@ ct = ["dep:subtle", "dep:data-encoding"]
 text = []
 redirect = ["dep:url"]
 ssrf = ["dep:url", "dep:ipnet"]
+password = ["dep:argon2", "dep:bcrypt"]
+rate_limiter = []
+jwt = ["dep:jsonwebtoken", "dep:serde_json"]
 test = ["ext-php-rs/embed"]
 
 [dev-dependencies]

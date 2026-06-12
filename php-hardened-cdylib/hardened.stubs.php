@@ -268,6 +268,198 @@ namespace Hardened {
         public function subdomainOfUrl(string $url): bool {}
     }
 
+    /**
+     * Hardened JWT verification.
+     *
+     * Most JWT vulnerabilities are verification bugs, and this API makes them
+     * unrepresentable:
+     * - **`alg: none` is always rejected** — there is no way to allow it.
+     * - **No HS/RS algorithm confusion**: the key type is bound to an algorithm
+     *   family at construction (`forHmac()` accepts only HS*, `forRsa()` only
+     *   RS*/PS*, …), so an attacker cannot have an RSA public key interpreted
+     *   as an HMAC secret.
+     * - **`exp` is mandatory** and validated (with configurable leeway); `nbf`
+     *   is validated when present; a future `iat` is rejected.
+     * - The token's `alg` header must be in the explicit allowlist.
+     */
+    class JwtVerifier {
+        public function __construct() {}
+
+        /**
+         * Constructs a verifier for ECDSA tokens from a PEM public key.
+         *
+         * @param string $public_key_pem
+         * @param array|null $algorithms
+         * @return \Hardened\JwtVerifier
+         */
+        public static function forEcdsa(string $public_key_pem, ?array $algorithms = null): \Hardened\JwtVerifier {}
+
+        /**
+         * Constructs a verifier for Ed25519 (`EdDSA`) tokens from a PEM public key.
+         *
+         * @param string $public_key_pem
+         * @return \Hardened\JwtVerifier
+         */
+        public static function forEd25519(string $public_key_pem): \Hardened\JwtVerifier {}
+
+        /**
+         * Constructs a verifier for HMAC (shared-secret) tokens.
+         *
+         * @param string $secret
+         * @param array|null $algorithms
+         * @return \Hardened\JwtVerifier
+         */
+        public static function forHmac(string $secret, ?array $algorithms = null): \Hardened\JwtVerifier {}
+
+        /**
+         * Constructs a verifier for RSA tokens from a PEM public key.
+         *
+         * @param string $public_key_pem
+         * @param array|null $algorithms
+         * @return \Hardened\JwtVerifier
+         */
+        public static function forRsa(string $public_key_pem, ?array $algorithms = null): \Hardened\JwtVerifier {}
+
+        /**
+         * Requires the `aud` claim to contain one of the given values.
+         *
+         * @param array $audiences
+         * @return void
+         */
+        public function requireAudience(array $audiences): void {}
+
+        /**
+         * Requires the listed claims to be present (any value).
+         *
+         * @param array $claims
+         * @return void
+         */
+        public function requireClaims(array $claims): void {}
+
+        /**
+         * Requires the `iss` claim to equal one of the given values.
+         *
+         * @param array $issuers
+         * @return void
+         */
+        public function requireIssuer(array $issuers): void {}
+
+        /**
+         * Rejects tokens whose `iat` is older than the given age. Makes `iat`
+         * mandatory.
+         *
+         * @param int $seconds
+         * @return void
+         */
+        public function requireMaxAge(int $seconds): void {}
+
+        /**
+         * Requires the `sub` claim to equal the given value.
+         *
+         * @param string $subject
+         * @return void
+         */
+        public function requireSubject(string $subject): void {}
+
+        /**
+         * Sets the clock-skew leeway applied to `exp`/`nbf`/`iat` checks
+         * (defaults to 60 seconds).
+         *
+         * @param int $seconds
+         * @return void
+         */
+        public function setLeeway(int $seconds): void {}
+
+        /**
+         * Verifies a token and returns its claims.
+         *
+         * Checks performed: signature with an allowlisted algorithm (never
+         * `none`), mandatory `exp`, `nbf` if present, `iat` not in the future,
+         * plus any configured issuer/audience/subject/required-claim/max-age
+         * constraints.
+         *
+         * @param string $token
+         * @return mixed - `array`: The token claims as an associative array.
+         */
+        public function verify(string $token): mixed {}
+    }
+
+    /**
+     * Password hashing with safe algorithms and safe defaults.
+     *
+     * `hash()` produces Argon2id (the current OWASP recommendation) PHC strings;
+     * `verify()` accepts Argon2 and bcrypt hashes, so existing `password_hash()`
+     * databases can be migrated gradually: verify with the old hash, then
+     * re-hash when `needsRehash()` says so. Verification is timing-safe.
+     */
+    class Password {
+        public function __construct() {}
+
+        /**
+         * Hashes a password with Argon2id.
+         *
+         * Defaults follow the OWASP Password Storage Cheat Sheet: 19 MiB memory,
+         * 2 iterations, parallelism 1. A random salt is generated per call.
+         *
+         * @param string $password
+         * @param int|null $memory_kib
+         * @param int|null $iterations
+         * @param int|null $parallelism
+         * @return string - `string`: A PHC-format hash string (`$argon2id$...`).
+         */
+        public static function hash(string $password, ?int $memory_kib = null, ?int $iterations = null, ?int $parallelism = null): string {}
+
+        /**
+         * Hashes a password with bcrypt, for systems that must stay
+         * bcrypt-compatible. Prefer `hash()` (Argon2id) for new code.
+         *
+         * Note: bcrypt only uses the first 72 bytes of the password.
+         *
+         * @param string $password
+         * @param int|null $cost
+         * @return string - `string`: A bcrypt hash string (`$2b$...`).
+         */
+        public static function hashBcrypt(string $password, ?int $cost = null): string {}
+
+        /**
+         * Checks whether a stored hash should be re-hashed: it is not Argon2id,
+         * uses an outdated Argon2 version, or its cost parameters differ from
+         * the given (or default) ones. Call after a successful `verify()` and
+         * re-hash while you still have the plaintext.
+         *
+         * @param string $hash
+         * @param int|null $memory_kib
+         * @param int|null $iterations
+         * @param int|null $parallelism
+         * @return bool - `bool`: `true` if the hash should be regenerated.
+         */
+        public static function needsRehash(string $hash, ?int $memory_kib = null, ?int $iterations = null, ?int $parallelism = null): bool {}
+
+        /**
+         * Checks whether a bcrypt hash uses a cost lower than the given (or
+         * default) one.
+         *
+         * @param string $hash
+         * @param int|null $cost
+         * @return bool - `bool`: `true` if the hash should be regenerated.
+         */
+        public static function needsRehashBcrypt(string $hash, ?int $cost = null): bool {}
+
+        /**
+         * Verifies a password against a stored hash, in constant time with
+         * respect to the hash contents.
+         *
+         * Accepts Argon2 (`$argon2id$`, `$argon2i$`) and bcrypt (`$2a$`, `$2b$`,
+         * `$2y$`) hashes, so databases written by PHP's `password_hash()` keep
+         * verifying during a migration.
+         *
+         * @param string $password
+         * @param string $hash
+         * @return bool - `bool`: `true` if the password matches.
+         */
+        public static function verify(string $password, string $hash): bool {}
+    }
+
     class Path {
         /**
          * Constructs a new PathObj instance (alias for `from`).
@@ -418,6 +610,89 @@ namespace Hardened {
          * @return bool - `bool` `true` if extension is one of `["mp4","mov","avi","mkv","webm","flv"]`.
          */
         public function validateExtensionVideo(): bool {}
+    }
+
+    /**
+     * Token-bucket rate limiter.
+     *
+     * A bucket holds up to `capacity` tokens and refills at `refillTokens` per
+     * `refillIntervalMs`. Each attempt consumes tokens; an empty bucket means
+     * the action is rate-limited. This shape allows short bursts up to
+     * `capacity` while capping the sustained rate.
+     *
+     * Two storage modes:
+     * - **Process-local** (`attempt()`, keyed by string): zero setup. Note that
+     *   under php-fpm each worker process keeps its own counters, so the
+     *   effective limit is multiplied by the number of workers.
+     * - **External** (`attemptStateful()`): the limiter is stateless; you keep
+     *   the opaque state string anywhere shared — APCu, Redis, a session — and
+     *   pass it back on the next attempt. Use your store's locking/CAS if
+     *   strict accounting under concurrency is required.
+     */
+    class RateLimiter {
+        /**
+         * Constructs a token-bucket rate limiter.
+         *
+         * Example: `new RateLimiter(100, 10, 1000)` allows bursts of 100 and a
+         * sustained 10 requests per second.
+         *
+         * @param int $capacity
+         * @param int $refill_tokens
+         * @param int $refill_interval_ms
+         */
+        public function __construct(int $capacity, int $refill_tokens, int $refill_interval_ms) {}
+
+        /**
+         * Attempts to consume tokens for `key` from the process-local store.
+         *
+         * @param string $key
+         * @param int|null $cost
+         * @return bool - `bool`: `true` if allowed, `false` if rate-limited.
+         */
+        public function attempt(string $key, ?int $cost = null): bool {}
+
+        /**
+         * Attempts to consume tokens against an externally-stored state string,
+         * for shared backends (APCu, Redis, database, session).
+         *
+         * ```php
+         * $state = apcu_fetch("rl:$ip") ?: null;
+         * [$allowed, $state, $retryAfterMs] = $limiter->attemptStateful($state);
+         * apcu_store("rl:$ip", $state, 3600);
+         * if (!$allowed) { http_response_code(429); }
+         * ```
+         *
+         * @param string|null $state
+         * @param int|null $cost
+         * @return array - `array{0: bool, 1: string, 2: int}`: whether the attempt is allowed, the new state string to store, and the retry-after hint in milliseconds (`0` when allowed).
+         */
+        public function attemptStateful(?string $state = null, ?int $cost = null): array {}
+
+        /**
+         * Returns the number of whole tokens currently available for `key`.
+         *
+         * @param string $key
+         * @return int - `int`: Available tokens, after refill, without consuming any.
+         */
+        public function remaining(string $key): int {}
+
+        /**
+         * Removes the process-local bucket for `key`, restoring it to full.
+         *
+         * @param string $key
+         * @return void
+         */
+        public function reset(string $key): void {}
+
+        /**
+         * Returns how long to wait (in milliseconds) until an attempt for `key`
+         * with the given cost could succeed. Does not consume tokens.
+         *
+         * @param string $key
+         * @param int|null $cost
+         * @return int - `int`: `0` if an attempt would currently succeed, otherwise the wait time in milliseconds (suitable for a `Retry-After` header).
+         */
+        public function retryAfterMs(string $key, ?int $cost = null): int {}
     }
 
     /**

@@ -26,6 +26,14 @@ essential security utilities for PHP applications. It features the following cor
   resolve-then-validate DNS pinning (`CURLOPT_RESOLVE`-ready) against DNS rebinding.
 - **Hardened\Text** — control-character and protocol-injection sanitizers: log lines, header values,
   null bytes.
+- **Hardened\Password** — Argon2id (and bcrypt) password hashing with OWASP defaults, timing-safe
+  `verify()`, and `needsRehash()`. Using [argon2](https://crates.io/crates/argon2) and
+  [bcrypt](https://crates.io/crates/bcrypt) crates.
+- **Hardened\RateLimiter** — token-bucket rate limiter with a process-local store plus a stateless
+  mode whose opaque state string can live in APCu/Redis/anything shared.
+- **Hardened\JwtVerifier** — hardened JWT verification: `alg: none` impossible, key type bound to the
+  algorithm family (no HS/RS confusion), mandatory `exp`, `nbf`/`iat` validation. Using
+  [jsonwebtoken](https://crates.io/crates/jsonwebtoken) crate.
 
 As well as blazingly fast sanitizers:
 
@@ -93,7 +101,7 @@ For example, `cargo php install --release --yes --features rng, `
 
 | Feature              | Enables                                                                                                                                                                            |
 |----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **default**          | `mimalloc`, `shell_command`, `html_sanitizer`, `hostname` `path`, `rng`, `csrf`, `headers`, `ct`, `text`, `redirect`, `ssrf`                                                       |
+| **default**          | `mimalloc`, `shell_command`, `html_sanitizer`, `hostname` `path`, `rng`, `csrf`, `headers`, `ct`, `text`, `redirect`, `ssrf`, `password`, `rate_limiter`, `jwt`                                                       |
 | **mimalloc**         | Use [mimalloc](https://docs.rs/mimalloc/latest/mimalloc/index.html) allocator.                                                                                                     |
 | **shell\_command**   | Safe subprocess API & `Hardened\ShellCommand`                                                                                                                                      |
 | **html\_sanitizer**  | The `Hardened\Sanitizers\HtmlSanitizer` wrapper around [Ammonia](https://github.com/rust-ammonia/ammonia)                                                                          |
@@ -107,6 +115,9 @@ For example, `cargo php install --release --yes --features rng, `
 | **text**             | The `Hardened\Text` control-character sanitizers                                                                                                                                   |
 | **redirect**         | The `Hardened\Redirect` open-redirect validator (requires `url`)                                                                                                                   |
 | **ssrf**             | The `Hardened\SsrfGuard` outbound network policy (requires `url`, [`ipnet`](https://docs.rs/ipnet))                                                                                |
+| **password**         | The `Hardened\Password` hashing utility (requires [`argon2`](https://docs.rs/argon2), [`bcrypt`](https://docs.rs/bcrypt))                                                          |
+| **rate\_limiter**    | The `Hardened\RateLimiter` token-bucket limiter                                                                                                                                    |
+| **jwt**              | The `Hardened\JwtVerifier` hardened JWT verification (requires [`jsonwebtoken`](https://docs.rs/jsonwebtoken), `serde_json`)                                                       |
 
 > On **macOS**, you may need to set the deployment target and link flags first:
 > ```bash
@@ -949,6 +960,158 @@ Text::assertNoNullBytes($filename);
 | `sanitizeHeaderValue(string $input): string`                    | Throw on CR/LF/NUL; strip other controls except tab.       |
 | `assertNoNullBytes(string $input): string`                      | Throw if a null byte is present; return input unchanged.   |
 | `hasNullBytes(string $input): bool`                             | Detect null bytes.                                         |
+
+</details>
+
+### `Hardened\Password`
+
+- Argon2id hashing with OWASP Password Storage Cheat Sheet defaults (19 MiB memory, t=2, p=1).
+- Timing-safe `verify()` that also accepts bcrypt (`$2a$`/`$2b$`/`$2y$`) hashes, so databases
+  written by PHP's `password_hash()` keep working during a migration.
+- `needsRehash()` flags hashes that are not Argon2id, use an outdated version, or differ from the
+  target cost parameters.
+- API Highlights:
+    - `Password::hash(string $password, ?int $memoryKib = 19456, ?int $iterations = 2, ?int $parallelism = 1): string`.
+    - `Password::verify(string $password, string $hash): bool` — Argon2 + bcrypt, timing-safe.
+    - `Password::needsRehash(string $hash, ?int $memoryKib, ?int $iterations, ?int $parallelism): bool`.
+    - `Password::hashBcrypt(string $password, ?int $cost = 12): string` — for bcrypt-compatible systems.
+    - `Password::needsRehashBcrypt(string $hash, ?int $cost = 12): bool`.
+
+<details><summary>Example</summary>
+
+```php
+use Hardened\Password;
+
+// Registration
+$hash = Password::hash($_POST['password']);
+
+// Login
+if (Password::verify($_POST['password'], $storedHash)) {
+    if (Password::needsRehash($storedHash)) {
+        // bcrypt legacy hash or outdated parameters: upgrade transparently
+        updateStoredHash(Password::hash($_POST['password']));
+    }
+}
+```
+
+</details>
+
+<details><summary>API Reference</summary>
+
+| Method                                                                                              | Description                                            |
+|------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
+| `hash(string $password, ?int $memoryKib, ?int $iterations, ?int $parallelism): string`             | Argon2id PHC hash with OWASP defaults.                 |
+| `verify(string $password, string $hash): bool`                                                     | Timing-safe verify; accepts Argon2 and bcrypt hashes.  |
+| `needsRehash(string $hash, ?int $memoryKib, ?int $iterations, ?int $parallelism): bool`            | `true` if the hash should be regenerated.              |
+| `hashBcrypt(string $password, ?int $cost = 12): string`                                            | bcrypt hash for compatibility needs.                   |
+| `needsRehashBcrypt(string $hash, ?int $cost = 12): bool`                                           | `true` if the bcrypt cost is below target.             |
+
+</details>
+
+### `Hardened\RateLimiter`
+
+- Token-bucket limiter: bursts up to `capacity`, sustained `refillTokens` per `refillIntervalMs`.
+- Process-local keyed store with zero setup (per-worker under php-fpm), plus a **stateless mode**
+  for shared backends: the limiter hands you an opaque state string to keep in APCu/Redis/a
+  session and pass back on the next attempt.
+- Tamper-resistant state: claimed tokens are clamped to capacity, future timestamps to now.
+- API Highlights:
+    - `new RateLimiter(int $capacity, int $refillTokens, int $refillIntervalMs)`.
+    - `$limiter->attempt(string $key, ?int $cost = 1): bool` — process-local.
+    - `$limiter->retryAfterMs(string $key, ?int $cost = 1): int` — `Retry-After` hint, non-consuming.
+    - `$limiter->remaining(string $key): int`, `$limiter->reset(string $key): void`.
+    - `$limiter->attemptStateful(?string $state, ?int $cost = 1): array` — `[allowed, newState, retryAfterMs]`.
+
+<details><summary>Example</summary>
+
+```php
+use Hardened\RateLimiter;
+
+$limiter = new RateLimiter(10, 5, 60_000); // burst 10, 5 per minute sustained
+
+if (!$limiter->attempt("login:" . $_SERVER['REMOTE_ADDR'])) {
+    header("Retry-After: " . ceil($limiter->retryAfterMs("login:" . $_SERVER['REMOTE_ADDR']) / 1000));
+    http_response_code(429);
+    exit;
+}
+
+// Shared across workers via APCu:
+$state = apcu_fetch("rl:$ip") ?: null;
+[$allowed, $state, $retryAfterMs] = $limiter->attemptStateful($state);
+apcu_store("rl:$ip", $state, 3600);
+```
+
+</details>
+
+<details><summary>API Reference</summary>
+
+| Method                                                              | Description                                                       |
+|----------------------------------------------------------------------|-------------------------------------------------------------------|
+| `__construct(int $capacity, int $refillTokens, int $refillIntervalMs)` | Token bucket: burst capacity + sustained refill rate.            |
+| `attempt(string $key, ?int $cost = 1): bool`                        | Consume tokens from the process-local bucket for `$key`.          |
+| `retryAfterMs(string $key, ?int $cost = 1): int`                    | Milliseconds until the attempt could succeed; does not consume.   |
+| `remaining(string $key): int`                                       | Whole tokens currently available.                                 |
+| `reset(string $key): void`                                          | Restore the bucket for `$key` to full.                            |
+| `attemptStateful(?string $state, ?int $cost = 1): array`            | Stateless step: returns `[bool $allowed, string $state, int $retryAfterMs]`. |
+
+</details>
+
+### `Hardened\JwtVerifier`
+
+- JWT verification with the footguns removed:
+    - `alg: none` is **always** rejected — there is no way to allow it.
+    - The key type is bound to an algorithm family at construction (`forHmac()` accepts only HS*,
+      `forRsa()` only RS*/PS*, `forEcdsa()` only ES*, `forEd25519()` EdDSA), so HS/RS algorithm
+      confusion is unrepresentable.
+    - The token's `alg` header must be in your explicit allowlist.
+    - `exp` is mandatory and validated; `nbf` is validated when present; a future `iat` is
+      rejected; optional max-age makes `iat` mandatory.
+- Optional issuer/audience/subject/required-claim constraints; configurable leeway (default 60 s).
+- API Highlights:
+    - `JwtVerifier::forHmac(string $secret, ?array $algorithms = ["HS256"]): JwtVerifier`.
+    - `JwtVerifier::forRsa(string $publicKeyPem, ?array $algorithms = ["RS256"]): JwtVerifier`.
+    - `JwtVerifier::forEcdsa(string $publicKeyPem, ?array $algorithms = ["ES256"]): JwtVerifier`.
+    - `JwtVerifier::forEd25519(string $publicKeyPem): JwtVerifier`.
+    - `$v->requireIssuer(array $issuers)`, `$v->requireAudience(array $audiences)`, `$v->requireSubject(string $sub)`.
+    - `$v->requireClaims(array $names)`, `$v->requireMaxAge(int $seconds)`, `$v->setLeeway(int $seconds)`.
+    - `$v->verify(string $token): array` — returns the claims or throws.
+
+<details><summary>Example</summary>
+
+```php
+use Hardened\JwtVerifier;
+
+$verifier = JwtVerifier::forHmac($secret);          // allowlist defaults to ["HS256"]
+$verifier->requireIssuer(['https://idp.example']);
+$verifier->requireAudience(['api']);
+$verifier->requireClaims(['sub']);
+
+try {
+    $claims = $verifier->verify($bearerToken);
+    $userId = $claims['sub'];
+} catch (Exception $e) {
+    http_response_code(401);
+    exit;
+}
+```
+
+</details>
+
+<details><summary>API Reference</summary>
+
+| Method                                                                 | Description                                                  |
+|--------------------------------------------------------------------------|--------------------------------------------------------------|
+| `forHmac(string $secret, ?array $algorithms = ["HS256"]): JwtVerifier` *(static)* | Verifier for HS256/HS384/HS512 tokens.               |
+| `forRsa(string $pem, ?array $algorithms = ["RS256"]): JwtVerifier` *(static)*     | Verifier for RS*/PS* tokens from a PEM public key.   |
+| `forEcdsa(string $pem, ?array $algorithms = ["ES256"]): JwtVerifier` *(static)*   | Verifier for ES256/ES384 tokens.                     |
+| `forEd25519(string $pem): JwtVerifier` *(static)*                      | Verifier for EdDSA tokens.                                   |
+| `requireIssuer(array $issuers): void`                                  | `iss` must equal one of the values.                          |
+| `requireAudience(array $audiences): void`                              | `aud` must contain one of the values.                        |
+| `requireSubject(string $subject): void`                                | `sub` must equal the value.                                  |
+| `requireClaims(array $names): void`                                    | Listed claims must be present.                               |
+| `requireMaxAge(int $seconds): void`                                    | Reject tokens older than this; makes `iat` mandatory.        |
+| `setLeeway(int $seconds): void`                                        | Clock-skew tolerance for `exp`/`nbf`/`iat` (default 60).     |
+| `verify(string $token): array`                                         | Verify and return claims, or throw.                          |
 
 </details>
 
