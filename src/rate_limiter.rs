@@ -1,6 +1,6 @@
-use ext_php_rs::convert::IntoZval;
+use ext_php_rs::convert::{FromZval, IntoZval, IntoZvalDyn};
 use ext_php_rs::exception::PhpException;
-use ext_php_rs::types::Zval;
+use ext_php_rs::types::{ZendCallable, ZendHashTable, Zval};
 use ext_php_rs::zend::ce;
 use ext_php_rs::{php_class, php_impl};
 use std::collections::HashMap;
@@ -13,6 +13,8 @@ pub mod error_codes {
     pub const INVALID_CONFIG: i32 = 2400;
     pub const INVALID_STATE: i32 = 2401;
     pub const CONVERSION: i32 = 2402;
+    pub const INVALID_THROTTLE_RESPONSE: i32 = 2403;
+    pub const CALLBACK_FAILED: i32 = 2404;
 }
 
 /// Errors that can occur during rate limiting operations.
@@ -24,6 +26,12 @@ pub enum Error {
     #[error("Invalid rate limiter state string")]
     InvalidState,
 
+    #[error("Invalid CL.THROTTLE response: {0}")]
+    InvalidThrottleResponse(String),
+
+    #[error("CL.THROTTLE callback failed: {0}")]
+    CallbackFailed(String),
+
     #[error("Failed to convert value: {0}")]
     Conversion(String),
 }
@@ -34,6 +42,8 @@ impl Error {
         match self {
             Error::InvalidConfig(_) => error_codes::INVALID_CONFIG,
             Error::InvalidState => error_codes::INVALID_STATE,
+            Error::InvalidThrottleResponse(_) => error_codes::INVALID_THROTTLE_RESPONSE,
+            Error::CallbackFailed(_) => error_codes::CALLBACK_FAILED,
             Error::Conversion(_) => error_codes::CONVERSION,
         }
     }
@@ -80,7 +90,7 @@ fn now_ms() -> u64 {
 /// the action is rate-limited. This shape allows short bursts up to
 /// `capacity` while capping the sustained rate.
 ///
-/// Two storage modes:
+/// Three storage modes:
 /// - **Process-local** (`attempt()`, keyed by string): zero setup. Note that
 ///   under php-fpm each worker process keeps its own counters, so the
 ///   effective limit is multiplied by the number of workers.
@@ -88,6 +98,10 @@ fn now_ms() -> u64 {
 ///   the opaque state string anywhere shared — APCu, Redis, a session — and
 ///   pass it back on the next attempt. Use your store's locking/CAS if
 ///   strict accounting under concurrency is required.
+/// - **`CL.THROTTLE`** (`attemptClThrottle()` / `clThrottleCommand()`): the
+///   strongest backend — atomic server-side GCRA in DragonflyDB (built in)
+///   or Redis with the redis-cell module. One round-trip, shared across all
+///   workers and hosts, no read-modify-write race.
 #[php_class]
 #[php(name = "Hardened\\RateLimiter")]
 pub struct RateLimiter {
@@ -177,6 +191,94 @@ impl RateLimiter {
             tokens_milli: tokens_milli.min(self.capacity_milli),
             updated_ms: updated_ms.min(now),
         })
+    }
+
+    /// Maps this limiter's configuration onto `CL.THROTTLE` arguments:
+    /// `(max_burst, count_per_period, period_seconds)`.
+    ///
+    /// `CL.THROTTLE` allows `max_burst + 1` in a burst, so `max_burst` is
+    /// `capacity - 1`. Its refill rate is `count / period` with the period in
+    /// whole seconds, so the configured `refill_tokens / refill_interval_ms`
+    /// rate is expressed as the exactly-equal reduced fraction
+    /// `refill_tokens * 1000 / refill_interval_ms` per second.
+    fn _cl_throttle_args(&self) -> (u64, u64, u64) {
+        fn gcd(mut a: u64, mut b: u64) -> u64 {
+            while b != 0 {
+                (a, b) = (b, a % b);
+            }
+            a
+        }
+        let max_burst = self.capacity_milli / MILLI - 1;
+        // refill_tokens_milli == refill_tokens * 1000
+        let divisor = gcd(self.refill_tokens_milli, self.refill_interval_ms);
+        (
+            max_burst,
+            self.refill_tokens_milli / divisor,
+            self.refill_interval_ms / divisor,
+        )
+    }
+
+    fn _cl_throttle_command(&self, key: &str, cost: u64) -> Vec<String> {
+        let (max_burst, count, period) = self._cl_throttle_args();
+        vec![
+            "CL.THROTTLE".to_string(),
+            key.to_string(),
+            max_burst.to_string(),
+            count.to_string(),
+            period.to_string(),
+            cost.to_string(),
+        ]
+    }
+
+    /// Interprets the five-integer `CL.THROTTLE` reply:
+    /// `[limited, limit, remaining, retry_after_s, reset_after_s]`.
+    fn _cl_throttle_decision(response: &[i64]) -> Result<ThrottleDecision> {
+        let &[limited, limit, remaining, retry_after, reset_after] = response else {
+            return Err(Error::InvalidThrottleResponse(format!(
+                "expected 5 integers, got {}",
+                response.len()
+            )));
+        };
+        Ok(ThrottleDecision {
+            allowed: limited == 0,
+            limit,
+            remaining,
+            // -1 means "not limited"
+            retry_after_sec: retry_after.max(0),
+            reset_after_sec: reset_after.max(0),
+        })
+    }
+}
+
+struct ThrottleDecision {
+    allowed: bool,
+    limit: i64,
+    remaining: i64,
+    retry_after_sec: i64,
+    reset_after_sec: i64,
+}
+
+impl ThrottleDecision {
+    fn into_zval(self) -> Result<Zval> {
+        let into = |err: ext_php_rs::error::Error| Error::Conversion(err.to_string());
+        let mut table = ZendHashTable::new();
+        let mut insert = |key, value: Zval| {
+            table
+                .insert(key, value)
+                .map_err(|e| Error::Conversion(e.to_string()))
+        };
+        insert("allowed", self.allowed.into_zval(false).map_err(into)?)?;
+        insert("limit", self.limit.into_zval(false).map_err(into)?)?;
+        insert("remaining", self.remaining.into_zval(false).map_err(into)?)?;
+        insert(
+            "retryAfterSec",
+            self.retry_after_sec.into_zval(false).map_err(into)?,
+        )?;
+        insert(
+            "resetAfterSec",
+            self.reset_after_sec.into_zval(false).map_err(into)?,
+        )?;
+        table.into_zval(false).map_err(into)
     }
 }
 
@@ -315,6 +417,90 @@ impl RateLimiter {
                 .map_err(into)?,
         ])
     }
+
+    /// Builds the `CL.THROTTLE` command equivalent to this limiter's
+    /// configuration, for atomic server-side rate limiting on DragonflyDB
+    /// (built in) or Redis with the redis-cell module. This is the strongest
+    /// backend: one round-trip, GCRA, no read-modify-write race.
+    ///
+    /// ```php
+    /// $reply = $redis->rawCommand(...$limiter->clThrottleCommand("login:$ip"));
+    /// $result = RateLimiter::clThrottleParse($reply);
+    /// ```
+    ///
+    /// # Parameters
+    /// - `key`: The key to limit on (used verbatim — add your own prefix).
+    /// - `cost`: Tokens this attempt consumes (defaults to 1).
+    ///
+    /// # Returns
+    /// - `string[]`: The full command, e.g.
+    ///   `["CL.THROTTLE", "login:1.2.3.4", "9", "1", "12", "1"]`.
+    fn cl_throttle_command(&self, key: &str, cost: Option<u64>) -> Vec<String> {
+        self._cl_throttle_command(key, cost.unwrap_or(1))
+    }
+
+    /// Parses a `CL.THROTTLE` reply (five integers) into a decision array.
+    ///
+    /// # Parameters
+    /// - `response`: The raw reply array from the server.
+    ///
+    /// # Returns
+    /// - `array{allowed: bool, limit: int, remaining: int, retryAfterSec: int,
+    ///   resetAfterSec: int}`: `retryAfterSec` is `0` when allowed.
+    ///
+    /// # Exceptions
+    /// - Throws an exception if the reply is not five integers.
+    fn cl_throttle_parse(response: Vec<i64>) -> Result<Zval> {
+        Self::_cl_throttle_decision(&response)?.into_zval()
+    }
+
+    /// One-call `CL.THROTTLE` attempt through any PHP Redis client: the
+    /// command is passed to `raw_command` as variadic string arguments, and
+    /// the reply is parsed into a decision array.
+    ///
+    /// ```php
+    /// $result = $limiter->attemptClThrottle(
+    ///     "login:$ip",
+    ///     fn (...$cmd) => $redis->rawCommand(...$cmd), // phpredis
+    /// );
+    /// if (!$result['allowed']) {
+    ///     header("Retry-After: " . $result['retryAfterSec']);
+    ///     http_response_code(429);
+    /// }
+    /// ```
+    ///
+    /// # Parameters
+    /// - `key`: The key to limit on (used verbatim — add your own prefix).
+    /// - `raw_command`: Callable receiving the command as variadic strings
+    ///   and returning the server reply array.
+    /// - `cost`: Tokens this attempt consumes (defaults to 1).
+    ///
+    /// # Returns
+    /// - `array{allowed: bool, limit: int, remaining: int, retryAfterSec: int,
+    ///   resetAfterSec: int}`.
+    ///
+    /// # Exceptions
+    /// - Throws an exception if the callable fails or the reply is not five
+    ///   integers.
+    fn attempt_cl_throttle(
+        &self,
+        key: &str,
+        raw_command: ZendCallable,
+        cost: Option<u64>,
+    ) -> Result<Zval> {
+        let command = self._cl_throttle_command(key, cost.unwrap_or(1));
+        let params: Vec<&dyn IntoZvalDyn> = command
+            .iter()
+            .map(|part| part as &dyn IntoZvalDyn)
+            .collect();
+        let reply = raw_command
+            .try_call(params)
+            .map_err(|e| Error::CallbackFailed(e.to_string()))?;
+        let response = Vec::<i64>::from_zval(&reply).ok_or_else(|| {
+            Error::InvalidThrottleResponse("reply is not an array of integers".to_string())
+        })?;
+        Self::_cl_throttle_decision(&response)?.into_zval()
+    }
 }
 
 #[cfg(test)]
@@ -419,6 +605,43 @@ mod tests {
         let bucket: Bucket = rl._full_bucket(7);
         assert_eq!(bucket.tokens_milli, 2000);
         assert_eq!(bucket.updated_ms, 7);
+    }
+
+    #[test]
+    fn test_cl_throttle_args_mapping() {
+        // 10 burst, 5 tokens per minute → max_burst 9, rate 1 per 12s
+        assert_eq!(limiter(10, 5, 60_000)._cl_throttle_args(), (9, 1, 12));
+        // 100 burst, 10 per second → max_burst 99, rate 10 per 1s
+        assert_eq!(limiter(100, 10, 1000)._cl_throttle_args(), (99, 10, 1));
+        // 1 burst, 1 per 500ms → exactly 2 per 1s (rate preserved, not rounded)
+        assert_eq!(limiter(1, 1, 500)._cl_throttle_args(), (0, 2, 1));
+        // 3 per 700ms → reduced fraction 30/7
+        assert_eq!(limiter(5, 3, 700)._cl_throttle_args(), (4, 30, 7));
+    }
+
+    #[test]
+    fn test_cl_throttle_command() {
+        assert_eq!(
+            limiter(10, 5, 60_000)._cl_throttle_command("login:1.2.3.4", 2),
+            ["CL.THROTTLE", "login:1.2.3.4", "9", "1", "12", "2"],
+        );
+    }
+
+    #[test]
+    fn test_cl_throttle_decision() {
+        let allowed = RateLimiter::_cl_throttle_decision(&[0, 10, 9, -1, 30]).unwrap();
+        assert!(allowed.allowed);
+        assert_eq!(allowed.limit, 10);
+        assert_eq!(allowed.remaining, 9);
+        assert_eq!(allowed.retry_after_sec, 0);
+        assert_eq!(allowed.reset_after_sec, 30);
+
+        let limited = RateLimiter::_cl_throttle_decision(&[1, 10, 0, 3, 60]).unwrap();
+        assert!(!limited.allowed);
+        assert_eq!(limited.retry_after_sec, 3);
+
+        assert!(RateLimiter::_cl_throttle_decision(&[0, 1]).is_err());
+        assert!(RateLimiter::_cl_throttle_decision(&[]).is_err());
     }
 
     #[test]

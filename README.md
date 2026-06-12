@@ -29,8 +29,9 @@ essential security utilities for PHP applications. It features the following cor
 - **Hardened\Password** — Argon2id (and bcrypt) password hashing with OWASP defaults, timing-safe
   `verify()`, and `needsRehash()`. Using [argon2](https://crates.io/crates/argon2) and
   [bcrypt](https://crates.io/crates/bcrypt) crates.
-- **Hardened\RateLimiter** — token-bucket rate limiter with a process-local store plus a stateless
-  mode whose opaque state string can live in APCu/Redis/anything shared.
+- **Hardened\RateLimiter** — token-bucket rate limiter with a process-local store, a stateless
+  mode whose opaque state string can live in APCu/Redis/anything shared, and a `CL.THROTTLE`
+  backend (DragonflyDB / redis-cell) for atomic server-side GCRA.
 - **Hardened\JwtVerifier** — hardened JWT verification: `alg: none` impossible, key type bound to the
   algorithm family (no HS/RS confusion), mandatory `exp`, `nbf`/`iat` validation. Using
   [jsonwebtoken](https://crates.io/crates/jsonwebtoken) crate.
@@ -1014,6 +1015,11 @@ if (Password::verify($_POST['password'], $storedHash)) {
 - Process-local keyed store with zero setup (per-worker under php-fpm), plus a **stateless mode**
   for shared backends: the limiter hands you an opaque state string to keep in APCu/Redis/a
   session and pass back on the next attempt.
+- **`CL.THROTTLE` backend** — the strongest option: atomic server-side GCRA in
+  [DragonflyDB](https://www.dragonflydb.io/docs/command-reference/generic/cl-throttle) (built in)
+  or Redis with [redis-cell](https://github.com/brandur/redis-cell). One round-trip, shared across
+  all workers and hosts, no read-modify-write race. The limiter maps its configuration onto the
+  command exactly and works with any client (phpredis, predis, Relay).
 - Tamper-resistant state: claimed tokens are clamped to capacity, future timestamps to now.
 - API Highlights:
     - `new RateLimiter(int $capacity, int $refillTokens, int $refillIntervalMs)`.
@@ -1021,6 +1027,8 @@ if (Password::verify($_POST['password'], $storedHash)) {
     - `$limiter->retryAfterMs(string $key, ?int $cost = 1): int` — `Retry-After` hint, non-consuming.
     - `$limiter->remaining(string $key): int`, `$limiter->reset(string $key): void`.
     - `$limiter->attemptStateful(?string $state, ?int $cost = 1): array` — `[allowed, newState, retryAfterMs]`.
+    - `$limiter->attemptClThrottle(string $key, callable $rawCommand, ?int $cost = 1): array` — one-call `CL.THROTTLE`.
+    - `$limiter->clThrottleCommand(string $key, ?int $cost = 1): array`, `RateLimiter::clThrottleParse(array $reply): array`.
 
 <details><summary>Example</summary>
 
@@ -1039,6 +1047,14 @@ if (!$limiter->attempt("login:" . $_SERVER['REMOTE_ADDR'])) {
 $state = apcu_fetch("rl:$ip") ?: null;
 [$allowed, $state, $retryAfterMs] = $limiter->attemptStateful($state);
 apcu_store("rl:$ip", $state, 3600);
+
+// Or atomically on DragonflyDB / redis-cell via CL.THROTTLE (best option):
+$result = $limiter->attemptClThrottle("login:$ip", fn (...$cmd) => $redis->rawCommand(...$cmd));
+if (!$result['allowed']) {
+    header("Retry-After: " . $result['retryAfterSec']);
+    http_response_code(429);
+    exit;
+}
 ```
 
 </details>
@@ -1053,6 +1069,9 @@ apcu_store("rl:$ip", $state, 3600);
 | `remaining(string $key): int`                                       | Whole tokens currently available.                                 |
 | `reset(string $key): void`                                          | Restore the bucket for `$key` to full.                            |
 | `attemptStateful(?string $state, ?int $cost = 1): array`            | Stateless step: returns `[bool $allowed, string $state, int $retryAfterMs]`. |
+| `attemptClThrottle(string $key, callable $rawCommand, ?int $cost = 1): array` | Atomic `CL.THROTTLE` attempt through any Redis client; returns the decision array. |
+| `clThrottleCommand(string $key, ?int $cost = 1): array`             | Build the `CL.THROTTLE` command for this limiter's config.        |
+| `clThrottleParse(array $reply): array` *(static)*                   | Parse a `CL.THROTTLE` reply into `{allowed, limit, remaining, retryAfterSec, resetAfterSec}`. |
 
 </details>
 

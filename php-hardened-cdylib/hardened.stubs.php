@@ -620,7 +620,7 @@ namespace Hardened {
      * the action is rate-limited. This shape allows short bursts up to
      * `capacity` while capping the sustained rate.
      *
-     * Two storage modes:
+     * Three storage modes:
      * - **Process-local** (`attempt()`, keyed by string): zero setup. Note that
      *   under php-fpm each worker process keeps its own counters, so the
      *   effective limit is multiplied by the number of workers.
@@ -628,6 +628,10 @@ namespace Hardened {
      *   the opaque state string anywhere shared — APCu, Redis, a session — and
      *   pass it back on the next attempt. Use your store's locking/CAS if
      *   strict accounting under concurrency is required.
+     * - **`CL.THROTTLE`** (`attemptClThrottle()` / `clThrottleCommand()`): the
+     *   strongest backend — atomic server-side GCRA in DragonflyDB (built in)
+     *   or Redis with the redis-cell module. One round-trip, shared across all
+     *   workers and hosts, no read-modify-write race.
      */
     class RateLimiter {
         /**
@@ -652,6 +656,29 @@ namespace Hardened {
         public function attempt(string $key, ?int $cost = null): bool {}
 
         /**
+         * One-call `CL.THROTTLE` attempt through any PHP Redis client: the
+         * command is passed to `raw_command` as variadic string arguments, and
+         * the reply is parsed into a decision array.
+         *
+         * ```php
+         * $result = $limiter->attemptClThrottle(
+         *     "login:$ip",
+         *     fn (...$cmd) => $redis->rawCommand(...$cmd), // phpredis
+         * );
+         * if (!$result['allowed']) {
+         *     header("Retry-After: " . $result['retryAfterSec']);
+         *     http_response_code(429);
+         * }
+         * ```
+         *
+         * @param string $key
+         * @param callable $raw_command
+         * @param int|null $cost
+         * @return mixed - `array{allowed: bool, limit: int, remaining: int, retryAfterSec: int, resetAfterSec: int}`.
+         */
+        public function attemptClThrottle(string $key, callable $raw_command, ?int $cost = null): mixed {}
+
+        /**
          * Attempts to consume tokens against an externally-stored state string,
          * for shared backends (APCu, Redis, database, session).
          *
@@ -667,6 +694,31 @@ namespace Hardened {
          * @return array - `array{0: bool, 1: string, 2: int}`: whether the attempt is allowed, the new state string to store, and the retry-after hint in milliseconds (`0` when allowed).
          */
         public function attemptStateful(?string $state = null, ?int $cost = null): array {}
+
+        /**
+         * Builds the `CL.THROTTLE` command equivalent to this limiter's
+         * configuration, for atomic server-side rate limiting on DragonflyDB
+         * (built in) or Redis with the redis-cell module. This is the strongest
+         * backend: one round-trip, GCRA, no read-modify-write race.
+         *
+         * ```php
+         * $reply = $redis->rawCommand(...$limiter->clThrottleCommand("login:$ip"));
+         * $result = RateLimiter::clThrottleParse($reply);
+         * ```
+         *
+         * @param string $key
+         * @param int|null $cost
+         * @return array - `string[]`: The full command, e.g. `["CL.THROTTLE", "login:1.2.3.4", "9", "1", "12", "1"]`.
+         */
+        public function clThrottleCommand(string $key, ?int $cost = null): array {}
+
+        /**
+         * Parses a `CL.THROTTLE` reply (five integers) into a decision array.
+         *
+         * @param array $response
+         * @return mixed - `array{allowed: bool, limit: int, remaining: int, retryAfterSec: int, resetAfterSec: int}`: `retryAfterSec` is `0` when allowed.
+         */
+        public static function clThrottleParse(array $response): mixed {}
 
         /**
          * Returns the number of whole tokens currently available for `key`.
