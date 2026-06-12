@@ -25,9 +25,11 @@ png = { version = "0.18.0", optional = true }
 zip = { version = "8.3", optional = true }
 regex = { version = "1.12", optional = true }
 lazy_static = { version = "1.5", optional = true }
+subtle = { version = "2.6", optional = true }
+ipnet = { version = "2.11", optional = true }
 
 [features]
-default = ["mimalloc", "shell_command", "html_sanitizer", "svg_sanitizer", "file_sanitizers", "hostname", "path", "rng", "csrf", "headers"]
+default = ["mimalloc", "shell_command", "html_sanitizer", "svg_sanitizer", "file_sanitizers", "hostname", "path", "rng", "csrf", "headers", "ct", "text", "redirect", "ssrf"]
 mimalloc = ["dep:mimalloc"]
 shell_command = ["dep:shell-words"]
 html_sanitizer = ["dep:ammonia"]
@@ -38,6 +40,10 @@ path = []
 rng = ["dep:rand"]
 csrf = ["dep:csrf", "dep:data-encoding"]
 headers = ["dep:trim-in-place", "dep:serde_json"]
+ct = ["dep:subtle", "dep:data-encoding"]
+text = []
+redirect = ["dep:url"]
+ssrf = ["dep:url", "dep:ipnet"]
 test = ["ext-php-rs/embed"]
 
 [dev-dependencies]

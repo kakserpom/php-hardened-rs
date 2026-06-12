@@ -7,7 +7,7 @@ edition = "2024"
 php-hardened = { path = ".." }
 
 [features]
-default = ["mimalloc", "shell_command", "html_sanitizer", "hostname", "path", "rng", "csrf", "headers"]
+default = ["mimalloc", "shell_command", "html_sanitizer", "hostname", "path", "rng", "csrf", "headers", "ct", "text", "redirect", "ssrf"]
 mimalloc = ["php-hardened/mimalloc"]
 shell_command = ["php-hardened/shell_command"]
 html_sanitizer = ["php-hardened/html_sanitizer"]
@@ -16,12 +16,10 @@ path = ["php-hardened/path"]
 rng = ["php-hardened/rng"]
 csrf = ["php-hardened/csrf"]
 headers = ["php-hardened/headers"]
-
+ct = ["php-hardened/ct"]
+text = ["php-hardened/text"]
+redirect = ["php-hardened/redirect"]
+ssrf = ["php-hardened/ssrf"]
 
 [lib]
 crate-type = ["cdylib"]
-
-# Patch clang-sys and bindgen for preserve_none and Swift calling convention support
-[patch.crates-io]
-clang-sys = { git = "https://github.com/extphprs/clang-sys.git", branch = "preserve-none-support" }
-bindgen = { git = "https://github.com/extphprs/rust-bindgen.git", branch = "preserve-none-support" }

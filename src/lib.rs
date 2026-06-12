@@ -1,16 +1,28 @@
 #[warn(clippy::pedantic)]
 #[allow(clippy::used_underscore_items)]
+#[cfg(feature = "ct")]
+pub mod constant_time;
 pub mod csrf;
 pub mod hostname;
 pub mod path;
+#[cfg(feature = "redirect")]
+pub mod redirect;
 pub mod rng;
 pub mod sanitizers;
 pub mod security_headers;
 pub mod shell_command;
+#[cfg(feature = "ssrf")]
+pub mod ssrf;
+#[cfg(feature = "text")]
+pub mod text;
 
+#[cfg(feature = "ct")]
+use crate::constant_time::ConstantTime;
 use crate::csrf::Csrf;
 pub use crate::hostname::Hostname;
 use crate::path::PathObj;
+#[cfg(feature = "redirect")]
+use crate::redirect::Redirect;
 use crate::rng::Rng;
 use crate::security_headers::cross_origin::embedder_policy::{
     EmbedderPolicy, Policy as EmbedderPolicyValue,
@@ -27,6 +39,10 @@ use crate::security_headers::referrer_policy::ReferrerPolicy;
 use crate::security_headers::whatnot::{
     FrameOptions, PermittedCrossDomainPolicies as CrossDomainPolicy, Whatnot, XssProtection,
 };
+#[cfg(feature = "ssrf")]
+use crate::ssrf::SsrfGuard;
+#[cfg(feature = "text")]
+use crate::text::Text;
 use ext_php_rs::prelude::*;
 use ext_php_rs::types::Zval;
 use thiserror::Error;
@@ -95,6 +111,22 @@ fn get_module(mut module: ModuleBuilder) -> ModuleBuilder {
     #[cfg(feature = "csrf")]
     {
         module = module.class::<Csrf>();
+    }
+    #[cfg(feature = "ct")]
+    {
+        module = module.class::<ConstantTime>();
+    }
+    #[cfg(feature = "text")]
+    {
+        module = module.class::<Text>();
+    }
+    #[cfg(feature = "redirect")]
+    {
+        module = module.class::<Redirect>();
+    }
+    #[cfg(feature = "ssrf")]
+    {
+        module = module.class::<SsrfGuard>();
     }
     #[cfg(feature = "headers")]
     {

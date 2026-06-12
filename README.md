@@ -18,6 +18,14 @@ essential security utilities for PHP applications. It features the following cor
 - **Hardened\CsrfProtection** — synchronized [CSRF](https://owasp.org/www-community/attacks/csrf) token–cookie
   protection using AES-GCM, with a PHP-friendly API for
   token/cookie generation, verification, and cookie management. Using [csrf](https://crates.io/crates/csrf) crate.
+- **Hardened\ConstantTime** — timing-safe comparison of secrets (tokens, HMACs, signatures), with hex and
+  base64 variants. Using [subtle](https://crates.io/crates/subtle) crate.
+- **Hardened\Redirect** — open-redirect validator that parses untrusted targets the way browsers do,
+  defeating `//evil.com`, backslash, `https:/evil.com`, userinfo, and encoded-host bypasses.
+- **Hardened\SsrfGuard** — outbound network policy / SSRF prevention: scheme, port and CIDR policy with
+  resolve-then-validate DNS pinning (`CURLOPT_RESOLVE`-ready) against DNS rebinding.
+- **Hardened\Text** — control-character and protocol-injection sanitizers: log lines, header values,
+  null bytes.
 
 As well as blazingly fast sanitizers:
 
@@ -82,7 +90,7 @@ For example, `cargo php install --release --yes --features rng, `
 
 | Feature              | Enables                                                                                                                                                                            |
 |----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **default**          | `mimalloc`, `shell_command`, `html_sanitizer`, `hostname` `path`, `rng`, `csrf`, `headers`                                                                                         |
+| **default**          | `mimalloc`, `shell_command`, `html_sanitizer`, `hostname` `path`, `rng`, `csrf`, `headers`, `ct`, `text`, `redirect`, `ssrf`                                                       |
 | **mimalloc**         | Use [mimalloc](https://docs.rs/mimalloc/latest/mimalloc/index.html) allocator.                                                                                                     |
 | **shell\_command**   | Safe subprocess API & `Hardened\ShellCommand`                                                                                                                                      |
 | **html\_sanitizer**  | The `Hardened\Sanitizers\HtmlSanitizer` wrapper around [Ammonia](https://github.com/rust-ammonia/ammonia)                                                                          |
@@ -92,6 +100,10 @@ For example, `cargo php install --release --yes --features rng, `
 | **rng**              | The `Hardened\Rng` random-data generator                                                                                                                                           |
 | **csrf**             | The `Hardened\CsrfProtection` module (requires [`csrf`](https://docs.rs/csrf/latest/mimalloc/index.html), [`data-encoding`](https://docs.rs/csrf/latest/data-encoding/index.html)) |
 | **headers**          | All security headers (`CSP`, `HSTS`, `CORS`, etc.) (requires `trim-in-place`, `serde_json`)                                                                                        |
+| **ct**               | The `Hardened\ConstantTime` timing-safe comparison helpers (requires [`subtle`](https://docs.rs/subtle), `data-encoding`)                                                          |
+| **text**             | The `Hardened\Text` control-character sanitizers                                                                                                                                   |
+| **redirect**         | The `Hardened\Redirect` open-redirect validator (requires `url`)                                                                                                                   |
+| **ssrf**             | The `Hardened\SsrfGuard` outbound network policy (requires `url`, [`ipnet`](https://docs.rs/ipnet))                                                                                |
 
 > On **macOS**, you may need to set the deployment target and link flags first:
 > ```bash
@@ -686,6 +698,188 @@ try {
 | `setCookieName(string $name): void`                                                                                                  | Override the name used for the CSRF cookie.                                        |
 | `cookieName(): string`                                                                                                               | Get the current CSRF cookie name (default is `csrf`).                              |
 | `sendCookie(?int $expires = null, ?string $path = null, ?string $domain = null, ?bool $secure = null, ?bool $httponly = null): void` | Send the CSRF cookie via PHP’s `setcookie()` function using native argument order. |
+
+</details>
+
+### `Hardened\ConstantTime`
+
+- Constant-time (timing-safe) comparison of secrets: tokens, HMACs, signatures, API keys.
+- Comparing secrets with `==`/`===` leaks how many leading bytes matched through timing; these helpers don't.
+- Hex/base64 variants compare *decoded* bytes, so `"AB" === "ab"` mismatches can't bite.
+- API Highlights:
+    - `ConstantTime::equals(string $a, string $b): bool` — binary-safe constant-time equality.
+    - `ConstantTime::equalsHex(string $a, string $b): bool` — decode hex (case-insensitive), compare bytes.
+    - `ConstantTime::equalsBase64(string $a, string $b): bool` — decode base64, compare bytes.
+
+<details><summary>Example</summary>
+
+```php
+use Hardened\ConstantTime;
+
+$expected = hash_hmac('sha256', $payload, $secret);
+var_dump(ConstantTime::equals($expected, $_GET['signature'] ?? ''));
+// bool(false) — and no timing oracle
+
+var_dump(ConstantTime::equalsHex('DEADBEEF', 'deadbeef'));
+// bool(true) — compares decoded bytes
+```
+
+</details>
+
+<details><summary>API Reference</summary>
+
+| Method                                       | Description                                              |
+|----------------------------------------------|----------------------------------------------------------|
+| `equals(string $a, string $b): bool`         | Constant-time equality of raw bytes.                     |
+| `equalsHex(string $a, string $b): bool`      | Decode hex (case-insensitive), compare in constant time. |
+| `equalsBase64(string $a, string $b): bool`   | Decode base64, compare in constant time.                 |
+
+</details>
+
+### `Hardened\Redirect`
+
+- Open-redirect validator for untrusted targets (`?next=`, `?return_to=`, …).
+- Parses the candidate the way a browser will (WHATWG URL), resolved against both `http` and `https`
+  bases, so scheme-dependent trickery can't slip through.
+- Rejects the classic bypasses: scheme-relative `//evil.com`, backslash tricks `/\evil.com` and
+  `\/\/evil.com`, missing-slash `https:/evil.com`, userinfo `https://trusted@evil.com`,
+  control-byte smuggling, percent- and unicode-encoded hosts, and `javascript:`/`data:` schemes.
+- Safe means: same-origin relative reference, or absolute `http(s)` URL whose host is allowlisted.
+- API Highlights:
+    - `new Redirect(array $allowedHosts, ?bool $allowSubdomains = false)` — build a validator.
+    - `$redirect->isSafe(string $url): bool` — check a target.
+    - `$redirect->sanitize(string $url, ?string $fallback = "/"): string` — return target or fallback.
+    - `Redirect::isSafeUrl(string $url, array $allowedHosts, ?bool $allowSubdomains = false): bool` — one-shot check.
+    - `Redirect::sanitizeUrl(string $url, array $allowedHosts, ?string $fallback = "/", ?bool $allowSubdomains = false): string` — one-shot sanitize.
+
+<details><summary>Example</summary>
+
+```php
+use Hardened\Redirect;
+
+$redirect = new Redirect(["trusted.example"], true); // allow subdomains
+var_dump($redirect->isSafe("/dashboard?tab=1"));
+// bool(true)
+var_dump($redirect->isSafe("https://login.trusted.example/"));
+// bool(true)
+var_dump($redirect->isSafe("//evil.com"));
+// bool(false)
+var_dump($redirect->isSafe("https:/evil.com"));
+// bool(false)
+var_dump($redirect->isSafe("https://trusted.example@evil.com/"));
+// bool(false)
+
+header("Location: " . $redirect->sanitize($_GET['next'] ?? '/', "/home"));
+```
+
+</details>
+
+<details><summary>API Reference</summary>
+
+| Method                                                                                                          | Description                                  |
+|-----------------------------------------------------------------------------------------------------------------|----------------------------------------------|
+| `__construct(array $allowedHosts, ?bool $allowSubdomains = false)`                                              | Build a validator.                           |
+| `isSafe(string $url): bool`                                                                                     | Check an untrusted redirect target.          |
+| `sanitize(string $url, ?string $fallback = "/"): string`                                                        | Return the target if safe, else fallback.    |
+| `isSafeUrl(string $url, array $allowedHosts, ?bool $allowSubdomains = false): bool` *(static)*                  | One-shot check.                              |
+| `sanitizeUrl(string $url, array $allowedHosts, ?string $fallback = "/", ?bool $allowSubdomains = false): string` *(static)* | One-shot sanitize.                |
+
+</details>
+
+### `Hardened\SsrfGuard`
+
+- Outbound network policy for URLs built from untrusted input (SSRF prevention).
+- Resolve-then-validate: the hostname is resolved **once**, every resolved address is policy-checked,
+  and the validated addresses are returned so the connection can be *pinned* (DNS-rebinding safe).
+- Secure defaults: `http`/`https` only, ports 80/443, and loopback, RFC 1918 private, link-local
+  (incl. the `169.254.169.254` cloud metadata endpoint), CGNAT, unique-local (incl. `fd00:ec2::254`),
+  multicast, broadcast and other reserved ranges denied — for both address families, including
+  IPv4-mapped IPv6 and decimal/octal/hex IPv4 notations.
+- Configurable allow/deny CIDR lists; deny always wins.
+- API Highlights:
+    - `new SsrfGuard()` — guard with secure defaults.
+    - `$guard->setAllowedSchemes(array $schemes): void`, `$guard->setAllowedPorts(array $ports): void`.
+    - `$guard->allowCidr(string $cidr): void`, `$guard->denyCidr(string $cidr): void`.
+    - `$guard->isIpAllowed(string $ip): bool` — pure policy check.
+    - `$guard->validateUrl(string $url): array` — full validation, returns pinned IPs.
+    - `$guard->curlResolve(string $url): string` — ready-made `CURLOPT_RESOLVE` entry.
+
+<details><summary>Example</summary>
+
+```php
+use Hardened\SsrfGuard;
+
+$guard = new SsrfGuard();
+var_dump($guard->isIpAllowed("169.254.169.254"));
+// bool(false) — cloud metadata endpoint
+
+// DNS-rebinding-safe fetch: resolve once, validate, pin the connection.
+$url = $_POST['webhook_url'];
+$ch = curl_init($url);
+curl_setopt($ch, CURLOPT_RESOLVE, [$guard->curlResolve($url)]); // throws if forbidden
+curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false); // validate each redirect hop instead
+curl_exec($ch);
+```
+
+</details>
+
+<details><summary>API Reference</summary>
+
+| Method                                       | Description                                                          |
+|----------------------------------------------|----------------------------------------------------------------------|
+| `__construct()`                              | Guard with secure defaults (http/https, ports 80/443, reserved ranges denied). |
+| `setAllowedSchemes(array $schemes): void`    | Replace the allowed scheme set.                                      |
+| `setAllowedPorts(array $ports): void`        | Replace the allowed port set (empty = any).                          |
+| `allowCidr(string $cidr): void`              | Allow a CIDR/IP, overriding built-in reserved ranges.                |
+| `denyCidr(string $cidr): void`               | Deny a CIDR/IP; deny entries always win.                             |
+| `setBlockReservedRanges(bool $block): void`  | Toggle the built-in reserved-range denylist.                         |
+| `isIpAllowed(string $ip): bool`              | Check a single address against the policy.                           |
+| `validateUrl(string $url): array`            | Validate scheme/port/userinfo + every resolved address; returns IPs. |
+| `curlResolve(string $url): string`           | Validate and return a `CURLOPT_RESOLVE` entry (`host:port:ip,…`).    |
+
+</details>
+
+### `Hardened\Text`
+
+- Control-character and protocol-injection sanitizers; all methods are binary-safe.
+- Covers log forging (CR/LF), HTTP/SMTP header injection (response splitting), null-byte
+  truncation, and control bytes used as separators in delimited backend protocols.
+- Strips C0 controls (`0x00`–`0x1f`), DEL (`0x7f`), and UTF-8 encoded C1 controls (U+0080–U+009F).
+- API Highlights:
+    - `Text::stripControls(string $input, ?string $keep = "\t\n\r"): string` — strip control characters.
+    - `Text::hasControls(string $input, ?string $keep = ""): bool` — detect control characters.
+    - `Text::sanitizeLogLine(string $input): string` — strip CR/LF & controls (keeps tab).
+    - `Text::sanitizeHeaderValue(string $input): string` — throw on CR/LF/NUL, strip other controls.
+    - `Text::assertNoNullBytes(string $input): string` — throw if a null byte is present.
+    - `Text::hasNullBytes(string $input): bool` — detect null bytes.
+
+<details><summary>Example</summary>
+
+```php
+use Hardened\Text;
+
+error_log("login failed for " . Text::sanitizeLogLine($username));
+// "user\r\n[CRITICAL] fake" logs as "user[CRITICAL] fake" — no forged entries
+
+header("Content-Disposition: " . Text::sanitizeHeaderValue($disposition));
+// throws on CR/LF/NUL instead of splitting the response
+
+Text::assertNoNullBytes($filename);
+// throws on "file.php\0.jpg"
+```
+
+</details>
+
+<details><summary>API Reference</summary>
+
+| Method                                                          | Description                                                |
+|-----------------------------------------------------------------|------------------------------------------------------------|
+| `stripControls(string $input, ?string $keep = "\t\n\r"): string` | Strip C0/C1/DEL controls except the keep-set.              |
+| `hasControls(string $input, ?string $keep = ""): bool`          | Detect C0/C1/DEL controls except the keep-set.             |
+| `sanitizeLogLine(string $input): string`                        | Strip CR/LF and all controls except tab (anti log-forging). |
+| `sanitizeHeaderValue(string $input): string`                    | Throw on CR/LF/NUL; strip other controls except tab.       |
+| `assertNoNullBytes(string $input): string`                      | Throw if a null byte is present; return input unchanged.   |
+| `hasNullBytes(string $input): bool`                             | Detect null bytes.                                         |
 
 </details>
 

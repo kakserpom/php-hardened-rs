@@ -1,2 +1,5 @@
 /target
 /.idea
+/benches/vendor
+/benches/composer.lock
+/benches/composer.phar

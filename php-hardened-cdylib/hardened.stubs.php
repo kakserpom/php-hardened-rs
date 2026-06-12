@@ -4,53 +4,594 @@
 
 namespace Hardened {
     /**
-     * Execute a command directly (no shell), with arguments passed explicitly.
+     * Constant-time (timing-safe) comparison helpers.
      *
-     * Unlike `shell_exec()`, this function does NOT parse the executable string.
-     * The executable is used as-is, and all arguments must be passed via the array.
-     * This prevents any shell injection vulnerabilities.
-     *
-     * # Parameters
-     * - `string $executable`: Path to the executable (not parsed, used literally).
-     * - `array|null $arguments`: Optional associative or indexed array of arguments:
-     *   - Indexed (numeric) arrays append values in order.
-     *   - Associative arrays use keys as `--key` flags followed by their value.
-     *
-     * # Returns
-     * - `string|null`: On success, returns captured stdout as a string (or exit code as string if non-zero).
-     *   Returns `null` only on error spawning the process.
-     *
-     * # Exceptions
-     * - Throws `Exception` if the executable is empty, contains NUL bytes, or process execution fails.
-     *
-     * # Example
-     * ```php
-     * // Correct usage - executable only, arguments in array
-     * $output = Hardened\safe_exec("ls", ["-la", "/tmp"]);
-     *
-     * // WRONG - don't put arguments in the executable string
-     * // $output = Hardened\safe_exec("ls -la", ["/tmp"]); // -la is NOT parsed!
-     * ```
+     * Comparing secrets (tokens, HMACs, signatures, API keys) with `==`/`===`
+     * leaks how many leading bytes matched through timing. These helpers compare
+     * in constant time with respect to the contents of the inputs.
+     * Only the *length* of the inputs is observable.
      */
-    function safe_exec(string $executable, ?array $arguments): mixed {}
+    class ConstantTime {
+        public function __construct() {}
+
+        /**
+         * Compares two byte strings in constant time.
+         *
+         * Drop-in replacement for `hash_equals()` that does not care which
+         * argument is the user-supplied one. Binary-safe.
+         *
+         * @param string $a
+         * @param string $b
+         * @return bool - `bool`: `true` if the strings are equal.
+         */
+        public static function equals(string $a, string $b): bool {}
+
+        /**
+         * Decodes two base64 strings and compares the decoded bytes in constant time.
+         *
+         * @param string $a
+         * @param string $b
+         * @return bool - `bool`: `true` if the decoded bytes are equal.
+         */
+        public static function equalsBase64(string $a, string $b): bool {}
+
+        /**
+         * Decodes two hex strings and compares the decoded bytes in constant time.
+         *
+         * Use this when comparing hex digests (e.g. `hash_hmac(..., false)`),
+         * so that case differences (`"AB"` vs `"ab"`) do not cause a mismatch.
+         *
+         * @param string $a
+         * @param string $b
+         * @return bool - `bool`: `true` if the decoded bytes are equal.
+         */
+        public static function equalsHex(string $a, string $b): bool {}
+    }
 
     /**
-     * Execute a shell command via the user's login shell, enforcing top-level command checks.
-     *
-     * # Parameters
-     * - `string $command`: Full shell-style command line to run (e.g. `"ls -la /tmp"`).
-     * - `string[]|null $expectedCommands`: Optional list of allowed top-level command names
-     *   (the first word of each pipeline segment). If provided, any top-level command not in this list
-     *   will abort with an exception to prevent injection.
-     *
-     * # Returns
-     * - `string|null`: On success, returns the command's stdout output as a string (or exit code as string if non-zero).
-     *   Returns `null` only on error spawning the process.
-     *
-     * # Exceptions
-     * - Throws `Exception` if parsing fails, an unexpected top-level command is detected, or command execution fails.
+     * CSRF protection for your application.
      */
-    function shell_exec(string $command, ?array $expected_commands): mixed {}
+    class CsrfProtection {
+        /**
+         * Constructs a CSRF protection instance for PHP.
+         *
+         * @param string $key Base64URL-encoded 32-byte secret key.
+         * @param int $ttl token time-to-live in seconds.
+         * @param string|null $previous_token_value
+         */
+        public function __construct(string $key, int $ttl, ?string $previous_token_value = null) {}
+
+        /**
+         * Returns the CSRF cookie string to send in PHP.
+         *
+         * @return string - `string` Base64URL-encoded cookie suitable for `Set-Cookie`.
+         */
+        public function cookie(): string {}
+
+        /**
+         * Returns the configured CSRF cookie name.
+         *
+         * @return string - `string` the name of the CSRF cookie.
+         */
+        public function cookieName(): string {}
+
+        /**
+         * @return string
+         */
+        public static function generateKey(): string {}
+
+        /**
+         * Sends the CSRF cookie to the client via `setcookie()`
+         *
+         * @param ?int $expires UNIX timestamp when the cookie expires (defaults to `0`, a session cookie).
+         * @param ?string $path Cookie path (defaults to `"/"`).
+         * @param ?string $domain Cookie domain (defaults to the current host).
+         * @param ?bool $secure Send only over HTTPS (defaults to `false`).
+         * @param ?bool $httponly HTTP-only flag (defaults to `true`).
+         * @return void
+         */
+        public function sendCookie(?int $expires = null, ?string $path = null, ?string $domain = null, ?bool $secure = null, ?bool $httponly = null): void {}
+
+        /**
+         * Sets the name of the CSRF cookie to use in PHP calls.
+         *
+         * @param string $cookie_name
+         * @return void - `void`
+         */
+        public function setCookieName(string $cookie_name): void {}
+
+        /**
+         * Returns the CSRF token string for PHP forms or headers.
+         *
+         * @return string - `string` Base64URL-encoded token.
+         */
+        public function token(): string {}
+
+        /**
+         * Verifies a CSRF token & cookie pair from PHP.
+         *
+         * @param string $token Base64URL-encoded CSRF token from client.
+         * @param string $cookie Base64URL-encoded CSRF cookie from client.
+         * @return void - `void` on success.
+         */
+        public function verifyToken(string $token, ?string $cookie = null): void {}
+    }
+
+    /**
+     * A secured wrapper around `url::Host` for use in PHP extensions.
+     * Provides hostname parsing and normalization to prevent security issues.
+     */
+    class Hostname {
+        /**
+         * Constructs a new Hostname instance (alias for `from`).
+         *
+         * @param mixed $hostname
+         * @throws \Exception Throws an exception if parsing the hostname fails.
+         */
+        public function __construct(mixed $hostname) {}
+
+        /**
+         * Returns the string representation of this hostname.
+         *
+         * @return string - `string`: The normalized hostname string.
+         */
+        public function __toString(): string {}
+
+        /**
+         * Compares this hostname with another string.
+         *
+         * @param mixed $hostname
+         * @return bool
+         * @throws \Exception Throws an exception if parsing the provided hostname fails.
+         */
+        public function equals(mixed $hostname): bool {}
+
+        /**
+         * Returns true if this hostname equals any in the given list.
+         *
+         * @param mixed $hostnames
+         * @return bool
+         * @throws \Exception Throws an exception if parsing any provided hostname fails.
+         */
+        public function equalsAny(mixed ...$hostnames): bool {}
+
+        /**
+         * Returns true if this hostname equals any hostname extracted from the given URLs.
+         *
+         * @param mixed $urls
+         * @return bool
+         * @throws \Exception Throws an exception if parsing any URL or hostname fails.
+         */
+        public function equalsAnyUrl(mixed ...$urls): bool {}
+
+        /**
+         * @param string $hostname
+         * @return bool
+         */
+        public function equalsStr(string $hostname): bool {}
+
+        /**
+         * Compares this hostname with the hostname extracted from a URL.
+         *
+         * @param mixed $url
+         * @return bool
+         * @throws \Exception Throws an exception if parsing the URL or hostname fails.
+         */
+        public function equalsUrl(mixed $url): bool {}
+
+        /**
+         * Parses and normalizes a hostname string.
+         *
+         * @param mixed $hostname
+         * @return \Hardened\Hostname
+         * @throws \Exception Throws an exception if parsing the hostname fails.
+         */
+        public static function from(mixed $hostname): \Hardened\Hostname {}
+
+        /**
+         * @param string $hostname
+         * @return \Hardened\Hostname
+         */
+        public static function fromStr(string $hostname): \Hardened\Hostname {}
+
+        /**
+         * Parses a URL and extracts its hostname.
+         *
+         * @param mixed $url
+         * @return \Hardened\Hostname
+         * @throws \Exception Throws an exception if parsing the URL or hostname fails.
+         */
+        public static function fromUrl(mixed $url): \Hardened\Hostname {}
+
+        /**
+         * Returns true if this hostname is a domain name (not an IP address).
+         *
+         * @return bool - `bool`: `true` if the hostname is a domain name.
+         */
+        public function isDomain(): bool {}
+
+        /**
+         * Returns true if this hostname is an IP address (either IPv4 or IPv6).
+         *
+         * @return bool - `bool`: `true` if the hostname is an IP address.
+         */
+        public function isIp(): bool {}
+
+        /**
+         * Returns true if this hostname is an IPv4 address.
+         *
+         * @return bool - `bool`: `true` if the hostname is an IPv4 address.
+         */
+        public function isIpv4(): bool {}
+
+        /**
+         * Returns true if this hostname is an IPv6 address.
+         *
+         * @return bool - `bool`: `true` if the hostname is an IPv6 address.
+         */
+        public function isIpv6(): bool {}
+
+        /**
+         * Checks if this hostname is a subdomain of the given hostname.
+         *
+         * @param mixed $hostname
+         * @return bool
+         * @throws \Exception Throws an exception if parsing the provided hostname fails.
+         */
+        public function subdomainOf(mixed $hostname): bool {}
+
+        /**
+         * Returns true if this hostname is a subdomain of any in the given list.
+         *
+         * @param mixed $hosts
+         * @return bool
+         * @throws \Exception Throws an exception if parsing any provided hostname fails.
+         */
+        public function subdomainOfAny(mixed ...$hosts): bool {}
+
+        /**
+         * Returns true if this hostname is a subdomain of any hostname extracted from the given URLs.
+         *
+         * @param array $urls
+         * @return bool
+         * @throws \Exception Throws an exception if parsing any URL or hostname fails.
+         */
+        public function subdomainOfAnyUrl(array $urls): bool {}
+
+        /**
+         * Checks if this hostname is a subdomain of the hostname extracted from a URL.
+         *
+         * @param string $url
+         * @return bool
+         * @throws \Exception Throws an exception if parsing the URL or hostname fails.
+         */
+        public function subdomainOfUrl(string $url): bool {}
+    }
+
+    class Path {
+        /**
+         * Constructs a new PathObj instance (alias for `from`).
+         *
+         * @param mixed $path
+         */
+        public function __construct(mixed $path) {}
+
+        /**
+         * Converts the path to its string representation.
+         *
+         * @return string The string representation of the path.
+         * @throws \Exception Throws an exception if the path cannot be converted to a string.
+         */
+        public function __toString(): string {}
+
+        /**
+         * Returns the file extension, if any.
+         *
+         * @return string|null - `?string` The extension without the leading dot, or `null` if none.
+         */
+        public function extension(): ?string {}
+
+        /**
+         * Get the last component of the path.
+         *
+         * @return string|null
+         */
+        public function fileName(): ?string {}
+
+        /**
+         * Creates a new PathObj by lexically canonicalizing a given PHP value.
+         *
+         * @param mixed $path
+         * @return \Hardened\Path
+         */
+        public static function from(mixed $path): \Hardened\Path {}
+
+        /**
+         * Get the directory name (similar to `dirname()`).
+         *
+         * @return \Hardened\Path|null
+         */
+        public function getParent(): ?\Hardened\Path {}
+
+        /**
+         * Returns true if the path tried to escape its base directory during normalization.
+         *
+         * This is useful for detecting directory traversal attempts.
+         * A path "escapes" if it contains leading `..` components that would go above
+         * the starting directory, or if it starts with a root/prefix.
+         *
+         * @return bool - `bool` `true` if the path escaped during normalization.
+         */
+        public function hasEscaped(): bool {}
+
+        /**
+         * Returns true if the path is absolute (starts with root or drive prefix).
+         *
+         * @return bool - `bool` `true` if the path is absolute.
+         */
+        public function isAbsolute(): bool {}
+
+        /**
+         * Returns true if the path is relative (not absolute).
+         *
+         * @return bool - `bool` `true` if the path is relative.
+         */
+        public function isRelative(): bool {}
+
+        /**
+         * Joins the given path onto this path and normalizes it.
+         *
+         * @param mixed $path
+         * @return \Hardened\Path A new PathObj representing the joined path.
+         */
+        public function join(mixed $path): \Hardened\Path {}
+
+        /**
+         * Joins the given path onto this path, normalizes it, and ensures it's a subpath.
+         *
+         * @param mixed $path
+         * @return \Hardened\Path
+         */
+        public function joinSubpath(mixed $path): \Hardened\Path {}
+
+        /**
+         * @return string
+         */
+        public function path(): string {}
+
+        /**
+         * Set the file name component of the path.
+         *
+         * @param string $extension
+         * @return \Hardened\Path
+         */
+        public function setExtension(string $extension): \Hardened\Path {}
+
+        /**
+         * Set the file name component of the path.
+         *
+         * @param string $file_name
+         * @return \Hardened\Path
+         */
+        public function setFileName(string $file_name): \Hardened\Path {}
+
+        /**
+         * Checks if this path starts with the given prefix path.
+         *
+         * @param mixed $path
+         * @return bool `true` if this path starts with the given prefix.
+         */
+        public function startsWith(mixed $path): bool {}
+
+        /**
+         * Check if the path's extension is in the allowed list.
+         *
+         * @param array $allowed
+         * @return bool - `bool` `true` if the file extension matches one of the allowed values.
+         */
+        public function validateExtension(array $allowed): bool {}
+
+        /**
+         * Check if the path's extension is a common audio type.
+         *
+         * @return bool - `bool` `true` if extension is one of `["mp3","wav","ogg","flac","aac"]`.
+         */
+        public function validateExtensionAudio(): bool {}
+
+        /**
+         * Check if the path's extension is a common document type.
+         *
+         * @return bool - `bool` `true` if extension is one of `["pdf","doc","docx","xls","xlsx","ppt","pptx"]`.
+         */
+        public function validateExtensionDocument(): bool {}
+
+        /**
+         * Check if the path's extension is a common image type.
+         *
+         * @return bool - `bool` `true` if extension is one of `["png","jpg","jpeg","gif","webp","bmp","tiff","svg"]`.
+         */
+        public function validateExtensionImage(): bool {}
+
+        /**
+         * Check if the path's extension is a common video type.
+         *
+         * @return bool - `bool` `true` if extension is one of `["mp4","mov","avi","mkv","webm","flv"]`.
+         */
+        public function validateExtensionVideo(): bool {}
+    }
+
+    /**
+     * Open-redirect validator.
+     *
+     * Validates untrusted redirect targets (`?next=`, `?return_to=`, …) the way
+     * a browser will actually interpret them (WHATWG URL parsing), which defeats
+     * the classic bypasses: scheme-relative `//evil.com`, backslash tricks
+     * `/\evil.com` and `\/\/evil.com`, missing-slash `https:/evil.com`, userinfo
+     * `https://trusted@evil.com`, embedded whitespace/control bytes, and
+     * percent- or unicode-encoded host variants.
+     *
+     * A URL is considered safe if it is a same-origin relative reference, or an
+     * absolute `http(s)` URL whose host matches the allowlist.
+     */
+    class Redirect {
+        /**
+         * Constructs a redirect validator.
+         *
+         * @param array $allowed_hosts
+         * @param bool|null $allow_subdomains
+         */
+        public function __construct(array $allowed_hosts, ?bool $allow_subdomains = null) {}
+
+        /**
+         * Checks whether a redirect target is safe.
+         *
+         * Safe means: a same-origin relative reference, or an absolute
+         * `http(s)` URL without userinfo whose host matches the allowlist.
+         *
+         * @param string $url
+         * @return bool - `bool`: `true` if the target is safe to redirect to.
+         */
+        public function isSafe(string $url): bool {}
+
+        /**
+         * Checks whether a redirect target is safe (static convenience).
+         *
+         * @param string $url
+         * @param array $allowed_hosts
+         * @param bool|null $allow_subdomains
+         * @return bool - `bool`: `true` if the target is safe to redirect to.
+         */
+        public static function isSafeUrl(string $url, array $allowed_hosts, ?bool $allow_subdomains = null): bool {}
+
+        /**
+         * Returns the redirect target if it is safe, or the fallback otherwise.
+         *
+         * @param string $url
+         * @param string|null $fallback
+         * @return string - `string`: `url` if safe, `fallback` otherwise.
+         */
+        public function sanitize(string $url, ?string $fallback = null): string {}
+
+        /**
+         * Returns the redirect target if it is safe, or the fallback otherwise
+         * (static convenience).
+         *
+         * @param string $url
+         * @param array $allowed_hosts
+         * @param string|null $fallback
+         * @param bool|null $allow_subdomains
+         * @return string - `string`: `url` if safe, `fallback` otherwise.
+         */
+        public static function sanitizeUrl(string $url, array $allowed_hosts, ?string $fallback = null, ?bool $allow_subdomains = null): string {}
+    }
+
+    class Rng {
+        public function __construct() {}
+
+        /**
+         * Generate a random ASCII alphabetic string of the specified length.
+         *
+         * @param int $len
+         * @return string - `String` containing random ASCII alphabetic characters.
+         */
+        public static function alphabetic(int $len): string {}
+
+        /**
+         * Generate a random ASCII alphanumeric string of the specified length.
+         *
+         * @param int $len
+         * @return string - `String` containing random ASCII alphanumeric characters.
+         */
+        public static function alphanumeric(int $len): string {}
+
+        /**
+         * Generate a sequence of random bytes of the specified length.
+         *
+         * @param int $len
+         * @return string - `string` containing `len` random bytes.
+         */
+        public static function bytes(int $len): string {}
+
+        /**
+         * Randomly selects one element from the given list.
+         *
+         * @param array $choices
+         * @return mixed - `mixed|null`: A randomly chosen element, or `null` if `choices` is empty.
+         */
+        public static function choose(array $choices): mixed {}
+
+        /**
+         * Randomly selects exactly `amount` distinct elements without replacement.
+         *
+         * @param int $amount
+         * @param array $choices
+         * @return array - `mixed[]`: Array of selected values.
+         */
+        public static function chooseMultiple(int $amount, array $choices): array {}
+
+        /**
+         * Randomly selects `amount` elements from weighted choices without replacement.
+         *
+         * @param int $amount
+         * @param array $choices
+         * @return array - `mixed[]`: Array of selected values.
+         */
+        public static function chooseMultipleWeighted(int $amount, array $choices): array {}
+
+        /**
+         * Randomly selects one element from weighted choices.
+         *
+         * @param array $choices
+         * @return array - `array{0: mixed, 1: int}` Two‐element array: the chosen value and its weight.
+         */
+        public static function chooseWeighted(array $choices): array {}
+
+        /**
+         * Sample random ASCII characters from the specified character set.
+         *
+         * @param int $len
+         * @param string $chars
+         * @return string - `String` of length `len`, or an empty string if `chars` is empty.
+         */
+        public static function customAscii(int $len, string $chars): string {}
+
+        /**
+         * Sample random Unicode characters (code points) from the given string.
+         *
+         * @param int $len
+         * @param string $chars
+         * @return string - `string` of length `len`, or an empty string if `chars` is empty.
+         */
+        public static function customUnicodeChars(int $len, string $chars): string {}
+
+        /**
+         * Sample random Unicode grapheme clusters from the given string.
+         *
+         * @param int $len
+         * @param string $chars
+         * @return string - `string` of length `len`, or an empty string if `chars` is empty.
+         */
+        public static function customUnicodeGraphemes(int $len, string $chars): string {}
+
+        /**
+         * Generate a single random integer in the inclusive range `[low, high]`.
+         *
+         * @param int $low
+         * @param int $high
+         * @return int - `int` — random value within bounds
+         */
+        public static function int(int $low, int $high): int {}
+
+        /**
+         * Generate a vector of random integers in the inclusive range `[low, high]`.
+         *
+         * @param int $n
+         * @param int $low
+         * @param int $high
+         * @return array - `array[int; n]` — array of random values within bounds
+         */
+        public static function ints(int $n, int $low, int $high): array {}
+    }
 
     /**
      * Safe subprocess launcher.
@@ -61,819 +602,419 @@ namespace Hardened {
      */
     class ShellCommand {
         /**
-         * Enable passthrough mode for both stdout and stderr:
-         * PHP will receive all child-process output directly.
+         * Constructs a new ShellCommand for the given program path.
+         *
+         * @param string $executable Path to the executable or command name.
+         * @param array|null $arguments
          */
-        public function passthroughBoth(): \Hardened\ShellCommand {}
+        public function __construct(string $executable, ?array $arguments = null) {}
 
         /**
-         * Enable passthrough mode for stdout only.
+         * Constructs a new ShellCommand for the given program path.
+         *
+         * @param string $executable Path to the executable or command name.
+         * @return \Hardened\ShellCommand
          */
-        public function passthroughStdout(): \Hardened\ShellCommand {}
-
-        /**
-         * Enable passthrough mode for stderr only.
-         */
-        public function passthroughStderr(): \Hardened\ShellCommand {}
+        public static function executable(string $executable): \Hardened\ShellCommand {}
 
         /**
          * Silently ignore both stdout and stderr.
+         *
+         * @return \Hardened\ShellCommand
          */
         public function ignoreBoth(): \Hardened\ShellCommand {}
 
         /**
-         * Silently ignore stdout.
-         */
-        public function ignoreStdout(): \Hardened\ShellCommand {}
-
-        /**
          * Silently ignore stderr.
+         *
+         * @return \Hardened\ShellCommand
          */
         public function ignoreStderr(): \Hardened\ShellCommand {}
 
         /**
-         * Pipe both stdout and stderr through a PHP callable.
+         * Silently ignore stdout.
          *
-         * The callable will be invoked for each chunk of output.
+         * @return \Hardened\ShellCommand
          */
-        public function pipeCallbackBoth(mixed $callable): \Hardened\ShellCommand {}
-
-        /**
-         * Pipe stdout through a PHP callable.
-         */
-        public function pipeCallbackStdout(mixed $callable): \Hardened\ShellCommand {}
-
-        /**
-         * Pipe stderr through a PHP callable.
-         */
-        public function pipeCallbackStderr(mixed $callable): \Hardened\ShellCommand {}
-
-        /**
-         * Merge in additional environment variables for the child process.
-         *
-         * Existing passed-env map is extended.
-         */
-        public function passEnvs(array $map): \Hardened\ShellCommand {}
-
-        /**
-         * Replace the child-process environment with exactly the given map.
-         */
-        public function passEnvOnly(array $map): \Hardened\ShellCommand {}
+        public function ignoreStdout(): \Hardened\ShellCommand {}
 
         /**
          * Inherit _all_ parent environment variables.
+         *
+         * @return \Hardened\ShellCommand
          */
         public function inheritAllEnvs(): \Hardened\ShellCommand {}
 
         /**
          * Inherit only the specified environment variable names.
+         *
+         * @param array $envs
+         * @return \Hardened\ShellCommand
          */
         public function inheritEnvs(array $envs): \Hardened\ShellCommand {}
 
         /**
-         * Pass a single environment variable to the child.
+         * Adds one argument to the command line.
+         *
+         * @param string $arg A single argument (will not be interpreted by a shell).
+         * @return \Hardened\ShellCommand
          */
-        public function passEnv(string $key, string $value): \Hardened\ShellCommand {}
+        public function passArg(string $arg): \Hardened\ShellCommand {}
 
         /**
          * Join numeric or flag-style arguments from a PHP table.
          *
          * Numeric keys => positional args; string keys => `--key value`.
+         *
+         * @param array $arguments
+         * @return \Hardened\ShellCommand
          */
         public function passArgs(array $arguments): \Hardened\ShellCommand {}
 
         /**
-         * Adds one argument to the command line.
+         * Pass a single environment variable to the child.
          *
-         * # Parameters
-         * - `arg`: `string` A single argument (will not be interpreted by a shell).
+         * @param string $key
+         * @param string $value
+         * @return \Hardened\ShellCommand
          */
-        public function passArg(string $arg): \Hardened\ShellCommand {}
+        public function passEnv(string $key, string $value): \Hardened\ShellCommand {}
+
+        /**
+         * Replace the child-process environment with exactly the given map.
+         *
+         * @param array $map
+         * @return \Hardened\ShellCommand
+         */
+        public function passEnvOnly(array $map): \Hardened\ShellCommand {}
+
+        /**
+         * Merge in additional environment variables for the child process.
+         *
+         * Existing passed-env map is extended.
+         *
+         * @param array $map
+         * @return \Hardened\ShellCommand
+         */
+        public function passEnvs(array $map): \Hardened\ShellCommand {}
+
+        /**
+         * Enable passthrough mode for both stdout and stderr:
+         * PHP will receive all child-process output directly.
+         *
+         * @return \Hardened\ShellCommand
+         */
+        public function passthroughBoth(): \Hardened\ShellCommand {}
+
+        /**
+         * Enable passthrough mode for stderr only.
+         *
+         * @return \Hardened\ShellCommand
+         */
+        public function passthroughStderr(): \Hardened\ShellCommand {}
+
+        /**
+         * Enable passthrough mode for stdout only.
+         *
+         * @return \Hardened\ShellCommand
+         */
+        public function passthroughStdout(): \Hardened\ShellCommand {}
+
+        /**
+         * Pipe both stdout and stderr through a PHP callable.
+         *
+         * The callable will be invoked for each chunk of output.
+         *
+         * @param mixed $callable
+         * @return \Hardened\ShellCommand
+         */
+        public function pipeCallbackBoth(mixed $callable): \Hardened\ShellCommand {}
+
+        /**
+         * Pipe stderr through a PHP callable.
+         *
+         * @param mixed $callable
+         * @return \Hardened\ShellCommand
+         */
+        public function pipeCallbackStderr(mixed $callable): \Hardened\ShellCommand {}
+
+        /**
+         * Pipe stdout through a PHP callable.
+         *
+         * @param mixed $callable
+         * @return \Hardened\ShellCommand
+         */
+        public function pipeCallbackStdout(mixed $callable): \Hardened\ShellCommand {}
+
+        /**
+         * Runs the command, streaming stdout/stderr live (according to configured pipe modes),
+         * enforces the configured timeout, and optionally captures output into PHP variables.
+         *
+         * @param ?string $capture_stdout
+         * @param ?string $capture_stderr
+         * @return int - `int` The process's exit code (`0` on success, `-1` if killed by signal or timed out).
+         */
+        public function run(?string $capture_stdout = null, ?string $capture_stderr = null): int {}
+
+        /**
+         * @param string $command_line
+         * @return \Hardened\ShellCommand - `ShellCommand`
+         */
+        public static function safeFromString(string $command_line): \Hardened\ShellCommand {}
 
         /**
          * Sets an execution timeout in seconds.
          *
-         * # Parameters
-         * - `seconds`: `int` Maximum time to wait before killing the process.
-         *
-         * # Notes
-         * - If the process does not exit within this period, it will be terminated.
+         * @param int $seconds Maximum time to wait before killing the process.
+         * @return \Hardened\ShellCommand
          */
         public function setTimeout(int $seconds): \Hardened\ShellCommand {}
 
         /**
          * Sets an execution timeout in milliseconds.
          *
-         * # Parameters
-         * - `milliseconds`: `int` Maximum time to wait before killing the process.
-         *
-         * # Notes
-         * - If the process does not exit within this period, it will be terminated.
+         * @param int $milliseconds Maximum time to wait before killing the process.
+         * @return \Hardened\ShellCommand
          */
         public function setTimeoutMs(int $milliseconds): \Hardened\ShellCommand {}
-
-        /**
-         *
-         * # Parameters
-         * - `string $cmdline` Full command line to run.
-         *
-         * # Returns
-         * - `ShellCommand`
-         *
-         * # Exceptions
-         * - Throws `Exception` on parse errors or if disallowed characters are present.
-         */
-        public static function safeFromString(string $command_line): \Hardened\ShellCommand {}
-
-        /**
-         * Exactly like `shell_exec()`: pass the *raw* string to `/bin/sh -c`
-         * and record the top-level command names.
-         *
-         * # Parameters
-         * - `string $cmdline` Full shell-style command line to run.
-         *
-         * # Returns
-         * - `ShellCommand`
-         *
-         * # Exceptions
-         * - Throws `Exception` on parse errors (e.g. empty line).
-         */
-        public static function shellFromString(string $cmdline): \Hardened\ShellCommand {}
-
-        /**
-         * Constructs a new ShellCommand for the given program path.
-         *
-         * # Parameters
-         * - `executable`: `string` Path to the executable or command name.
-         *
-         * # Notes
-         * - Does not validate existence until execution.
-         */
-        public static function executable(string $executable): \Hardened\ShellCommand {}
-
-        /**
-         * Returns the list of top-level command names parsed from the original shell line.
-         *
-         * # Returns
-         * - `Option<Vec<String>>`:
-         *   - `Some(vec)` when `shell_from_string()` was used and top-level commands were recorded;
-         *   - `None` otherwise.
-         */
-        public function topLevelCommands(): ?array {}
 
         /**
          * Constructs a new `ShellCommand` using the user's login shell.
          *
          * Looks up the `SHELL` environment variable, or falls back to `/bin/sh` if unset.
          *
-         * # Returns
-         * - `ShellCommand`: with `executable` set to the shell path and no arguments.
+         * @return \Hardened\ShellCommand - `ShellCommand`: with `executable` set to the shell path and no arguments.
          */
         public static function shell(): \Hardened\ShellCommand {}
 
         /**
-         * Runs the command, streaming stdout/stderr live (according to configured pipe modes),
-         * enforces the configured timeout, and optionally captures output into PHP variables.
+         * Exactly like `shell_exec()`: pass the *raw* string to `/bin/sh -c`
+         * and record the top-level command names.
          *
-         * # Parameters
-         * - `stdout`: `?string &$stdout`
-         *   Optional reference to a PHP variable; if provided, the collected stdout will be written here.
-         * - `stderr`: `?string &$stderr`
-         *   Optional reference to a PHP variable; if provided, the collected stderr will be written here.
-         *
-         * # Returns
-         * - `int`
-         *   The process's exit code (`0` on success, `-1` if killed by signal or timed out).
-         *
-         * # Exceptions
-         * - Throws `Exception` if the process cannot be spawned.
-         * Runs the command, streaming both stdout and stderr live, with a timeout and
-         * selected environment variables passed through.
+         * @param string $cmdline
+         * @return \Hardened\ShellCommand - `ShellCommand`
          */
-        public function run(?mixed $capture_stdout, ?mixed $capture_stderr): int {}
+        public static function shellFromString(string $cmdline): \Hardened\ShellCommand {}
 
         /**
-         * Constructs a new ShellCommand for the given program path.
+         * Returns the list of top-level command names parsed from the original shell line.
          *
-         * # Parameters
-         * - `executable`: `string` Path to the executable or command name.
-         *
-         * # Notes
-         * - Does not validate existence until execution.
+         * @return array|null - `Option<Vec<String>>`: - `Some(vec)` when `shell_from_string()` was used and top-level commands were recorded; - `None` otherwise.
          */
-        public function __construct(string $executable, ?array $arguments) {}
+        public function topLevelCommands(): ?array {}
     }
 
     /**
-     * A secured wrapper around `url::Host` for use in PHP extensions.
-     * Provides hostname parsing and normalization to prevent security issues.
+     * SSRF guard: outbound network policy for URLs built from untrusted input.
+     *
+     * Implements resolve-then-validate: the hostname is resolved once, every
+     * resolved address is checked against the policy, and the validated
+     * addresses are returned so the caller can *pin* the connection to them
+     * (e.g. via curl's `CURLOPT_RESOLVE`). Re-resolving at connect time would
+     * allow a DNS-rebinding TOCTOU; pinning closes it.
+     *
+     * By default only `http`/`https` on ports 80/443 are allowed, and loopback,
+     * private (RFC 1918), link-local (incl. the 169.254.169.254 cloud metadata
+     * endpoint), CGNAT, unique-local, multicast, broadcast and other reserved
+     * ranges are denied — for both address families, including IPv4-mapped IPv6.
+     *
+     * When following redirects, disable automatic following and validate every
+     * hop with this guard.
      */
-    class Hostname {
+    class SsrfGuard {
         /**
-         * Parses and normalizes a hostname string.
-         *
-         * # Parameters
-         * - `hostname`: The hostname to parse and normalize.
-         *
-         * # Errors
-         * Throws an exception if parsing the hostname fails.
+         * Constructs an SSRF guard with secure defaults: schemes `http`/`https`,
+         * ports 80/443, and all reserved/private/metadata ranges denied.
          */
-        public static function from(mixed $hostname): \Hardened\Hostname {}
-
-        public static function fromStr(string $hostname): \Hardened\Hostname {}
-
-        /**
-         * Parses a URL and extracts its hostname.
-         *
-         * # Parameters
-         * - `url`: The URL to parse.
-         *
-         * # Errors
-         * Throws an exception if parsing the URL or hostname fails.
-         */
-        public static function fromUrl(mixed $url): \Hardened\Hostname {}
-
-        /**
-         * Compares this hostname with another string.
-         *
-         * # Parameters
-         * - `hostname`: The hostname to compare against.
-         *
-         * # Errors
-         * Throws an exception if parsing the provided hostname fails.
-         */
-        public function equals(mixed $hostname): bool {}
-
-        public function equalsStr(string $hostname): bool {}
-
-        /**
-         * Returns true if this hostname equals any in the given list.
-         *
-         * # Parameters
-         * - `hostnames`: List of hostname strings to compare.
-         *
-         * # Errors
-         * Throws an exception if parsing any provided hostname fails.
-         */
-        public function equalsAny(mixed ...$hostnames): bool {}
-
-        /**
-         * Compares this hostname with the hostname extracted from a URL.
-         *
-         * # Parameters
-         * - `url`: The URL to extract hostname from.
-         *
-         * # Errors
-         * Throws an exception if parsing the URL or hostname fails.
-         */
-        public function equalsUrl(mixed $url): bool {}
-
-        /**
-         * Returns true if this hostname equals any hostname extracted from the given URLs.
-         *
-         * # Parameters
-         * - `urls`: List of URL strings to compare.
-         *
-         * # Errors
-         * Throws an exception if parsing any URL or hostname fails.
-         */
-        public function equalsAnyUrl(mixed ...$urls): bool {}
-
-        /**
-         * Checks if this hostname is a subdomain of the given hostname.
-         *
-         * # Parameters
-         * - `hostname`: The parent hostname to check against.
-         *
-         * # Errors
-         * Throws an exception if parsing the provided hostname fails.
-         */
-        public function subdomainOf(mixed $hostname): bool {}
-
-        /**
-         * Returns true if this hostname is a subdomain of any in the given list.
-         *
-         * # Parameters
-         * - `hosts`: List of parent hostname strings to check.
-         *
-         * # Errors
-         * Throws an exception if parsing any provided hostname fails.
-         */
-        public function subdomainOfAny(mixed ...$hosts): bool {}
-
-        /**
-         * Checks if this hostname is a subdomain of the hostname extracted from a URL.
-         *
-         * # Parameters
-         * - `url`: The URL to extract hostname from.
-         *
-         * # Errors
-         * Throws an exception if parsing the URL or hostname fails.
-         */
-        public function subdomainOfUrl(string $url): bool {}
-
-        /**
-         * Returns true if this hostname is a subdomain of any hostname extracted from the given URLs.
-         *
-         * # Parameters
-         * - `urls`: List of URL strings to check.
-         *
-         * # Errors
-         * Throws an exception if parsing any URL or hostname fails.
-         */
-        public function subdomainOfAnyUrl(array $urls): bool {}
-
-        /**
-         * Returns true if this hostname is an IPv4 address.
-         *
-         * # Returns
-         * - `bool`: `true` if the hostname is an IPv4 address.
-         */
-        public function isIpv4(): bool {}
-
-        /**
-         * Returns true if this hostname is an IPv6 address.
-         *
-         * # Returns
-         * - `bool`: `true` if the hostname is an IPv6 address.
-         */
-        public function isIpv6(): bool {}
-
-        /**
-         * Returns true if this hostname is an IP address (either IPv4 or IPv6).
-         *
-         * # Returns
-         * - `bool`: `true` if the hostname is an IP address.
-         */
-        public function isIp(): bool {}
-
-        /**
-         * Returns true if this hostname is a domain name (not an IP address).
-         *
-         * # Returns
-         * - `bool`: `true` if the hostname is a domain name.
-         */
-        public function isDomain(): bool {}
-
-        /**
-         * Returns the string representation of this hostname.
-         *
-         * # Returns
-         * - `string`: The normalized hostname string.
-         */
-        public function __toString(): string {}
-
-        /**
-         * Constructs a new Hostname instance (alias for `from`).
-         *
-         * # Parameters
-         * - `hostname`: The hostname to initialize.
-         *
-         * # Errors
-         * Throws an exception if parsing the hostname fails.
-         */
-        public function __construct(mixed $hostname) {}
-    }
-
-    class Path {
-        /**
-         * Creates a new PathObj by lexically canonicalizing a given PHP value.
-         *
-         * # Parameters
-         * - `path`: The PHP value to convert to a filesystem path.
-         *
-         * # Exceptions
-         * - Throws an exception if conversion of `$path` to string fails.
-         */
-        public static function from(mixed $path): \Hardened\Path {}
-
-        /**
-         * Checks if this path starts with the given prefix path.
-         *
-         * # Parameters
-         * - `path`: The PHP value to compare against.
-         *
-         * # Returns
-         * `true` if this path starts with the given prefix.
-         *
-         * # Exceptions
-         * - Throws an exception if conversion from Zval to string fails.
-         */
-        public function startsWith(mixed $path): bool {}
-
-        /**
-         * Joins the given path onto this path and normalizes it.
-         *
-         * # Parameters
-         * - `path`: The PHP value to join.
-         *
-         * # Returns
-         * A new PathObj representing the joined path.
-         *
-         * # Exceptions
-         * - Throws an exception if conversion from Zval to string fails.
-         */
-        public function join(mixed $path): \Hardened\Path {}
-
-        /**
-         * Joins the given path onto this path, normalizes it, and ensures it's a subpath.
-         *
-         * # Parameters
-         * - `path`: string|Path
-         *
-         * # Exceptions
-         * - Throws an exception if `$path` is not a string nor Path
-         */
-        public function joinSubpath(mixed $path): \Hardened\Path {}
-
-        /**
-         * Set the file name component of the path.
-         *
-         * # Parameters
-         * - `fileName`: string
-         */
-        public function setFileName(string $file_name): \Hardened\Path {}
-
-        /**
-         * Set the file name component of the path.
-         *
-         * # Parameters
-         * - `extension`: string
-         */
-        public function setExtension(string $extension): \Hardened\Path {}
-
-        /**
-         * Get the last component of the path.
-         */
-        public function fileName(): ?string {}
-
-        /**
-         * Get the directory name (similar to `dirname()`).
-         */
-        public function parent(): ?\Hardened\Path {}
-
-        /**
-         * Converts the path to its string representation.
-         *
-         * # Returns
-         * The string representation of the path.
-         *
-         * # Errors
-         * Throws an exception if the path cannot be converted to a string.
-         */
-        public function __toString(): string {}
-
-        public function path(): string {}
-
-        /**
-         * Check if the path's extension is in the allowed list.
-         *
-         * # Parameters
-         * - `allowed`: PHP array of allowed extensions (strings, without leading dot), case-insensitive.
-         *
-         * # Returns
-         * - `bool` `true` if the file extension matches one of the allowed values.
-         */
-        public function validateExtension(array $allowed): bool {}
-
-        /**
-         * Check if the path's extension is a common image type.
-         *
-         * # Returns
-         * - `bool` `true` if extension is one of `["png","jpg","jpeg","gif","webp","bmp","tiff","svg"]`.
-         */
-        public function validateExtensionImage(): bool {}
-
-        /**
-         * Check if the path's extension is a common video type.
-         *
-         * # Returns
-         * - `bool` `true` if extension is one of `["mp4","mov","avi","mkv","webm","flv"]`.
-         */
-        public function validateExtensionVideo(): bool {}
-
-        /**
-         * Check if the path's extension is a common audio type.
-         *
-         * # Returns
-         * - `bool` `true` if extension is one of `["mp3","wav","ogg","flac","aac"]`.
-         */
-        public function validateExtensionAudio(): bool {}
-
-        /**
-         * Check if the path's extension is a common document type.
-         *
-         * # Returns
-         * - `bool` `true` if extension is one of `["pdf","doc","docx","xls","xlsx","ppt","pptx"]`.
-         */
-        public function validateExtensionDocument(): bool {}
-
-        /**
-         * Returns true if the path is absolute (starts with root or drive prefix).
-         *
-         * # Returns
-         * - `bool` `true` if the path is absolute.
-         */
-        public function isAbsolute(): bool {}
-
-        /**
-         * Returns true if the path is relative (not absolute).
-         *
-         * # Returns
-         * - `bool` `true` if the path is relative.
-         */
-        public function isRelative(): bool {}
-
-        /**
-         * Returns true if the path tried to escape its base directory during normalization.
-         *
-         * This is useful for detecting directory traversal attempts.
-         * A path "escapes" if it contains leading `..` components that would go above
-         * the starting directory, or if it starts with a root/prefix.
-         *
-         * # Returns
-         * - `bool` `true` if the path escaped during normalization.
-         */
-        public function hasEscaped(): bool {}
-
-        /**
-         * Returns the file extension, if any.
-         *
-         * # Returns
-         * - `?string` The extension without the leading dot, or `null` if none.
-         */
-        public function extension(): ?string {}
-
-        /**
-         * Constructs a new PathObj instance (alias for `from`).
-         *
-         * # Parameters
-         * - `path`: The PHP value to convert to a filesystem path.
-         *
-         * # Exceptions
-         * - Throws an exception if conversion from Zval to string fails.
-         */
-        public function __construct(mixed $path) {}
-    }
-
-    class Rng {
-        /**
-         * Generate a random ASCII alphanumeric string of the specified length.
-         *
-         * # Parameters
-         * - `len`: Number of characters to generate.
-         *
-         * # Returns
-         * - `String` containing random ASCII alphanumeric characters.
-         */
-        public static function alphanumeric(int $len): string {}
-
-        /**
-         * Generate a random ASCII alphabetic string of the specified length.
-         *
-         * # Parameters
-         * - `len`: Number of characters to generate.
-         *
-         * # Returns
-         * - `String` containing random ASCII alphabetic characters.
-         */
-        public static function alphabetic(int $len): string {}
-
-        /**
-         * Generate a sequence of random bytes of the specified length.
-         *
-         * # Parameters
-         * - `len`: Number of bytes to generate.
-         *
-         * # Returns
-         * - `string` containing `len` random bytes.
-         *
-         * # Exceptions
-         * - Throws an exception if the uniform distribution for `u8` cannot be created.
-         */
-        public static function bytes(int $len): string {}
-
-        /**
-         * Generate a vector of random integers in the inclusive range `[low, high]`.
-         *
-         * # Parameters
-         * - `n`: Number of integers to generate.
-         * - `low`: Lower bound (inclusive).
-         * - `high`: Upper bound (inclusive).
-         *
-         * # Returns
-         * - `array[int; n]` — array of random values within bounds
-         *
-         * # Exceptions
-         * - Throws an exception if the range is invalid (e.g. `low > high`) or distribution creation fails.
-         */
-        public static function ints(int $n, int $low, int $high): array {}
-
-        /**
-         * Generate a single random integer in the inclusive range `[low, high]`.
-         *
-         * # Parameters
-         * - `low`: Lower bound (inclusive).
-         * - `high`: Upper bound (inclusive).
-         *
-         * # Returns
-         * - `int` — random value within bounds
-         *
-         * # Exceptions
-         * - Throws an exception if the range is invalid (e.g. `low > high`) or distribution creation fails.
-         */
-        public static function int(int $low, int $high): int {}
-
-        /**
-         * Sample random Unicode characters (code points) from the given string.
-         *
-         * # Parameters
-         * - `len`: Number of characters to generate.
-         * - `chars`: A string whose `char` elements form the sampling pool.
-         *
-         * # Returns
-         * - `string` of length `len`, or an empty string if `chars` is empty.
-         *
-         * # Exceptions
-         * - Throws an exception if `char` does not contain at least one Unicode character.
-         */
-        public static function customUnicodeChars(int $len, string $chars): string {}
-
-        /**
-         * Sample random Unicode grapheme clusters from the given string.
-         *
-         * # Parameters
-         * - `len`: Number of graphemes to generate.
-         * - `chars`: A string whose grapheme clusters form the sampling pool.
-         *
-         * # Returns
-         * - `string` of length `len`, or an empty string if `chars` is empty.
-         *
-         * # Exceptions
-         * - Throws an exception if `char` does not contain at least one Unicode grapheme.
-         */
-        public static function customUnicodeGraphemes(int $len, string $chars): string {}
-
-        /**
-         * Sample random ASCII characters from the specified character set.
-         *
-         * # Parameters
-         * - `len`: Number of characters to generate.
-         * - `chars`: A string slice whose bytes form the sampling pool.
-         *
-         * # Returns
-         * - `String` of length `len`, or an empty string if `chars` is empty.
-         *
-         * # Exceptions
-         * - Throws an exception if `char` does not contain at least one byte.
-         */
-        public static function customAscii(int $len, string $chars): string {}
-
-        /**
-         * Randomly selects one element from the given list.
-         *
-         * # Parameters
-         * - `choices`: PHP array of values to pick from.
-         *
-         * # Returns
-         * - `mixed|null`: A randomly chosen element, or `null` if `choices` is empty.
-         */
-        public static function choose(array $choices): mixed {}
-
-        /**
-         * Randomly selects exactly `amount` distinct elements without replacement.
-         *
-         * # Parameters
-         * - `amount`: Number of elements to select.
-         * - `choices`: PHP array of values to pick from.
-         *
-         * # Returns
-         * - `mixed[]`: Array of selected values.
-         *
-         * # Exceptions
-         * - Throws `Exception` if `amount` is greater than the number of available choices.
-         */
-        public static function chooseMultiple(int $amount, array $choices): array {}
-
-        /**
-         * Randomly selects one element from weighted choices.
-         *
-         * # Parameters
-         * - `choices`: PHP array of `[value, weight]` pairs, where `weight` is an integer.
-         *
-         * # Returns
-         * - `array{0: mixed, 1: int}` Two‐element array: the chosen value and its weight.
-         *
-         * # Exceptions
-         * - Throws `Exception` if any entry is not a two‐element array or weight is not an integer.
-         * - Throws `Exception` if selection fails.
-         */
-        public static function chooseWeighted(array $choices): array {}
-
-        /**
-         * Randomly selects `amount` elements from weighted choices without replacement.
-         *
-         * # Parameters
-         * - `amount`: Number of elements to select.
-         * - `choices`: PHP array of `[value, weight]` pairs, where `weight` is a float.
-         *
-         * # Returns
-         * - `mixed[]`: Array of selected values.
-         *
-         * # Exceptions
-         * - Throws `Exception` if any entry is not a two‐element array or weight is not a float.
-         * - Throws `Exception` if selection fails.
-         */
-        public static function chooseMultipleWeighted(int $amount, array $choices): array {}
-
         public function __construct() {}
+
+        /**
+         * Adds an allowed CIDR range (or single IP), overriding the built-in
+         * reserved-range denylist — but not explicit `denyCidr()` entries.
+         *
+         * Use this to deliberately permit, say, one internal service:
+         * `$guard->allowCidr("10.0.5.20")`.
+         *
+         * @param string $cidr
+         * @return void
+         */
+        public function allowCidr(string $cidr): void {}
+
+        /**
+         * Validates a URL and returns a ready-made `CURLOPT_RESOLVE` entry
+         * (`"host:port:ip1,ip2"`) pinning curl to the validated addresses.
+         *
+         * ```php
+         * $entry = $guard->curlResolve($url);
+         * curl_setopt($ch, CURLOPT_RESOLVE, [$entry]);
+         * curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false); // validate each hop!
+         * ```
+         *
+         * @param string $url
+         * @return string - `string`: A `CURLOPT_RESOLVE` entry for the validated addresses.
+         */
+        public function curlResolve(string $url): string {}
+
+        /**
+         * Adds a denied CIDR range (or single IP). Deny entries take precedence
+         * over everything else.
+         *
+         * @param string $cidr
+         * @return void
+         */
+        public function denyCidr(string $cidr): void {}
+
+        /**
+         * Checks a single IP address against the policy.
+         *
+         * @param string $ip
+         * @return bool - `bool`: `true` if the address is allowed.
+         */
+        public function isIpAllowed(string $ip): bool {}
+
+        /**
+         * Replaces the set of allowed ports.
+         *
+         * @param array $ports
+         * @return void
+         */
+        public function setAllowedPorts(array $ports): void {}
+
+        /**
+         * Replaces the set of allowed URL schemes.
+         *
+         * @param array $schemes
+         * @return void
+         */
+        public function setAllowedSchemes(array $schemes): void {}
+
+        /**
+         * Enables or disables the built-in reserved-range denylist (loopback,
+         * private, link-local/metadata, CGNAT, unique-local, multicast, …).
+         * Enabled by default; disable only if you fully manage policy via
+         * `allowCidr()`/`denyCidr()`.
+         *
+         * @param bool $block
+         * @return void
+         */
+        public function setBlockReservedRanges(bool $block): void {}
+
+        /**
+         * Validates a URL against the policy: scheme, port, no userinfo, and
+         * every address the host resolves to. Resolution happens exactly once.
+         *
+         * Connect to one of the returned addresses (e.g. via `curlResolve()`)
+         * instead of re-resolving the hostname, otherwise a DNS-rebinding
+         * attacker can serve a public address during validation and a private
+         * one at connect time.
+         *
+         * @param string $url
+         * @return array - `string[]`: The validated resolved IP addresses.
+         */
+        public function validateUrl(string $url): array {}
     }
 
     /**
-     * CSRF protection for your application.
+     * Control-character and protocol-injection sanitizers.
+     *
+     * Untrusted strings carrying control bytes are a recurring injection vector:
+     * CR/LF in HTTP/SMTP headers (response splitting, header injection), CR/LF in
+     * log lines (log forging), null bytes in paths (truncation), and field
+     * separators (`0x00`, `0x01`, …) in delimited backend protocols. These
+     * helpers strip or reject such bytes. All methods are binary-safe.
      */
-    class CsrfProtection {
-        public static function generateKey(): string {}
+    class Text {
+        public function __construct() {}
 
         /**
-         * Verifies a CSRF token & cookie pair from PHP.
+         * Asserts that a string contains no null bytes.
          *
-         * # Parameters
-         * - `token`: `string` Base64URL-encoded CSRF token from client.
-         * - `cookie`: `string` Base64URL-encoded CSRF cookie from client.
+         * Null bytes in filenames and paths cause truncation in C APIs and are
+         * a classic path/filename bypass. Returns the input unchanged if clean.
          *
-         * # Returns
-         * - `void` on success.
-         *
-         * # Exceptions
-         * - Throws `Exception` if decoding fails or the token–cookie pair is invalid/expired.
+         * @param string $input
+         * @return string - `string`: The input, unchanged.
          */
-        public function verifyToken(string $token, ?string $cookie): mixed {}
+        public static function assertNoNullBytes(string $input): string {}
 
         /**
-         * Returns the CSRF cookie string to send in PHP.
+         * Checks whether a string contains control characters.
          *
-         * # Returns
-         * - `string` Base64URL-encoded cookie suitable for `Set-Cookie`.
+         * Detects C0 controls (`0x00`–`0x1f`), DEL (`0x7f`), and UTF-8 encoded C1
+         * controls (U+0080–U+009F), except the bytes listed in `keep`.
+         *
+         * @param string $input
+         * @param string|null $keep
+         * @return bool - `bool`: `true` if any control character is present.
          */
-        public function cookie(): string {}
+        public static function hasControls(string $input, ?string $keep = null): bool {}
 
         /**
-         * Returns the CSRF token string for PHP forms or headers.
+         * Checks whether a string contains a null byte.
          *
-         * # Returns
-         * - `string` Base64URL-encoded token.
+         * @param string $input
+         * @return bool - `bool`: `true` if a null byte is present.
          */
-        public function token(): string {}
+        public static function hasNullBytes(string $input): bool {}
 
         /**
-         * Sets the name of the CSRF cookie to use in PHP calls.
+         * Validates and sanitizes a string for use as an HTTP (or SMTP) header value.
          *
-         * # Parameters
-         * - `cookieName`: `string` the new name for the CSRF cookie.
+         * Throws if the value contains CR, LF or NUL (response splitting /
+         * header injection); strips all other control characters except
+         * horizontal tab, which is legal in header values per RFC 7230.
          *
-         * # Returns
-         * - `void`
+         * @param string $input
+         * @return string - `string`: The sanitized header value.
          */
-        public function setCookieName(string $cookie_name) {}
+        public static function sanitizeHeaderValue(string $input): string {}
 
         /**
-         * Returns the configured CSRF cookie name.
+         * Sanitizes a string for safe inclusion in a log line.
          *
-         * # Returns
-         * - `string` the name of the CSRF cookie.
+         * Strips CR, LF and all other control characters (C0, DEL, UTF-8 C1)
+         * except horizontal tab, preventing log forging via injected line breaks
+         * or terminal escape sequences.
+         *
+         * @param string $input
+         * @return string - `string`: The sanitized string, safe to embed in a single log line.
          */
-        public function cookieName(): string {}
+        public static function sanitizeLogLine(string $input): string {}
 
         /**
-         * Sends the CSRF cookie to the client via `setcookie()`
+         * Removes control characters from a string.
          *
-         * # Parameters
-         * - `expires`: `?int` UNIX timestamp when the cookie expires (defaults to `0`, a session cookie).
-         * - `path`: `?string` Cookie path (defaults to `"/"`).
-         * - `domain`: `?string` Cookie domain (defaults to the current host).
-         * - `secure`: `?bool` Send only over HTTPS (defaults to `false`).
-         * - `httponly`: `?bool` HTTP-only flag (defaults to `true`).
+         * Strips C0 controls (`0x00`–`0x1f`), DEL (`0x7f`), and UTF-8 encoded C1
+         * controls (U+0080–U+009F), except the bytes listed in `keep`.
          *
-         * # Exceptions
-         * - Throws `Exception` if the PHP `setcookie()` function cannot be invoked.
+         * @param string $input
+         * @param string|null $keep
+         * @return string - `string`: The sanitized string.
          */
-        public function sendCookie(?int $expires, ?string $path, ?string $domain, ?bool $secure, ?bool $httponly): mixed {}
-
-        /**
-         * Constructs a CSRF protection instance for PHP.
-         *
-         * # Parameters
-         * - `key`: `string` Base64URL-encoded 32-byte secret key.
-         * - `ttl`: `int` token time-to-live in seconds.
-         * - `previousTokenValue`: `?string` optional Base64URL-encoded previous token for rotation.
-         *
-         * # Exceptions
-         * - Throws `Exception` if key decoding or length validation fails.
-         * - Throws `Exception` if token pair generation fails.
-         */
-        public function __construct(string $key, int $ttl, ?string $previous_token_value) {}
+        public static function stripControls(string $input, ?string $keep = null): string {}
     }
+
+    /**
+     * Execute a command directly (no shell), with arguments passed explicitly.
+     *
+     * Unlike `shell_exec()`, this function does NOT parse the executable string.
+     * The executable is used as-is, and all arguments must be passed via the array.
+     * This prevents any shell injection vulnerabilities.
+     *
+     * @param string $executable
+     * @param array|null $arguments
+     * @return mixed - `string|null`: On success, returns captured stdout as a string (or exit code as string if non-zero). Returns `null` only on error spawning the process.
+     */
+    function safe_exec(string $executable, ?array $arguments = null): mixed {}
+
+    /**
+     * Execute a shell command via the user's login shell, enforcing top-level command checks.
+     *
+     * @param string $command
+     * @param array|null $expected_commands
+     * @return mixed - `string|null`: On success, returns the command's stdout output as a string (or exit code as string if non-zero). Returns `null` only on error spawning the process.
+     */
+    function shell_exec(string $command, ?array $expected_commands = null): mixed {}
 }
 
 namespace Hardened\Sanitizers {
@@ -882,466 +1023,88 @@ namespace Hardened\Sanitizers {
      * Allows customized sanitization through PHP method calls.
      */
     class HtmlSanitizer {
-        const TRUNCATE_DEFAULT_ENDING = null;
-
         /**
          * Constructs a sanitizer with default configuration.
-         *
-         * # Returns
-         * - HtmlSanitizer A new sanitizer instance.
          */
-        public static function Default(): \Hardened\Sanitizers\HtmlSanitizer {}
+        public function __construct() {}
 
         /**
-         * Denies all relative URLs in attributes.
+         * Adds allowed CSS classes for a specific tag.
          *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
+         * @param string $tag
+         * @param array $classes
+         * @return \Hardened\Sanitizers\HtmlSanitizer
          */
-        public function urlRelativeDeny(): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Checks whether a URL is valid according to the sanitizer’s configured
-         * URL scheme whitelist and relative-URL policy.
-         *
-         * # Parameters
-         * - `url`: The URL string to validate.
-         *
-         * # Returns
-         * - `bool`: `true` if the URL’s scheme is whitelisted, or if it is a relative URL
-         *   and relative URLs are permitted; `false` otherwise.
-         *
-         * # Exceptions
-         * - Throws `Exception` if the sanitizer is not in a valid state.
-         */
-        public function isValidUrl(string $url): bool {}
-
-        /**
-         * Passes through relative URLs unchanged.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function urlRelativePassthrough(): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Rewrites relative URLs using the given base URL.
-         *
-         * # Parameters
-         * - `base_url`: The base URL to resolve relative URLs against.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         * - Exception if `base_url` is not a valid URL.
-         */
-        public function urlRelativeRewriteWithBase(string $base_url): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Rewrites relative URLs using a root URL and path prefix.
-         *
-         * # Parameters
-         * - `root`: The root URL string.
-         * - `path`: The URL path prefix.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         * - Exception if `root` is not a valid URL.
-         */
-        public function urlRelativeRewriteWithRoot(string $root, string $path): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Sets the `rel` attribute for generated `<a>` tags.
-         *
-         * # Parameters
-         * - `value`: Optional `rel` attribute value; `None` clears it.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function linkRel(?string $value): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Overwrites the set of allowed tags.
-         *
-         * # Parameters
-         * - `tags`: An array of allowed tag names.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         * - Exception if `tags` is not an array.
-         */
-        public function tags(array $tags): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Sets the tags whose contents will be completely removed from the output.
-         *
-         * # Parameters
-         * - `tags`: An array of allowed tag names.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         * - Exception if `tags` is not an array.
-         * - Adding tags which are whitelisted in tags or tag_attributes will cause a panic.
-         */
-        public function cleanContentTags(array $tags): \Hardened\Sanitizers\HtmlSanitizer {}
+        public function addAllowedClasses(string $tag, array $classes): \Hardened\Sanitizers\HtmlSanitizer {}
 
         /**
          * Add additional blacklisted clean-content tags without overwriting old ones.
          *
          * Does nothing if the tag is already there.
          *
-         * # Parameters
-         * - `tags`: An array of tag names to add.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         * - Exception if `tags` is not an array.
+         * @param array $tags
+         * @return \Hardened\Sanitizers\HtmlSanitizer
          */
         public function addCleanContentTags(array $tags): \Hardened\Sanitizers\HtmlSanitizer {}
 
         /**
-         * Remove already-blacklisted clean-content tags.
-         *
-         * Does nothing if the tags aren’t blacklisted.
-         *
-         * # Parameters
-         * - `tags`: An array of tag names to add.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         * - Exception if `tags` is not an array.
-         */
-        public function rmCleanContentTags(array $tags): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Adds additional allowed tags to the existing whitelist.
-         *
-         * # Parameters
-         * - `tags`: An array of tag names to add.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         * - Exception if `tags` is not an array.
-         */
-        public function addTags(array $tags): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Removes tags from the whitelist.
-         *
-         * # Parameters
-         * - `tags`: An array of tag names to remove.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function rmTags(array $tags): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Adds allowed CSS classes for a specific tag.
-         *
-         * # Parameters
-         * - `tag`: A string tag name.
-         * - `classes`: An array of CSS class names.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function addAllowedClasses(string $tag, array $classes): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Removes allowed CSS classes from a specific tag.
-         *
-         * # Parameters
-         * - `tag`: A string tag name.
-         * - `classes`: An array of CSS class names to remove.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function rmAllowedClasses(string $tag, array $classes): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Adds allowed attributes to a specific tag.
-         *
-         * # Parameters
-         * - `tag`: A string tag name.
-         * - `attributes`: An array of attribute names.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function addTagAttributes(string $tag, array $attributes): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Removes attributes from a specific tag.
-         *
-         * # Parameters
-         * - `tag`: A string tag name.
-         * - `classes`: An array of attribute names to remove.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function rmTagAttributes(string $tag, array $classes): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Adds generic attributes to all tags.
-         *
-         * # Parameters
-         * - `attributes`: An array of attribute names to allow.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         * - `Exception` if `attributes` is not an array.
-         */
-        public function addGenericAttributes(array $attributes): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Removes generic attributes from all tags.
-         *
-         * # Parameters
-         * - `attributes`: An array of attribute names to remove.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function rmGenericAttributes(array $attributes): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
          * Adds prefixes for generic attributes.
          *
-         * # Parameters
-         * - `prefixes`: An array of prefixes to allow.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
+         * @param array $prefixes
+         * @return \Hardened\Sanitizers\HtmlSanitizer
          */
         public function addGenericAttributePrefixes(array $prefixes): \Hardened\Sanitizers\HtmlSanitizer {}
 
         /**
-         * Removes prefixes for generic attributes.
+         * Adds generic attributes to all tags.
          *
-         * # Parameters
-         * - `prefixes`: An array of prefixes to remove.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
+         * @param array $attributes
+         * @return \Hardened\Sanitizers\HtmlSanitizer
          */
-        public function rmGenericAttributePrefixes(array $prefixes): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Sanitizes the given HTML string, applying any configured attribute filter.
-         *
-         * # Parameters
-         * - `html`: The HTML content to sanitize.
-         *
-         * # Returns
-         * - `String` The sanitized HTML.
-         *
-         * # Notes
-         * - If an attribute filter is set, it will be invoked for each attribute.
-         */
-        public function clean(string $html): string {}
-
-        /**
-         * Whitelists URL schemes (e.g., "http", "https").
-         *
-         * # Parameters
-         * - `schemes`: An array of scheme strings to allow.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function urlSchemes(array $schemes): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Enables or disables HTML comment stripping.
-         *
-         * # Parameters
-         * - `strip`: `true` to strip comments; `false` to preserve them.
-         *    Comments are stripped by default.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function stripComments(bool $strip): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Returns whether HTML comments will be stripped.
-         *
-         * # Returns
-         * - `bool`: `true` if comments will be stripped; `false` otherwise.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function willStripComments(): bool {}
-
-        /**
-         * Prefixes all `id` attributes with the given string.
-         *
-         * # Parameters
-         * - `prefix`: Optional string prefix to apply.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function idPrefix(?string $prefix): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Filters CSS style properties allowed in `style` attributes.
-         *
-         * # Parameters
-         * - `props`: An array of CSS property names to allow.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function newFilterStyleProperties(array $props): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        public function filterStyleProperties(array $props): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Sets a single tag attribute value.
-         *
-         * # Parameters
-         * - `tag`: The tag name as A string.
-         * - `attribute`: The attribute name as A string.
-         * - `value`: The value to set.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function setTagAttributeValue(string $tag, string $attribute, string $value): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Returns the configured tags as a vector of strings.
-         *
-         * # Returns
-         * - `Vec<String>` The list of allowed tag names.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function cloneTags(): array {}
-
-        /**
-         * Gets all configured clean-content tags.
-         *
-         * # Returns
-         * - `Vec<String>` The list of tags whose content is preserved.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function cloneCleanContentTags(): array {}
-
-        /**
-         * Bulk overwrites generic attributes.
-         *
-         * # Parameters
-         * - `attrs`: An array of attribute names.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function genericAttributes(array $attrs): \Hardened\Sanitizers\HtmlSanitizer {}
-
-        /**
-         * Bulk overwrites generic attribute prefixes.
-         *
-         * # Parameters
-         * - `prefixes`: An array of prefixes.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function genericAttributePrefixes(array $prefixes): \Hardened\Sanitizers\HtmlSanitizer {}
+        public function addGenericAttributes(array $attributes): \Hardened\Sanitizers\HtmlSanitizer {}
 
         /**
          * Adds tag attribute values.
          *
-         * # Parameters
-         * - `tag`: A string tag name.
-         * - `attr`: A string attribute name.
-         * - `values`: An array of values to allow.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
+         * @param string $tag
+         * @param string $attr
+         * @param array $values
+         * @return \Hardened\Sanitizers\HtmlSanitizer
          */
         public function addTagAttributeValues(string $tag, string $attr, array $values): \Hardened\Sanitizers\HtmlSanitizer {}
 
         /**
-         * Removes tag attribute values.
+         * Adds allowed attributes to a specific tag.
          *
-         * # Parameters
-         * - `tag`: A string tag name.
-         * - `attr`: A string attribute name.
-         * - `values`: An array of values to remove.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
+         * @param string $tag
+         * @param array $attributes
+         * @return \Hardened\Sanitizers\HtmlSanitizer
          */
-        public function rmTagAttributeValues(string $tag, string $attr, array $values): \Hardened\Sanitizers\HtmlSanitizer {}
+        public function addTagAttributes(string $tag, array $attributes): \Hardened\Sanitizers\HtmlSanitizer {}
 
         /**
-         * Gets a single tag attribute value setting.
+         * Adds additional allowed tags to the existing whitelist.
          *
-         * # Parameters
-         * - `tag`: The tag name as A string.
-         * - `attr`: The attribute name as A string.
-         *
-         * # Returns
-         * - `Option<String>` The configured value or `None` if unset.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
+         * @param array $tags
+         * @return \Hardened\Sanitizers\HtmlSanitizer
          */
-        public function getSetTagAttributeValue(string $tag, string $attr): ?string {}
-
-        /**
-         * Checks if URL relative policy is Deny.
-         *
-         * # Returns
-         * - `bool` `true` if the policy is Deny.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function isUrlRelativeDeny(): bool {}
-
-        /**
-         * Checks if URL relative policy is PassThrough.
-         *
-         * # Returns
-         * - `bool` `true` if the policy is PassThrough.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function isUrlRelativePassThrough(): bool {}
-
-        /**
-         * Checks if URL relative policy is custom (Rewrite).
-         *
-         * # Returns
-         * - `bool` `true` if a custom rewrite policy is set.
-         *
-         * # Exceptions
-         * - `Exception` if the sanitizer is not in a valid state.
-         */
-        public function isUrlRelativeCustom(): bool {}
+        public function addTags(array $tags): \Hardened\Sanitizers\HtmlSanitizer {}
 
         /**
          * Sets the attribute filter callback.
          *
-         * # Parameters
-         * - `callable`: A PHP callable of signature `(string Element, string Attribute, string Value) -> string|null`.
-         *
-         * # Exceptions
-         * - None.
+         * @param mixed $callable
+         * @return \Hardened\Sanitizers\HtmlSanitizer
          */
         public function attributeFilter(mixed $callable): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Sanitizes the given HTML string, applying any configured attribute filter.
+         *
+         * @param string $html
+         * @return string - `String` The sanitized HTML.
+         */
+        public function clean(string $html): string {}
 
         /**
          * Sanitize and truncate the given HTML by extended grapheme clusters.
@@ -1349,162 +1112,435 @@ namespace Hardened\Sanitizers {
          * This is a convenience wrapper that ensures no user-perceived character
          * (including complex emoji or combined sequences) is split in half.
          *
-         * # Parameters
-         * - `html`: Raw HTML string to sanitize and truncate.
-         * - `max_units`: Maximum number of Unicode extended grapheme clusters
-         *   to retain (including the `etc` suffix).
-         * - `etc`: Optional suffix (e.g., ellipsis) to join when truncation occurs. Default is …
-         *
-         * # Exceptions
-         * - Throws `Exception` if sanitization or truncation fails.
+         * @param string $html
+         * @param int $max
+         * @param array $flags
+         * @param string|null $etc
+         * @return string
          */
-        public function cleanAndTruncate(string $html, int $max, mixed $flags, ?string $etc): string {}
+        public function cleanAndTruncate(string $html, int $max, array $flags, ?string $etc = null): string {}
+
+        /**
+         * Sets the tags whose contents will be completely removed from the output.
+         *
+         * @param array $tags
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function cleanContentTags(array $tags): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Gets all configured clean-content tags.
+         *
+         * @return array - `Vec<String>` The list of tags whose content is preserved.
+         */
+        public function cloneCleanContentTags(): array {}
+
+        /**
+         * Returns the configured tags as a vector of strings.
+         *
+         * @return array - `Vec<String>` The list of allowed tag names.
+         */
+        public function cloneTags(): array {}
+
+        /**
+         * @param array $props
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function filterStyleProperties(array $props): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Bulk overwrites generic attribute prefixes.
+         *
+         * @param array $prefixes
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function genericAttributePrefixes(array $prefixes): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Bulk overwrites generic attributes.
+         *
+         * @param array $attrs
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function genericAttributes(array $attrs): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Gets a single tag attribute value setting.
+         *
+         * @param string $tag
+         * @param string $attr
+         * @return string|null - `Option<String>` The configured value or `None` if unset.
+         */
+        public function getSetTagAttributeValue(string $tag, string $attr): ?string {}
+
+        /**
+         * Prefixes all `id` attributes with the given string.
+         *
+         * @param string|null $prefix
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function idPrefix(?string $prefix = null): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Checks if URL relative policy is custom (Rewrite).
+         *
+         * @return bool - `bool` `true` if a custom rewrite policy is set.
+         */
+        public function isUrlRelativeCustom(): bool {}
+
+        /**
+         * Checks if URL relative policy is Deny.
+         *
+         * @return bool - `bool` `true` if the policy is Deny.
+         */
+        public function isUrlRelativeDeny(): bool {}
+
+        /**
+         * Checks if URL relative policy is PassThrough.
+         *
+         * @return bool - `bool` `true` if the policy is PassThrough.
+         */
+        public function isUrlRelativePassThrough(): bool {}
+
+        /**
+         * Checks whether a URL is valid according to the sanitizer’s configured
+         * URL scheme whitelist and relative-URL policy.
+         *
+         * @param string $url
+         * @return bool - `bool`: `true` if the URL’s scheme is whitelisted, or if it is a relative URL and relative URLs are permitted; `false` otherwise.
+         */
+        public function isValidUrl(string $url): bool {}
+
+        /**
+         * Sets the `rel` attribute for generated `<a>` tags.
+         *
+         * @param string|null $value
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function linkRel(?string $value = null): \Hardened\Sanitizers\HtmlSanitizer {}
 
         /**
          * Constructs a sanitizer with default configuration.
          *
-         * # Returns
-         * - HtmlSanitizer A new sanitizer instance.
+         * @return \Hardened\Sanitizers\HtmlSanitizer - HtmlSanitizer A new sanitizer instance.
          */
-        public function __construct() {}
+        public static function newDefault(): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Filters CSS style properties allowed in `style` attributes.
+         *
+         * @param array $props
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function newFilterStyleProperties(array $props): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Removes allowed CSS classes from a specific tag.
+         *
+         * @param string $tag
+         * @param array $classes
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function rmAllowedClasses(string $tag, array $classes): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Remove already-blacklisted clean-content tags.
+         *
+         * Does nothing if the tags aren’t blacklisted.
+         *
+         * @param array $tags
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function rmCleanContentTags(array $tags): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Removes prefixes for generic attributes.
+         *
+         * @param array $prefixes
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function rmGenericAttributePrefixes(array $prefixes): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Removes generic attributes from all tags.
+         *
+         * @param array $attributes
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function rmGenericAttributes(array $attributes): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Removes tag attribute values.
+         *
+         * @param string $tag
+         * @param string $attr
+         * @param array $values
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function rmTagAttributeValues(string $tag, string $attr, array $values): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Removes attributes from a specific tag.
+         *
+         * @param string $tag
+         * @param array $classes
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function rmTagAttributes(string $tag, array $classes): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Removes tags from the whitelist.
+         *
+         * @param array $tags
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function rmTags(array $tags): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Sets a single tag attribute value.
+         *
+         * @param string $tag
+         * @param string $attribute
+         * @param string $value
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function setTagAttributeValue(string $tag, string $attribute, string $value): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Enables or disables HTML comment stripping.
+         *
+         * @param true $strip to strip comments; `false` to preserve them.
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function stripComments(bool $strip): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Overwrites the set of allowed tags.
+         *
+         * @param array $tags
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function tags(array $tags): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Denies all relative URLs in attributes.
+         *
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function urlRelativeDeny(): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Passes through relative URLs unchanged.
+         *
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function urlRelativePassthrough(): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Rewrites relative URLs using the given base URL.
+         *
+         * @param string $base_url
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function urlRelativeRewriteWithBase(string $base_url): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Rewrites relative URLs using a root URL and path prefix.
+         *
+         * @param string $root
+         * @param string $path
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function urlRelativeRewriteWithRoot(string $root, string $path): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Whitelists URL schemes (e.g., "http", "https").
+         *
+         * @param array $schemes
+         * @return \Hardened\Sanitizers\HtmlSanitizer
+         */
+        public function urlSchemes(array $schemes): \Hardened\Sanitizers\HtmlSanitizer {}
+
+        /**
+         * Returns whether HTML comments will be stripped.
+         *
+         * @return bool - `bool`: `true` if comments will be stripped; `false` otherwise.
+         */
+        public function willStripComments(): bool {}
+    }
+
+    enum HtmlSanitizerFlag: string {
+      case ExtendedGraphemes = 'extended-graphemes';
+      case Graphemes = 'graphemes';
+      case Unicode = 'unicode';
+      case Ascii = 'ascii';
+      case PreserveWords = 'preserve-words';
     }
 
     class SvgSanitizer {
-        const PRESET_STRICT = null;
+        const PRESET_PERMISSIVE = 'permissive';
 
-        const PRESET_STANDARD = null;
+        const PRESET_STANDARD = 'standard';
 
-        const PRESET_PERMISSIVE = null;
+        const PRESET_STRICT = 'strict';
 
-        /**
-         * Create a new SvgSanitizer with default (standard) settings
-         */
-        public static function Default(): \Hardened\Sanitizers\SvgSanitizer {}
+        public function __construct() {}
 
         /**
-         * Create a sanitizer with a named preset
+         * Add attributes to the allowlist
+         *
+         * @param array $attributes
+         * @return \Hardened\Sanitizers\SvgSanitizer
          */
-        public static function withPreset(string $preset_name): \Hardened\Sanitizers\SvgSanitizer {}
+        public function addAllowedAttributes(array $attributes): \Hardened\Sanitizers\SvgSanitizer {}
 
         /**
-         * Static method for file-based bomb detection (throws on dangerous SVG)
+         * Add elements to the allowlist
+         *
+         * @param array $elements
+         * @return \Hardened\Sanitizers\SvgSanitizer
          */
-        public static function defuse(string $path, ?int $max_dimension): mixed {}
+        public function addAllowedElements(array $elements): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Set allowed attributes (overwrites defaults)
+         *
+         * @param array $attributes
+         * @return \Hardened\Sanitizers\SvgSanitizer
+         */
+        public function allowAttributes(array $attributes): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Set allowed SVG elements (overwrites defaults)
+         *
+         * @param array $elements
+         * @return \Hardened\Sanitizers\SvgSanitizer
+         */
+        public function allowElements(array $elements): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Allow relative URLs
+         *
+         * @param bool $allow
+         * @return \Hardened\Sanitizers\SvgSanitizer
+         */
+        public function allowRelativeUrls(bool $allow): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Enable/disable blocking of data: URIs
+         *
+         * @param bool $block
+         * @return \Hardened\Sanitizers\SvgSanitizer
+         */
+        public function blockDataUris(bool $block): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
+         * Enable/disable blocking of external references (http/https URLs)
+         *
+         * @param bool $block
+         * @return \Hardened\Sanitizers\SvgSanitizer
+         */
+        public function blockExternalReferences(bool $block): \Hardened\Sanitizers\SvgSanitizer {}
 
         /**
          * Sanitize SVG content string
+         *
+         * @param string $svg
+         * @return string
          */
         public function clean(string $svg): string {}
 
         /**
          * Sanitize SVG file and return cleaned content
+         *
+         * @param string $path
+         * @return string
          */
         public function cleanFile(string $path): string {}
 
         /**
+         * Static method for file-based bomb detection (throws on dangerous SVG)
+         *
+         * @param string $path
+         * @param int|null $max_dimension
+         * @return void
+         */
+        public static function defuse(string $path, ?int $max_dimension = null): void {}
+
+        /**
          * Check if SVG content is safe without modification
+         *
+         * @param string $svg
+         * @return bool
          */
         public function isSafe(string $svg): bool {}
 
         /**
          * Check if SVG file is safe without modification
+         *
+         * @param string $path
+         * @return bool
          */
         public function isSafeFile(string $path): bool {}
 
         /**
-         * Set allowed SVG elements (overwrites defaults)
+         * Create a new SvgSanitizer with default (standard) settings
+         *
+         * @return \Hardened\Sanitizers\SvgSanitizer
          */
-        public function allowElements(array $elements): \Hardened\Sanitizers\SvgSanitizer {}
-
-        /**
-         * Add elements to the allowlist
-         */
-        public function addAllowedElements(array $elements): \Hardened\Sanitizers\SvgSanitizer {}
-
-        /**
-         * Remove elements from the allowlist
-         */
-        public function removeElements(array $elements): \Hardened\Sanitizers\SvgSanitizer {}
-
-        /**
-         * Set allowed attributes (overwrites defaults)
-         */
-        public function allowAttributes(array $attributes): \Hardened\Sanitizers\SvgSanitizer {}
-
-        /**
-         * Add attributes to the allowlist
-         */
-        public function addAllowedAttributes(array $attributes): \Hardened\Sanitizers\SvgSanitizer {}
+        public static function newDefault(): \Hardened\Sanitizers\SvgSanitizer {}
 
         /**
          * Remove attributes from the allowlist
+         *
+         * @param array $attributes
+         * @return \Hardened\Sanitizers\SvgSanitizer
          */
         public function removeAttributes(array $attributes): \Hardened\Sanitizers\SvgSanitizer {}
 
         /**
+         * Remove elements from the allowlist
+         *
+         * @param array $elements
+         * @return \Hardened\Sanitizers\SvgSanitizer
+         */
+        public function removeElements(array $elements): \Hardened\Sanitizers\SvgSanitizer {}
+
+        /**
          * Set maximum allowed dimension (width/height/viewBox)
+         *
+         * @param int $max
+         * @return \Hardened\Sanitizers\SvgSanitizer
          */
         public function setMaxDimension(int $max): \Hardened\Sanitizers\SvgSanitizer {}
 
         /**
          * Set maximum nesting depth
+         *
+         * @param int $max
+         * @return \Hardened\Sanitizers\SvgSanitizer
          */
         public function setMaxNestingDepth(int $max): \Hardened\Sanitizers\SvgSanitizer {}
 
         /**
-         * Enable/disable blocking of external references (http/https URLs)
-         */
-        public function blockExternalReferences(bool $block): \Hardened\Sanitizers\SvgSanitizer {}
-
-        /**
-         * Enable/disable blocking of data: URIs
-         */
-        public function blockDataUris(bool $block): \Hardened\Sanitizers\SvgSanitizer {}
-
-        /**
          * Enable/disable XML comments removal
+         *
+         * @param bool $strip
+         * @return \Hardened\Sanitizers\SvgSanitizer
          */
         public function stripComments(bool $strip): \Hardened\Sanitizers\SvgSanitizer {}
 
         /**
-         * Allow relative URLs
+         * Create a sanitizer with a named preset
+         *
+         * @param string $preset_name
+         * @return \Hardened\Sanitizers\SvgSanitizer
          */
-        public function allowRelativeUrls(bool $allow): \Hardened\Sanitizers\SvgSanitizer {}
-
-        public function __construct() {}
+        public static function withPreset(string $preset_name): \Hardened\Sanitizers\SvgSanitizer {}
     }
 }
 
 namespace Hardened\Sanitizers\File {
-    /**
-     * Engine for detecting "PNG bombs" (images with unreasonable dimensions).
-     */
-    class PngSanitizer {
-        /**
-         * Scan a file at the given path and detect PNG bombs.
-         *
-         * # Parameters
-         * - `path`: `string` Filesystem path to the PNG file.
-         *
-         * # Returns
-         * - `bool` `true` if the file is a PNG *and* has width or height > 10000,
-         *   or if it's invalid PNG with missing IHDR. Returns `false` if it's not
-         *   a PNG or has acceptable dimensions.
-         *
-         * # Exceptions
-         * - Throws an exception if the file cannot be opened, read, or the format
-         *   is malformed (e.g. missing IHDR).
-         *
-         * ## Example
-         * ```php
-         * Hardened\Sanitizers\File\PngSanitizer::defuse('/tmp/image.png');
-         * ```
-         */
-        public static function defuse(string $path): mixed {}
-
-        public function __construct() {}
-    }
-
     /**
      * Archive bomb detector for ZIP and RAR files.
      *
@@ -1513,6 +1549,8 @@ namespace Hardened\Sanitizers\File {
      *   - `scan_rar(string $path, ?int $maxRatio = 1000): bool`
      */
     class ArchiveSanitizer {
+        public function __construct() {}
+
         /**
          * Perform archive‐bomb detection on a file.
          *
@@ -1530,349 +1568,601 @@ namespace Hardened\Sanitizers\File {
          * - Lists the first entry's `unpacked_size` and divides by the compressed size.
          * - Fails if that ratio ≥ `max_ratio` (default 1000).
          *
-         * # Parameters
-         * - `path`: Filesystem path to the archive file to inspect.
-         * - `max_ratio`: Optional maximum unpacked/compressed ratio for RAR; Default is 1000
-         *
-         * # Exceptions
-         * - I/O errors opening, reading, or seeking the file.
-         * - ZIP archive mismatches (central-directory total vs. local-header size).
-         * - RAR archive exceeds the allowed unpacked/compressed ratio.
+         * @param string $path
+         * @param int|null $max_ratio
+         * @return void
          */
-        public static function defuse(string $path, ?int $max_ratio): mixed {}
+        public static function defuse(string $path, ?int $max_ratio = null): void {}
+    }
 
+    /**
+     * Engine for detecting "PNG bombs" (images with unreasonable dimensions).
+     */
+    class PngSanitizer {
         public function __construct() {}
+
+        /**
+         * Scan a file at the given path and detect PNG bombs.
+         *
+         * @param string $path Filesystem path to the PNG file.
+         * @return void - `bool` `true` if the file is a PNG *and* has width or height > 10000, or if it's invalid PNG with missing IHDR. Returns `false` if it's not a PNG or has acceptable dimensions.
+         */
+        public static function defuse(string $path): void {}
     }
 }
 
 namespace Hardened\SecurityHeaders {
     /**
-     * Your application’s CSP config.
+     * Your application's CSP config.
      */
     class ContentSecurityPolicy {
         /**
-         * Fallback for other fetch directives.
+         * Constructs a new `ContentSecurityPolicy` builder with no directives set.
          */
-        const DEFAULT_SRC = null;
-
-        /**
-         * Controls allowed sources for scripts.
-         */
-        const SCRIPT_SRC = null;
-
-        /**
-         * Controls allowed sources for stylesheets.
-         */
-        const STYLE_SRC = null;
-
-        /**
-         * Controls allowed sources for images.
-         */
-        const IMG_SRC = null;
-
-        /**
-         * Restricts which parent origins can embed this resource.
-         */
-        const FRAME_ANCESTORS = null;
-
-        /**
-         * Controls allowed endpoints for fetch, XHR, WebSocket, etc.
-         */
-        const CONNECT_SRC = null;
-
-        /**
-         * Controls allowed sources for font resources.
-         */
-        const FONT_SRC = null;
-
-        /**
-         * Alias for controlling allowed embedding contexts.
-         */
-        const CHILD_SRC = null;
-
-        /**
-         * Controls allowed sources for web app manifests.
-         */
-        const MANIFEST_SRC = null;
-
-        /**
-         * Controls allowed sources for media elements.
-         */
-        const MEDIA_SRC = null;
-
-        /**
-         * Controls allowed sources for plugin content.
-         */
-        const OBJECT_SRC = null;
-
-        /**
-         * Controls allowed sources for prefetch operations.
-         */
-        const PREFETCH_SRC = null;
-
-        /**
-         * Controls allowed sources for script elements.
-         */
-        const SCRIPT_SRC_ELEM = null;
-
-        /**
-         * Controls allowed sources for inline event handlers.
-         */
-        const SCRIPT_SRC_ATTR = null;
-
-        /**
-         * Controls allowed sources for style elements.
-         */
-        const STYLE_SRC_ELEM = null;
-
-        /**
-         * Controls allowed sources for inline style attributes.
-         */
-        const STYLE_SRC_ATTR = null;
-
-        /**
-         * Controls allowed sources for worker scripts.
-         */
-        const WORKER_SRC = null;
-
-        /**
-         * Restricts the set of URLs usable in the document’s base element.
-         */
-        const BASE_URI = null;
-
-        /**
-         * Restricts the URLs that forms can submit to.
-         */
-        const FORM_ACTION = null;
-
-        /**
-         * Applies sandboxing rules to the document.
-         */
-        const SANDBOX = null;
-
-        /**
-         * Restricts the types of plugins that may be loaded.
-         */
-        const PLUGIN_TYPES = null;
-
-        /**
-         * Disallows all mixed HTTP content on secure pages.
-         */
-        const BLOCK_ALL_MIXED_CONTENT = null;
-
-        /**
-         * Instructs browsers to upgrade insecure requests to HTTPS.
-         */
-        const UPGRADE_INSECURE_REQUESTS = null;
-
-        /**
-         * Specifies a URI to which policy violation reports are sent.
-         */
-        const REPORT_URI = null;
-
-        /**
-         * Specifies a reporting group for violation reports.
-         */
-        const REPORT_TO = null;
-
-        /**
-         * Requires Subresource Integrity checks for specified resource types.
-         */
-        const REQUIRE_SRI_FOR = null;
-
-        /**
-         * Restricts creation of DOM sinks to a trusted-types policy.
-         */
-        const TRUSTED_TYPES = null;
-
-        /**
-         * Enforces Trusted Types for specified sinks.
-         */
-        const REQUIRE_TRUSTED_TYPES_FOR = null;
-
-        /**
-         * The `'self'` keyword, allowing the same origin.
-         */
-        const SELF = null;
-
-        /**
-         * The `'unsafe-inline'` keyword, allowing inline scripts or styles.
-         */
-        const UNSAFE_INLINE = null;
-
-        /**
-         * The `'unsafe-eval'` keyword, allowing `eval()` and similar.
-         */
-        const UNSAFE_EVAL = null;
-
-        /**
-         * The `'unsafe-hashes'` keyword, allowing hash-based inline resources.
-         */
-        const UNSAFE_HASHES = null;
-
-        /**
-         * The `'strict-dynamic'` keyword, enabling strict dynamic loading.
-         */
-        const STRICT_DYNAMIC = null;
-
-        /**
-         * The `'nonce-…'` placeholder for single-use nonces.
-         */
-        const NONCE = null;
-
-        /**
-         * The `script` token for SRI or Trusted Types policies.
-         */
-        const SCRIPT = null;
-
-        /**
-         * The `style` token for SRI or Trusted Types policies.
-         */
-        const STYLE = null;
-
-        /**
-         * Allows form submission in a sandboxed context.
-         */
-        const ALLOW_FORMS = null;
-
-        /**
-         * Allows modal dialogs in a sandboxed context.
-         */
-        const ALLOW_MODALS = null;
-
-        /**
-         * Allows orientation lock in a sandboxed context.
-         */
-        const ALLOW_ORIENTATION_LOCK = null;
-
-        /**
-         * Allows pointer lock in a sandboxed context.
-         */
-        const ALLOW_POINTER_LOCK = null;
-
-        /**
-         * Allows presentation mode in a sandboxed context.
-         */
-        const ALLOW_PRESENTATION = null;
-
-        /**
-         * Allows pop-ups in a sandboxed context.
-         */
-        const ALLOW_POPUPS = null;
-
-        /**
-         * Allows pop-ups to escape sandbox restrictions.
-         */
-        const ALLOW_POPUPS_TO_ESCAPE_SANDBOX = null;
-
-        /**
-         * Allows same-origin access in a sandboxed context.
-         */
-        const ALLOW_SAME_ORIGIN = null;
-
-        /**
-         * Allows script execution in a sandboxed context.
-         */
-        const ALLOW_SCRIPTS = null;
-
-        /**
-         * Allows storage access via user activation in a sandbox.
-         */
-        const ALLOW_STORAGE_ACCESS_BY_USER_ACTIVATION = null;
-
-        /**
-         * Allows top-level navigation via user activation.
-         */
-        const ALLOW_TOP_NAVIGATION_BY_USER_ACTIVATION = null;
-
-        /**
-         * Allows duplicate directives.
-         */
-        const ALLOW_DUPLICATES = null;
-
-        /**
-         * Allows WebAssembly to use `eval()`.
-         */
-        const WASM_UNSAFE_EVAL = null;
-
-        /**
-         * Enables inline speculation rules.
-         */
-        const INLINE_SPECULATION_RULES = null;
-
-        /**
-         * Includes sample reports in violation reports.
-         */
-        const REPORT_SAMPLE = null;
-
-        /**
-         * Sets or replaces a CSP directive with the given keywords and host sources.
-         *
-         * # Parameters
-         * - `rule`: The directive name. One of `default-src`, `script-src`, `style-src`, `img-src`, `frame-ancestors`,
-         *   `connect-src`, `font-src`, `child-src`, `manifest-src`, `media-src`, `object-src`, `prefetch-src`,
-         *   `script-src-elem`, `script-src-attr`, `style-src-elem`, `style-src-attr`, `worker-src`,
-         *   `base-uri`, `form-action`, `sandbox`, `plugin-types`, `block-all-mixed-content`,
-         *   `upgrade-insecure-requests`, `report-uri`, `report-to`, `require-sri-for`,
-         *   `trusted-types`, `require-trusted-types-for`.
-         * - `keywords`: Slice of keyword tokens. One or more of `self`, `none`, `unsafe-inline`,
-         *   `unsafe-eval`, `unsafe-hashes`, `strict-dynamic`, `nonce`, `script`, `style`,
-         *   `allow-forms`, `allow-modals`, `allow-orientation-lock`, `allow-pointer-lock`,
-         *   `allow-presentation`, `allow-popups`, `allow-popups-to-escape-sandbox`,
-         *   `allow-same-origin`, `allow-scripts`, `allow-storage-access-by-user-activation`,
-         *   `allow-top-navigation-by-user-activation`, `allow-duplicates`, `wasm-unsafe-eval`,
-         *   `inline-speculation-rules`, `report-sample`.
-         * - `sources`: Optional list of host sources (e.g. `["example.com"]`)
-         *
-         * # Exceptions
-         * - Throws `Exception` if any array item in `keywords` is not a string.
-         * - Throws `Exception` if `rule` is not a valid CSP directive.
-         */
-        public function setRule(string $rule, array $keywords, ?array $sources): mixed {}
+        public function __construct() {}
 
         /**
          * Builds the `Content-Security-Policy` header value from the configured directives.
          *
-         * # Returns
-         * - `String` The full header value, for example:
-         *   `"default-src 'self'; script-src 'self' 'nonce-ABCD1234' example.com; …"`.
-         *
-         * # Exceptions
-         * - Throws `Exception` if formatting the header string fails.
+         * @return string - `String` The full header value, for example: `"default-src 'self'; script-src 'self' 'nonce-ABCD1234' example.com; …"`.
          */
         public function build(): string {}
 
         /**
-         * Send the `Content-Security-Policy` header via PHP `header()`.
-         *
-         * # Exceptions
-         * - Throws `Exception` if the PHP `header()` function cannot be invoked.
-         */
-        public function send(): mixed {}
-
-        /**
          * Returns the most recently generated nonce, if any.
          *
-         * # Returns
-         * - `Option<&str>` The raw nonce string (without the `'nonce-'` prefix), or `None` if `build()` has not yet generated one.
+         * @return string|null - `Option<&str>` The raw nonce string (without the `'nonce-'` prefix), or `None` if `build()` has not yet generated one.
          */
         public function getNonce(): ?string {}
 
         /**
          * Clears the generated nonce. The next call of `build()` or `send()` will generate a new one.
+         *
+         * @return void
          */
-        public function resetNonce() {}
+        public function resetNonce(): void {}
 
         /**
-         * Constructs a new `ContentSecurityPolicy` builder with no directives set.
+         * Send the `Content-Security-Policy` header via PHP `header()`.
          *
-         * # Returns
-         * - `ContentSecurityPolicy` A fresh instance containing an empty rule map.
+         * @return void
+         */
+        public function send(): void {}
+
+        /**
+         * Sets or replaces a CSP directive with the given keywords and host sources.
          *
-         * # Notes
-         * - No errors are thrown.
+         * @param \Hardened\SecurityHeaders\CspRule $rule
+         * @param array $keywords
+         * @param array|null $sources
+         * @return void
+         */
+        public function setRule(\Hardened\SecurityHeaders\CspRule $rule, array $keywords, ?array $sources = null): void {}
+    }
+
+    /**
+     * Values for the `X-Permitted-Cross-Domain-Policies` header.
+     */
+    enum CrossDomainPolicy: string {
+      case None = 'none';
+      case MasterOnly = 'master-only';
+      case ByContentType = 'by-content-type';
+      case All = 'all';
+    }
+
+    /**
+     * All valid source keywords for CSP directives.
+     *
+     * These include host-independent keywords, nonce placeholders, resource-type tokens,
+     * and sandbox flags that can appear after a directive name.
+     */
+    enum CspKeyword: string {
+    /**
+     * The `'self'` keyword, allowing the same origin.
+     */
+      case SelfOrigin = 'self';
+    /**
+     * The `'unsafe-inline'` keyword, allowing inline scripts or styles.
+     */
+      case UnsafeInline = 'unsafe-inline';
+    /**
+     * The `'unsafe-eval'` keyword, allowing `eval()` and similar.
+     */
+      case UnsafeEval = 'unsafe-eval';
+    /**
+     * The `'unsafe-hashes'` keyword, allowing hash-based inline resources.
+     */
+      case UnsafeHashes = 'unsafe-hashes';
+    /**
+     * The `'strict-dynamic'` keyword, enabling strict dynamic loading.
+     */
+      case StrictDynamic = 'strict-dynamic';
+    /**
+     * The `'nonce-…'` placeholder for single-use nonces.
+     */
+      case Nonce = 'nonce';
+    /**
+     * The `script` token for SRI or Trusted Types policies.
+     */
+      case Script = 'script';
+    /**
+     * The `style` token for SRI or Trusted Types policies.
+     */
+      case Style = 'style';
+    /**
+     * Allows form submission in a sandboxed context.
+     */
+      case AllowForms = 'allow-forms';
+    /**
+     * Allows modal dialogs in a sandboxed context.
+     */
+      case AllowModals = 'allow-modals';
+    /**
+     * Allows orientation lock in a sandboxed context.
+     */
+      case AllowOrientationLock = 'allow-orientation-lock';
+    /**
+     * Allows pointer lock in a sandboxed context.
+     */
+      case AllowPointerLock = 'allow-pointer-lock';
+    /**
+     * Allows presentation mode in a sandboxed context.
+     */
+      case AllowPresentation = 'allow-presentation';
+    /**
+     * Allows pop-ups in a sandboxed context.
+     */
+      case AllowPopups = 'allow-popups';
+    /**
+     * Allows pop-ups to escape sandbox restrictions.
+     */
+      case AllowPopupsToEscapeSandbox = 'allow-popups-to-escape-sandbox';
+    /**
+     * Allows same-origin access in a sandboxed context.
+     */
+      case AllowSameOrigin = 'allow-same-origin';
+    /**
+     * Allows script execution in a sandboxed context.
+     */
+      case AllowScripts = 'allow-scripts';
+    /**
+     * Allows storage access via user activation in a sandbox.
+     */
+      case AllowStorageAccessByUserActivation = 'allow-storage-access-by-user-activation';
+    /**
+     * Allows top-level navigation via user activation.
+     */
+      case AllowTopNavigationByUserActivation = 'allow-top-navigation-by-user-activation';
+    /**
+     * Allows duplicate directives.
+     */
+      case AllowDuplicates = 'allow-duplicates';
+    /**
+     * Allows WebAssembly to use `eval()`.
+     */
+      case WasmUnsafeEval = 'wasm-unsafe-eval';
+    /**
+     * Enables inline speculation rules.
+     */
+      case InlineSpeculationRules = 'inline-speculation-rules';
+    /**
+     * Includes sample reports in violation reports.
+     */
+      case ReportSample = 'report-sample';
+    }
+
+    /**
+     * All the CSP directives you want to support.
+     * Supported Content Security Policy (CSP) directives.
+     *
+     * These correspond to the various directives you can set in a
+     * Content-Security-Policy header.
+     */
+    enum CspRule: string {
+    /**
+     * Fallback for other fetch directives.
+     */
+      case DefaultSrc = 'default-src';
+    /**
+     * Controls allowed sources for scripts.
+     */
+      case ScriptSrc = 'script-src';
+    /**
+     * Controls allowed sources for stylesheets.
+     */
+      case StyleSrc = 'style-src';
+    /**
+     * Controls allowed sources for images.
+     */
+      case ImgSrc = 'img-src';
+    /**
+     * Restricts which parent origins can embed this resource.
+     */
+      case FrameAncestors = 'frame-ancestors';
+    /**
+     * Controls allowed endpoints for fetch, XHR, WebSocket, etc.
+     */
+      case ConnectSrc = 'connect-src';
+    /**
+     * Controls allowed sources for font resources.
+     */
+      case FontSrc = 'font-src';
+    /**
+     * Alias for controlling allowed embedding contexts.
+     */
+      case ChildSrc = 'child-src';
+    /**
+     * Controls allowed sources for web app manifests.
+     */
+      case ManifestSrc = 'manifest-src';
+    /**
+     * Controls allowed sources for media elements.
+     */
+      case MediaSrc = 'media-src';
+    /**
+     * Controls allowed sources for plugin content.
+     */
+      case ObjectSrc = 'object-src';
+    /**
+     * Controls allowed sources for prefetch operations.
+     */
+      case PrefetchSrc = 'prefetch-src';
+    /**
+     * Controls allowed sources for script elements.
+     */
+      case ScriptSrcElem = 'script-src-elem';
+    /**
+     * Controls allowed sources for inline event handlers.
+     */
+      case ScriptSrcAttr = 'script-src-attr';
+    /**
+     * Controls allowed sources for style elements.
+     */
+      case StyleSrcElem = 'style-src-elem';
+    /**
+     * Controls allowed sources for inline style attributes.
+     */
+      case StyleSrcAttr = 'style-src-attr';
+    /**
+     * Controls allowed sources for worker scripts.
+     */
+      case WorkerSrc = 'worker-src';
+    /**
+     * Restricts the set of URLs usable in the document's base element.
+     */
+      case BaseUri = 'base-uri';
+    /**
+     * Restricts the URLs that forms can submit to.
+     */
+      case FormAction = 'form-action';
+    /**
+     * Applies sandboxing rules to the document.
+     */
+      case Sandbox = 'sandbox';
+    /**
+     * Restricts the types of plugins that may be loaded.
+     */
+      case PluginTypes = 'plugin-types';
+    /**
+     * Disallows all mixed HTTP content on secure pages.
+     */
+      case BlockAllMixedContent = 'block-all-mixed-content';
+    /**
+     * Instructs browsers to upgrade insecure requests to HTTPS.
+     */
+      case UpgradeInsecureRequests = 'upgrade-insecure-requests';
+    /**
+     * Specifies a URI to which policy violation reports are sent.
+     */
+      case ReportUri = 'report-uri';
+    /**
+     * Specifies a reporting group for violation reports.
+     */
+      case ReportTo = 'report-to';
+    /**
+     * Requires Subresource Integrity checks for specified resource types.
+     */
+      case RequireSriFor = 'require-sri-for';
+    /**
+     * Restricts creation of DOM sinks to a trusted-types policy.
+     */
+      case TrustedTypes = 'trusted-types';
+    /**
+     * Enforces Trusted Types for specified sinks.
+     */
+      case RequireTrustedTypesFor = 'require-trusted-types-for';
+    }
+
+    /**
+     * Possible values for the `X-Frame-Options` header.
+     */
+    enum FrameOptions: string {
+      case Deny = 'DENY';
+      case SameOrigin = 'SAMEORIGIN';
+      case AllowFrom = 'ALLOW-FROM';
+    }
+
+    /**
+     * Permissions-Policy header builder.
+     */
+    class PermissionsPolicy {
+        const ORIGIN_ANY = '*';
+
+        const ORIGIN_SELF = 'self';
+
+        const ORIGIN_SRC = 'src';
+
+        /**
+         * Constructs a new Permissions-Policy builder with no features allowed.
          */
         public function __construct() {}
+
+        /**
+         * Allow a feature for the given list of origins.
+         *
+         * @param \Hardened\SecurityHeaders\PermissionsPolicyFeature $feature
+         * @param array $origins
+         * @return void
+         * @throws \Exception - if `feature` is not recognized.
+         */
+        public function allow(\Hardened\SecurityHeaders\PermissionsPolicyFeature $feature, array $origins): void {}
+
+        /**
+         * Builds the Permissions-Policy header value.
+         *
+         * @return string - `String`, e.g.: `geolocation=(self "https://api.example.com"), camera=()`
+         */
+        public function build(): string {}
+
+        /**
+         * Deny a feature entirely (empty allowlist).
+         *
+         * @param \Hardened\SecurityHeaders\PermissionsPolicyFeature $feature
+         * @return void
+         * @throws \Exception - if `feature` is not recognized.
+         */
+        public function deny(\Hardened\SecurityHeaders\PermissionsPolicyFeature $feature): void {}
+
+        /**
+         * Sends the Permissions-Policy header via PHP `header()` function.
+         *
+         * @return void
+         * @throws \Exception - Returns an error if PHP `header()` cannot be invoked.
+         */
+        public function send(): void {}
+    }
+
+    /**
+     * Supported Permissions-Policy features.
+     *
+     * Each variant corresponds to a feature name in the Permissions-Policy header
+     * (kebab-case). See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permissions-Policy
+     */
+    enum PermissionsPolicyFeature: string {
+    /**
+     * Controls whether the current document is allowed to gather information
+     * about the acceleration of the device through the Accelerometer interface.
+     */
+      case Accelerometer = 'accelerometer';
+    /**
+     * Controls whether the current document is allowed to gather information
+     * about the amount of light in the environment around the device through
+     * the AmbientLightSensor interface.
+     */
+      case AmbientLightSensor = 'ambient-light-sensor';
+    /**
+     * Controls whether the current document is allowed to use the
+     * Attribution Reporting API.
+     */
+      case AttributionReporting = 'attribution-reporting';
+    /**
+     * Controls whether the current document is allowed to autoplay media
+     * requested through the HTMLMediaElement interface. When disabled without
+     * user gesture, play() will reject with NotAllowedError.
+     */
+      case Autoplay = 'autoplay';
+    /**
+     * Controls whether the use of the Web Bluetooth API is allowed.
+     * When disabled, Bluetooth methods will either return false or reject.
+     */
+      case Bluetooth = 'bluetooth';
+    /**
+     * Controls access to the Topics API. Disallowed calls to browsingTopics()
+     * or Sec-Browsing-Topics header will fail with NotAllowedError.
+     */
+      case BrowsingTopics = 'browsing-topics';
+    /**
+     * Controls whether the current document is allowed to use video input devices.
+     * When disabled, getUserMedia() will reject with NotAllowedError.
+     */
+      case Camera = 'camera';
+    /**
+     * Controls access to the Compute Pressure API.
+     */
+      case ComputePressure = 'compute-pressure';
+    /**
+     * Controls whether the current document can be treated as cross-origin isolated.
+     */
+      case CrossOriginIsolated = 'cross-origin-isolated';
+    /**
+     * Controls the allocation of the top-level origin's fetchLater() quota.
+     */
+      case DeferredFetch = 'deferred-fetch';
+    /**
+     * Controls the allocation of the shared cross-origin subframe fetchLater() quota.
+     */
+      case DeferredFetchMinimal = 'deferred-fetch-minimal';
+    /**
+     * Controls whether the current document may capture display media via getDisplayMedia().
+     * When disabled, getDisplayMedia() will reject with NotAllowedError.
+     */
+      case DisplayCapture = 'display-capture';
+    /**
+     * Controls whether the current document is allowed to use the Encrypted Media
+     * Extensions API (EME). When disabled, requestMediaKeySystemAccess() will reject.
+     */
+      case EncryptedMedia = 'encrypted-media';
+    /**
+     * Controls whether the current document is allowed to use Element.requestFullscreen().
+     * When disabled, requestFullscreen() will reject with TypeError.
+     */
+      case Fullscreen = 'fullscreen';
+    /**
+     * Controls whether the current document is allowed to use the Gamepad API.
+     * When disabled, getGamepads() will throw SecurityError and events won't fire.
+     */
+      case Gamepad = 'gamepad';
+    /**
+     * Controls whether the current document is allowed to use the Geolocation Interface.
+     * When disabled, geolocation callbacks will error with PERMISSION_DENIED.
+     */
+      case Geolocation = 'geolocation';
+    /**
+     * Controls whether the current document is allowed to gather information
+     * about device orientation through the Gyroscope interface.
+     */
+      case Gyroscope = 'gyroscope';
+    /**
+     * Controls whether the current document is allowed to use the WebHID API.
+     * Allows communication with HID devices like gamepads or keyboards.
+     */
+      case Hid = 'hid';
+    /**
+     * Controls whether the document may use the Federated Credential Management API
+     * (FedCM) via navigator.credentials.get({identity:…}).
+     */
+      case IdentityCredentialsGet = 'identity-credentials-get';
+    /**
+     * Controls whether the document may use the Idle Detection API to detect user idle/active state.
+     */
+      case IdleDetection = 'idle-detection';
+    /**
+     * Controls access to the language detection functionality of Translator & Language Detector APIs.
+     */
+      case LanguageDetector = 'language-detector';
+    /**
+     * Controls whether the document may gather data on locally-installed fonts via queryLocalFonts().
+     */
+      case LocalFonts = 'local-fonts';
+    /**
+     * Controls whether the document may gather device orientation via the Magnetometer interface.
+     */
+      case Magnetometer = 'magnetometer';
+    /**
+     * Controls whether the document is allowed to use audio input devices.
+     * When disabled, getUserMedia() will reject with NotAllowedError.
+     */
+      case Microphone = 'microphone';
+    /**
+     * Controls whether the document may use the Web MIDI API.
+     * When disabled, requestMIDIAccess() will reject with SecurityError.
+     */
+      case Midi = 'midi';
+    /**
+     * Controls whether the document may use the WebOTP API to retrieve one-time passwords.
+     */
+      case OtpCredentials = 'otp-credentials';
+    /**
+     * Controls whether the document may use the Payment Request API.
+     * When disabled, PaymentRequest() will throw SecurityError.
+     */
+      case Payment = 'payment';
+    /**
+     * Controls whether the document may enter Picture-in-Picture mode via the API.
+     */
+      case PictureInPicture = 'picture-in-picture';
+    /**
+     * Controls whether the document may use Web Authentication API to create new credentials.
+     */
+      case PublickeyCredentialsCreate = 'publickey-credentials-create';
+    /**
+     * Controls whether the document may use Web Authentication API to retrieve stored credentials.
+     */
+      case PublickeyCredentialsGet = 'publickey-credentials-get';
+    /**
+     * Controls whether the document may use the Screen Wake Lock API to keep the screen on.
+     */
+      case ScreenWakeLock = 'screen-wake-lock';
+    /**
+     * Controls whether the document may use the Web Serial API to communicate with serial devices.
+     */
+      case Serial = 'serial';
+    /**
+     * Controls whether the document may list and select speakers via the Output Devices API.
+     */
+      case SpeakerSelection = 'speaker-selection';
+    /**
+     * Controls whether an embedded document may use the Storage Access API for third-party cookies.
+     */
+      case StorageAccess = 'storage-access';
+    /**
+     * Controls access to the translation functionality of Translator & Language Detector APIs.
+     */
+      case Translator = 'translator';
+    /**
+     * Controls access to the Summarizer API.
+     */
+      case Summarizer = 'summarizer';
+    /**
+     * Controls whether the document may use the WebUSB API to connect to USB devices.
+     */
+      case Usb = 'usb';
+    /**
+     * Controls whether the document may use the Web Share API (navigator.share()).
+     */
+      case WebShare = 'web-share';
+    /**
+     * Controls whether the document may use the Window Management API to manage windows.
+     */
+      case WindowManagement = 'window-management';
+    /**
+     * Controls whether the document may use the WebXR Device API to interact with XR sessions.
+     */
+      case XrSpatialTracking = 'xr-spatial-tracking';
+    }
+
+    /**
+     * Referrer-Policy header builder.
+     */
+    class ReferrerPolicy {
+        /**
+         * Create a new Referrer-Policy builder for PHP.
+         *
+         * By default, the referrer policy is set to `no-referrer`, which prevents
+         * the `Referer` header from being sent with any requests.
+         *
+         * @param string|null $policy
+         */
+        public function __construct(?string $policy = null) {}
+
+        /**
+         * Build the `Referrer-Policy` header value.
+         *
+         * @return string - `string` the configured policy value suitable for sending as a header.
+         */
+        public function build(): string {}
+
+        /**
+         * Get the current Referrer-Policy value.
+         *
+         * @return string - `string` the active policy token.
+         */
+        public function get(): string {}
+
+        /**
+         * Send the `Referrer-Policy` header via PHP `header()` function.
+         *
+         * @return void
+         */
+        public function send(): void {}
+
+        /**
+         * Update the active Referrer-Policy directive.
+         *
+         * @param string $policy
+         * @return void
+         */
+        public function set(string $policy): void {}
     }
 
     /**
@@ -1880,61 +2170,47 @@ namespace Hardened\SecurityHeaders {
      */
     class StrictTransportSecurity {
         /**
-         * Sets the `max-age` directive (in seconds).
-         *
-         * # Parameters
-         * - `maxAge`: `int` number of seconds for `max-age`.
-         *
-         * # Returns
-         * - `void`
+         * Constructs a new HSTS builder with default settings.
          */
-        public function maxAge(int $max_age) {}
-
-        /**
-         * Enable or disable the `includeSubDomains` flag.
-         *
-         * # Parameters
-         * - `enable`: `bool` `true` to include subdomains, `false` to omit.
-         *
-         * # Returns
-         * - `void`
-         */
-        public function includeSubDomains(bool $enable) {}
-
-        /**
-         * Enable or disable the `preload` flag.
-         *
-         * # Parameters
-         * - `enable`: `bool` `true` to add `preload`, `false` to omit.
-         *
-         * # Returns
-         * - `void`
-         */
-        public function preload(bool $enable) {}
+        public function __construct() {}
 
         /**
          * Builds the `Strict-Transport-Security` header value.
          *
-         * # Returns
-         * - `string` e.g. `"max-age=31536000; includeSubDomains; preload"`.
+         * @return string - `string` e.g. `"max-age=31536000; includeSubDomains; preload"`.
          */
         public function build(): string {}
 
         /**
-         * Sends the `Strict-Transport-Security` header via PHP `header()` function.
+         * Enable or disable the `includeSubDomains` flag.
          *
-         * # Exceptions
-         * - Throws `Exception` if PHP `header()` cannot be invoked.
+         * @param bool $enable `true` to include subdomains, `false` to omit.
+         * @return void - `void`
          */
-        public function send(): mixed {}
+        public function includeSubDomains(bool $enable): void {}
 
         /**
-         * Constructs a new HSTS builder with default settings.
+         * Sets the `max-age` directive (in seconds).
          *
-         * # Returns
-         * - `Hsts` New instance with `max-age=0`, no subdomains, no preload.
+         * @param int $max_age
+         * @return void - `void`
          */
-        public function __construct() {}
+        public function maxAge(int $max_age): void {}
+
+        /**
+         * Enable or disable the `preload` flag.
+         *
+         * @param bool $enable `true` to add `preload`, `false` to omit.
+         * @return void - `void`
+         */
+        public function preload(bool $enable): void {}
+
+        /**
+         * Sends the `Strict-Transport-Security` header via PHP `header()` function.
+         *
+         * @return void
+         */
+        public function send(): void {}
     }
 
     /**
@@ -1945,479 +2221,269 @@ namespace Hardened\SecurityHeaders {
      */
     class Whatnot {
         /**
-         * Set `X-Frame-Options` header.
-         *
-         * # Parameters
-         * - `mode`: `"DENY"`, `"SAMEORIGIN"`, or `"ALLOW-FROM"`.
-         * - `uri`: Optional URI, required if `mode` is `"ALLOW-FROM"`.
-         *
-         * # Exceptions
-         * - Throws if `mode` is invalid or `"ALLOW-FROM"` is given without a URI.
+         * Constructs a new builder with all headers disabled.
          */
-        public function setFrameOptions(string $mode, ?string $uri): mixed {}
-
-        /**
-         * Set `X-XSS-Protection` header.
-         *
-         * # Parameters
-         * - `mode`: one of `"off"`, `"on"` or `"block"`.
-         * - `report_uri`: Optional reporting URI, only allowed when `mode` is `"1"`.
-         *
-         * # Exceptions
-         * - Throws if `mode` is invalid or a `report_uri` is provided for 'off' mode.
-         */
-        public function setXssProtection(string $mode, ?string $report_uri): mixed {}
-
-        /**
-         * Enable or disable `X-Content-Type-Options: nosniff`.
-         */
-        public function setNosniff(bool $enable) {}
-
-        /**
-         * Set `X-Permitted-Cross-Domain-Policies` header.
-         *
-         * # Parameters
-         * - `mode`: one of `"none"`, `"master-only"`, `"by-content-type"`, or `"all"`.
-         *
-         * # Exceptions
-         * - Throws if `mode` is not a valid policy token.
-         */
-        public function setPermittedCrossDomainPolicies(string $mode): mixed {}
-
-        /**
-         * Configure the `Report-To` header from structured arguments.
-         *
-         * # Parameters
-         * - `group`: report group name.
-         * - `max_age`: seconds to retain reports.
-         * - `include_subdomains`: whether to include subdomains.
-         * - `endpoints`: PHP array of endpoint names.
-         *
-         * # Exceptions
-         * - Throws if any argument is invalid.
-         */
-        public function setReportTo(string $group, int $max_age, bool $include_subdomains, array $endpoints): mixed {}
-
-        /**
-         * Set a structured `Integrity-Policy` header.
-         *
-         * # Parameters
-         * - `blocked_destinations`: PHP array of destinations, e.g. `['script']`.
-         * - `sources`: Optional PHP array of sources, e.g. `['inline']`.
-         * - `endpoints`: Optional PHP array of reporting endpoint names.
-         *
-         * # Exceptions
-         * - Throws if any required array is missing or contains invalid entries.
-         */
-        public function setIntegrityPolicy(mixed $blocked_destinations, ?array $sources, ?array $endpoints): mixed {}
-
-        /**
-         * Set `Integrity-Policy-Report-Only` header value.
-         */
-        public function setIntegrityPolicyReportOnly(string $policy): mixed {}
+        public function __construct() {}
 
         /**
          * Build an associative array of header names → values.
+         *
+         * @return array
          */
         public function build(): array {}
 
         /**
          * Emit all configured headers via PHP `header()` calls.
+         *
+         * @return void
          */
-        public function send(): mixed {}
+        public function send(): void {}
 
         /**
-         * Constructs a new builder with all headers disabled.
+         * Set `X-Frame-Options` header.
+         *
+         * @param FrameOptions::Deny $mode , `FrameOptions::SameOrigin`, or `FrameOptions::AllowFrom`.
+         * @param string|null $uri
+         * @return void
          */
-        public function __construct() {}
+        public function setFrameOptions(\Hardened\SecurityHeaders\FrameOptions $mode, ?string $uri = null): void {}
+
+        /**
+         * Set a structured `Integrity-Policy` header.
+         *
+         * @param mixed $blocked_destinations
+         * @param array|null $sources
+         * @param array|null $endpoints
+         * @return void
+         */
+        public function setIntegrityPolicy(mixed $blocked_destinations, ?array $sources = null, ?array $endpoints = null): void {}
+
+        /**
+         * Set a structured `Integrity-Policy-Report-Only` header.
+         *
+         * @param mixed $blocked_destinations
+         * @param array|null $sources
+         * @param array|null $endpoints
+         * @return void
+         */
+        public function setIntegrityPolicyReportOnly(mixed $blocked_destinations, ?array $sources = null, ?array $endpoints = null): void {}
+
+        /**
+         * Enable or disable `X-Content-Type-Options: nosniff`.
+         *
+         * @param bool $enable
+         * @return void
+         */
+        public function setNosniff(bool $enable): void {}
+
+        /**
+         * Set `X-Permitted-Cross-Domain-Policies` header.
+         *
+         * @param CrossDomainPolicy::None $policy , `MasterOnly`, `ByContentType`, or `All`.
+         * @return void
+         */
+        public function setPermittedCrossDomainPolicies(\Hardened\SecurityHeaders\CrossDomainPolicy $policy): void {}
+
+        /**
+         * Configure the `Report-To` header from structured arguments.
+         *
+         * @param string $group
+         * @param int $max_age
+         * @param bool $include_subdomains
+         * @param array $endpoints
+         * @return void
+         */
+        public function setReportTo(string $group, int $max_age, bool $include_subdomains, array $endpoints): void {}
+
+        /**
+         * Set `X-XSS-Protection` header.
+         *
+         * @param XssProtection::Off $mode , `XssProtection::On`, or `XssProtection::Block`.
+         * @param string|null $report_uri
+         * @return void
+         */
+        public function setXssProtection(\Hardened\SecurityHeaders\XssProtection $mode, ?string $report_uri = null): void {}
     }
 
     /**
-     * Permissions-Policy header builder.
+     * Possible values for the `X-XSS-Protection` header.
      */
-    class PermissionsPolicy {
-        /**
-         * Controls whether the current document is allowed to gather information
-         * about the acceleration of the device through the Accelerometer interface.
-         */
-        const ACCELEROMETER = null;
-
-        /**
-         * Controls whether the current document is allowed to gather information
-         * about the amount of light in the environment around the device through
-         * the AmbientLightSensor interface.
-         */
-        const AMBIENT_LIGHT_SENSOR = null;
-
-        /**
-         * Controls whether the current document is allowed to use the
-         * Attribution Reporting API.
-         */
-        const ATTRIBUTION_REPORTING = null;
-
-        /**
-         * Controls whether the current document is allowed to autoplay media
-         * requested through the HTMLMediaElement interface. When disabled without
-         * user gesture, play() will reject with NotAllowedError.
-         */
-        const AUTOPLAY = null;
-
-        /**
-         * Controls whether the use of the Web Bluetooth API is allowed.
-         * When disabled, Bluetooth methods will either return false or reject.
-         */
-        const BLUETOOTH = null;
-
-        /**
-         * Controls access to the Topics API. Disallowed calls to browsingTopics()
-         * or Sec-Browsing-Topics header will fail with NotAllowedError.
-         */
-        const BROWSING_TOPICS = null;
-
-        /**
-         * Controls whether the current document is allowed to use video input devices.
-         * When disabled, getUserMedia() will reject with NotAllowedError.
-         */
-        const CAMERA = null;
-
-        /**
-         * Controls access to the Compute Pressure API.
-         */
-        const COMPUTE_PRESSURE = null;
-
-        /**
-         * Controls whether the current document can be treated as cross-origin isolated.
-         */
-        const CROSS_ORIGIN_ISOLATED = null;
-
-        /**
-         * Controls the allocation of the top-level origin’s fetchLater() quota.
-         */
-        const DEFERRED_FETCH = null;
-
-        /**
-         * Controls the allocation of the shared cross-origin subframe fetchLater() quota.
-         */
-        const DEFERRED_FETCH_MINIMAL = null;
-
-        /**
-         * Controls whether the current document may capture display media via getDisplayMedia().
-         * When disabled, getDisplayMedia() will reject with NotAllowedError.
-         */
-        const DISPLAY_CAPTURE = null;
-
-        /**
-         * Controls whether the current document is allowed to use the Encrypted Media
-         * Extensions API (EME). When disabled, requestMediaKeySystemAccess() will reject.
-         */
-        const ENCRYPTED_MEDIA = null;
-
-        /**
-         * Controls whether the current document is allowed to use Element.requestFullscreen().
-         * When disabled, requestFullscreen() will reject with TypeError.
-         */
-        const FULLSCREEN = null;
-
-        /**
-         * Controls whether the current document is allowed to use the Gamepad API.
-         * When disabled, getGamepads() will throw SecurityError and events won’t fire.
-         */
-        const GAMEPAD = null;
-
-        /**
-         * Controls whether the current document is allowed to use the Geolocation Interface.
-         * When disabled, geolocation callbacks will error with PERMISSION_DENIED.
-         */
-        const GEOLOCATION = null;
-
-        /**
-         * Controls whether the current document is allowed to gather information
-         * about device orientation through the Gyroscope interface.
-         */
-        const GYROSCOPE = null;
-
-        /**
-         * Controls whether the current document is allowed to use the WebHID API.
-         * Allows communication with HID devices like gamepads or keyboards.
-         */
-        const HID = null;
-
-        /**
-         * Controls whether the document may use the Federated Credential Management API
-         * (FedCM) via navigator.credentials.get({identity:…}).
-         */
-        const IDENTITY_CREDENTIALS_GET = null;
-
-        /**
-         * Controls whether the document may use the Idle Detection API to detect user idle/active state.
-         */
-        const IDLE_DETECTION = null;
-
-        /**
-         * Controls access to the language detection functionality of Translator & Language Detector APIs.
-         */
-        const LANGUAGE_DETECTOR = null;
-
-        /**
-         * Controls whether the document may gather data on locally-installed fonts via queryLocalFonts().
-         */
-        const LOCAL_FONTS = null;
-
-        /**
-         * Controls whether the document may gather device orientation via the Magnetometer interface.
-         */
-        const MAGNETOMETER = null;
-
-        /**
-         * Controls whether the document is allowed to use audio input devices.
-         * When disabled, getUserMedia() will reject with NotAllowedError.
-         */
-        const MICROPHONE = null;
-
-        /**
-         * Controls whether the document may use the Web MIDI API.
-         * When disabled, requestMIDIAccess() will reject with SecurityError.
-         */
-        const MIDI = null;
-
-        /**
-         * Controls whether the document may use the WebOTP API to retrieve one-time passwords.
-         */
-        const OTP_CREDENTIALS = null;
-
-        /**
-         * Controls whether the document may use the Payment Request API.
-         * When disabled, PaymentRequest() will throw SecurityError.
-         */
-        const PAYMENT = null;
-
-        /**
-         * Controls whether the document may enter Picture-in-Picture mode via the API.
-         */
-        const PICTURE_IN_PICTURE = null;
-
-        /**
-         * Controls whether the document may use Web Authentication API to create new credentials.
-         */
-        const PUBLICKEY_CREDENTIALS_CREATE = null;
-
-        /**
-         * Controls whether the document may use Web Authentication API to retrieve stored credentials.
-         */
-        const PUBLICKEY_CREDENTIALS_GET = null;
-
-        /**
-         * Controls whether the document may use the Screen Wake Lock API to keep the screen on.
-         */
-        const SCREEN_WAKE_LOCK = null;
-
-        /**
-         * Controls whether the document may use the Web Serial API to communicate with serial devices.
-         */
-        const SERIAL = null;
-
-        /**
-         * Controls whether the document may list and select speakers via the Output Devices API.
-         */
-        const SPEAKER_SELECTION = null;
-
-        /**
-         * Controls whether an embedded document may use the Storage Access API for third-party cookies.
-         */
-        const STORAGE_ACCESS = null;
-
-        /**
-         * Controls access to the translation functionality of Translator & Language Detector APIs.
-         */
-        const TRANSLATOR = null;
-
-        /**
-         * Controls access to the Summarizer API.
-         */
-        const SUMMARIZER = null;
-
-        /**
-         * Controls whether the document may use the WebUSB API to connect to USB devices.
-         */
-        const USB = null;
-
-        /**
-         * Controls whether the document may use the Web Share API (navigator.share()).
-         */
-        const WEB_SHARE = null;
-
-        /**
-         * Controls whether the document may use the Window Management API to manage windows.
-         */
-        const WINDOW_MANAGEMENT = null;
-
-        /**
-         * Controls whether the document may use the WebXR Device API to interact with XR sessions.
-         */
-        const XR_SPATIAL_TRACKING = null;
-
-        const ORIGIN_SELF = null;
-
-        const ORIGIN_ANY = null;
-
-        const ORIGIN_SRC = null;
-
-        /**
-         * Allow a feature for the given list of origins.
-         *
-         * # Parameters
-         * - `feature`: one of the defined `Feature` tokens.
-         * - `origins`: list of allowlist entries, e.g. `"self"`, `"*"`, `"src"`, or quoted origins.
-         *
-         * # Errors
-         * - if `feature` is not recognized.
-         */
-        public function allow(string $feature, array $origins): mixed {}
-
-        /**
-         * Deny a feature entirely (empty allowlist).
-         *
-         * # Parameters
-         * - `feature`: one of the defined `Feature` tokens.
-         *
-         * # Errors
-         * - if `feature` is not recognized.
-         */
-        public function deny(string $feature): mixed {}
-
-        /**
-         * Builds the Permissions-Policy header value.
-         *
-         * # Returns
-         * - `String`, e.g.:
-         *   `geolocation=(self "https://api.example.com"), camera=()`
-         */
-        public function build(): string {}
-
-        /**
-         * Sends the Permissions-Policy header via PHP `header()` function.
-         *
-         * # Errors
-         * - Returns an error if PHP `header()` cannot be invoked.
-         */
-        public function send(): mixed {}
-
-        /**
-         * Constructs a new Permissions-Policy builder with no features allowed.
-         *
-         * # Returns
-         * - `PermissionsPolicy` New instance with an empty feature map.
-         */
-        public function __construct() {}
-    }
-
-    /**
-     * Referrer-Policy header builder.
-     */
-    class ReferrerPolicy {
-        /**
-         * Update the active Referrer-Policy directive.
-         *
-         * # Parameters
-         * - `policy`: Directive string. Must be one of the tokens listed above for `__construct`.
-         *
-         * # Exceptions
-         * - Throws `Exception` if the provided token is invalid.
-         */
-        public function set(string $policy): mixed {}
-
-        /**
-         * Get the current Referrer-Policy value.
-         *
-         * # Returns
-         * - `string` the active policy token.
-         */
-        public function get(): string {}
-
-        /**
-         * Build the `Referrer-Policy` header value.
-         *
-         * # Returns
-         * - `string` the configured policy value suitable for sending as a header.
-         */
-        public function build(): string {}
-
-        /**
-         * Send the `Referrer-Policy` header via PHP `header()` function.
-         *
-         * # Exceptions
-         * - Throws `Exception` if the PHP `header()` function cannot be invoked.
-         */
-        public function send(): mixed {}
-
-        /**
-         * Create a new Referrer-Policy builder for PHP.
-         *
-         * By default, the referrer policy is set to `no-referrer`, which prevents
-         * the `Referer` header from being sent with any requests.
-         *
-         * # Parameters
-         * - `policy`: Optional string. If provided, must match one of these tokens:
-         *   - `"no-referrer"`                          — never send the `Referer` header.
-         *   - `"no-referrer-when-downgrade"`           — send full URL except when downgrading HTTPS→HTTP.
-         *   - `"origin"`                               — send only the origin (`scheme://host[:port]`).
-         *   - `"origin-when-cross-origin"`             — send full URL same-origin; origin for cross-origin.
-         *   - `"same-origin"`                          — send full URL only for same-origin; omit for cross-origin.
-         *   - `"strict-origin"`                        — send origin except on HTTPS→HTTP downgrade (omit then).
-         *   - `"strict-origin-when-cross-origin"`      — full URL same-origin; origin cross-origin non-downgrade; omit on downgrade.
-         *   - `"unsafe-url"`                           — always send full URL, regardless of context.
-         *
-         * # Exceptions
-         * - Throws `Exception` if `policy` is not a recognized directive.
-         */
-        public function __construct(?string $policy) {}
+    enum XssProtection: string {
+      case Off = 'off';
+      case On = 'on';
+      case Block = 'block';
     }
 }
 
 namespace Hardened\SecurityHeaders\CrossOrigin {
     /**
+     * Builder for `Cross-Origin-Embedder-Policy` header.
+     */
+    class EmbedderPolicy {
+        /**
+         * Create a new Cross-Origin-Embedder-Policy (COEP) builder for PHP.
+         *
+         * By default, this sets the policy to `"unsafe-none"`, allowing all embedders.
+         *
+         * @param \Hardened\SecurityHeaders\CrossOrigin\EmbedderPolicyValue|null $policy
+         */
+        public function __construct(?\Hardened\SecurityHeaders\CrossOrigin\EmbedderPolicyValue $policy = null) {}
+
+        /**
+         * Render the header value.
+         *
+         * @return string - `string`: the currently configured policy token.
+         */
+        public function build(): string {}
+
+        /**
+         * Get the current Embedder-Policy value.
+         *
+         * @return string - `string` the active policy token.
+         */
+        public function get(): string {}
+
+        /**
+         * Send the `Cross-Origin-Embedder-Policy` header via PHP `header()`.
+         *
+         * @return void
+         * @throws \Exception - Throws `Exception` if the PHP `header()` function cannot be invoked.
+         */
+        public function send(): void {}
+
+        /**
+         * Update the COEP directive.
+         *
+         * @param \Hardened\SecurityHeaders\CrossOrigin\EmbedderPolicyValue $policy
+         * @return void
+         */
+        public function set(\Hardened\SecurityHeaders\CrossOrigin\EmbedderPolicyValue $policy): void {}
+    }
+
+    /**
+     * Allowed values for the `Cross-Origin-Embedder-Policy` header.
+     */
+    enum EmbedderPolicyValue: string {
+    /**
+     * Allows the document to load cross-origin resources without giving explicit permission
+     * through CORS or `Cross-Origin-Resource-Policy`. This is the default.
+     */
+      case UnsafeNone = 'unsafe-none';
+    /**
+     * Only same-origin or resources explicitly marked via `Cross-Origin-Resource-Policy`
+     * or CORS may be loaded.
+     */
+      case RequireCorp = 'require-corp';
+    /**
+     * Similar to `require-corp`, but drops credentials on no-CORS requests.
+     */
+      case Credentialless = 'credentialless';
+    }
+
+    /**
+     * Builder for `Cross-Origin-Opener-Policy` header.
+     */
+    class OpenerPolicy {
+        /**
+         * Create a new Cross-Origin-Opener-Policy builder.
+         *
+         * By default, this sets the policy to `"unsafe-none"`, which imposes
+         * no special opener isolation. PHP users can call this without arguments
+         * to get the default behavior.
+         *
+         * @param string|null $policy
+         */
+        public function __construct(?string $policy = null) {}
+
+        /**
+         * Build the header value.
+         *
+         * @return string - `string` the configured policy, e.g. `"same-origin"`.
+         */
+        public function build(): string {}
+
+        /**
+         * Send the `Cross-Origin-Opener-Policy` header via PHP `header()`.
+         *
+         * @return void
+         */
+        public function send(): void {}
+
+        /**
+         * Use this if you need to change the policy after construction.
+         * Calling this method will override any previous setting.
+         *
+         * @param string $policy
+         * @return void
+         */
+        public function set(string $policy): void {}
+    }
+
+    /**
+     * Builder for the `Cross-Origin-Resource-Policy` header.
+     */
+    class ResourcePolicy {
+        /**
+         * Create a new Cross-Origin-Resource-Policy builder.
+         *
+         * By default, the policy is set to `same-origin`, which restricts
+         * resource sharing to the same origin that served the document.
+         *
+         * @param string|null $policy
+         */
+        public function __construct(?string $policy = null) {}
+
+        /**
+         * Build the header value.
+         *
+         * @return string - `string` the configured directive token.
+         */
+        public function build(): string {}
+
+        /**
+         * Get the current Resource-Policy value.
+         *
+         * @return string - `string` the active policy token.
+         */
+        public function get(): string {}
+
+        /**
+         * Send the `Cross-Origin-Resource-Policy` header via PHP `header()`.
+         *
+         * @return void
+         */
+        public function send(): void {}
+
+        /**
+         * Change the active Cross-Origin-Resource-Policy directive.
+         *
+         * This will override any previous setting or the default.
+         *
+         * @param string $policy
+         * @return void
+         */
+        public function set(string $policy): void {}
+    }
+
+    /**
      * CORS policy builder for HTTP responses.
      */
     class ResourceSharing {
-        const SELF = null;
+        const ORIGIN_SELF = 'self';
 
         /**
-         * Specify which origins are allowed to access the resource.
-         *
-         * Browsers will only allow cross-origin requests if the request's
-         * `Origin` header matches one of these values. Use `["*"]` to allow
-         * any origin (note: this will disable credentials).
-         *
-         * # Parameters
-         * - `origins`: A list of allowed origin URLs (e.g. `["https://example.com"]`),
-         *   or `["*"]` for a wildcard that permits all origins.
-         *
-         * # Behavior
-         * - If the request's `Origin` header is not in this list, the browser
-         *   will block the response.
-         *
-         * # Returns
-         * - `void`
+         * Constructs a new CORS policy with default settings (no restrictions).
          */
-        public function allowOrigins(array $origins) {}
+        public function __construct() {}
 
         /**
-         * Specify which HTTP methods may be used in cross-origin requests.
+         * Control whether cookies or HTTP authentication information are
+         * included in cross-origin requests.
          *
-         * During a CORS preflight (`OPTIONS`) request, the browser checks
-         * this list to determine whether to allow the actual request method.
-         *
-         * # Parameters
-         * - `methods`: A list of allowed HTTP methods (e.g. `["GET", "POST", "PUT"]`).
-         *
-         * # Behavior
-         * - Methods not in this list will cause the browser to block the
-         *   corresponding cross-origin request.
-         *
-         * # Returns
-         * - `void`
+         * @param true $enable to send credentials (cookies, HTTP auth), `false`
+         * @return void - `void`
          */
-        public function allowMethods(array $methods) {}
+        public function allowCredentials(bool $enable): void {}
 
         /**
          * Specify which custom headers the client may include in the request.
@@ -2426,32 +2492,40 @@ namespace Hardened\SecurityHeaders\CrossOrigin {
          * allow additional headers (e.g. `Content-Type`, `X-Custom-Header`),
          * they must be listed here.
          *
-         * # Parameters
-         * - `headers`: A list of allowed request header names.
-         *
-         * # Behavior
-         * - Any request header not in this list will be stripped by the browser.
-         *
-         * # Returns
-         * - `void`
+         * @param array $headers
+         * @return void - `void`
          */
-        public function allowHeaders(array $headers) {}
+        public function allowHeaders(array $headers): void {}
 
         /**
-         * Control whether cookies or HTTP authentication information are
-         * included in cross-origin requests.
+         * Specify which HTTP methods may be used in cross-origin requests.
          *
-         * # Parameters
-         * - `enable`: `true` to send credentials (cookies, HTTP auth), `false`
-         *   to omit the `Access-Control-Allow-Credentials` header.
+         * During a CORS preflight (`OPTIONS`) request, the browser checks
+         * this list to determine whether to allow the actual request method.
          *
-         * # Behavior
-         * - If enabled, you **cannot** use `"*"` for `allow_origins`.
-         *
-         * # Returns
-         * - `void`
+         * @param array $methods
+         * @return void - `void`
          */
-        public function allowCredentials(bool $enable) {}
+        public function allowMethods(array $methods): void {}
+
+        /**
+         * Specify which origins are allowed to access the resource.
+         *
+         * Browsers will only allow cross-origin requests if the request's
+         * `Origin` header matches one of these values. Use `["*"]` to allow
+         * any origin (note: this will disable credentials).
+         *
+         * @param array $origins
+         * @return void - `void`
+         */
+        public function allowOrigins(array $origins): void {}
+
+        /**
+         * Build an associative array of CORS headers and their values.
+         *
+         * @return array - `array<string,string>` Map of header names to header values.
+         */
+        public function build(): array {}
 
         /**
          * Specify which response headers can be accessed by client-side scripts.
@@ -2460,14 +2534,10 @@ namespace Hardened\SecurityHeaders\CrossOrigin {
          * To expose additional headers (e.g. `X-RateLimit-Remaining`),
          * list them here.
          *
-         * # Parameters
-         * - `headers`: A list of response header names that should be
-         *   made available to JavaScript via `XMLHttpRequest` or `fetch`.
-         *
-         * # Returns
-         * - `void`
+         * @param array $headers
+         * @return void - `void`
          */
-        public function exposeHeaders(array $headers) {}
+        public function exposeHeaders(array $headers): void {}
 
         /**
          * Set how long (in seconds) the results of a preflight request can
@@ -2477,224 +2547,16 @@ namespace Hardened\SecurityHeaders\CrossOrigin {
          * improving performance. A value of `0` forces the browser to
          * perform a preflight check on every request.
          *
-         * # Parameters
-         * - `seconds`: Number of seconds that the browser may cache the
-         *   preflight response.
-         *
-         * # Returns
-         * - `void`
+         * @param int $seconds
+         * @return void - `void`
          */
-        public function maxAge(int $seconds) {}
-
-        /**
-         * Build an associative array of CORS headers and their values.
-         *
-         * # Returns
-         * - `array<string,string>` Map of header names to header values.
-         */
-        public function build(): array {}
+        public function maxAge(int $seconds): void {}
 
         /**
          * Send all configured CORS headers via PHP's `header()` function.
          *
-         * # Returns
-         * - `void`
-         *
-         * # Exceptions
-         * - Throws `Exception` if PHP `header()` cannot be invoked.
+         * @return void - `void`
          */
-        public function send(): mixed {}
-
-        /**
-         * Constructs a new CORS policy with default settings (no restrictions).
-         *
-         * # Returns
-         * - `ResourceSharing` instance where all lists are empty and flags are false/zero.
-         */
-        public function __construct() {}
-    }
-
-    /**
-     * Builder for `Cross-Origin-Embedder-Policy` header.
-     */
-    class EmbedderPolicy {
-        /**
-         * Allows the document to load cross-origin resources without giving explicit permission
-         * through CORS or `Cross-Origin-Resource-Policy`. This is the default.
-         */
-        const UNSAFE_NONE = null;
-
-        /**
-         * Only same-origin or resources explicitly marked via `Cross-Origin-Resource-Policy`
-         * or CORS may be loaded.
-         */
-        const REQUIRE_CORP = null;
-
-        /**
-         * Similar to `require-corp`, but drops credentials on no-CORS requests.
-         */
-        const CREDENTIALLESS = null;
-
-        /**
-         * Update the COEP directive.
-         *
-         * # Parameters
-         * - `policy`: Directive string. Must be one of the tokens listed above for `__construct`.
-         *
-         * # Exceptions
-         * - Throws an `Exception` if `policy` cannot be parsed into a valid directive.
-         */
-        public function set(string $policy): mixed {}
-
-        /**
-         * Get the current Embedder-Policy value.
-         *
-         * # Returns
-         * - `string` the active policy token.
-         */
-        public function get(): string {}
-
-        /**
-         * Render the header value.
-         *
-         * # Returns
-         * - `string`: the currently configured policy token.
-         */
-        public function build(): string {}
-
-        /**
-         * Send the `Cross-Origin-Embedder-Policy` header via PHP `header()`.
-         *
-         * # Errors
-         * - Throws `Exception` if the PHP `header()` function cannot be invoked.
-         */
-        public function send(): mixed {}
-
-        /**
-         * Create a new Cross-Origin-Embedder-Policy (COEP) builder for PHP.
-         *
-         * By default, this sets the policy to `"unsafe-none"`, allowing all embedders.
-         *
-         * # Parameters
-         * - `policy`: Optional string directive. Valid values:
-         *   - `"unsafe-none"`    — no embedder restrictions.
-         *   - `"require-corp"`   — only embedders with valid CORP headers.
-         *   - `"credentialless"` — restrict resources and omit credentials.
-         *   If omitted, defaults to `"unsafe-none"`.
-         *
-         * # Exceptions
-         * - Throws `Exception` if an invalid token is provided.
-         */
-        public function __construct(?string $policy) {}
-    }
-
-    /**
-     * Builder for the `Cross-Origin-Resource-Policy` header.
-     */
-    class ResourcePolicy {
-        /**
-         * Change the active Cross-Origin-Resource-Policy directive.
-         *
-         * This will override any previous setting or the default.
-         *
-         * # Parameters
-         * - `policy`: Directive string. Must be one of the tokens listed above for `__construct`.
-         *
-         * # Exceptions
-         * - Throws an `Exception` if `policy` cannot be parsed into a valid directive.
-         */
-        public function set(string $policy): mixed {}
-
-        /**
-         * Get the current Resource-Policy value.
-         *
-         * # Returns
-         * - `string` the active policy token.
-         */
-        public function get(): string {}
-
-        /**
-         * Build the header value.
-         *
-         * # Returns
-         * - `string` the configured directive token.
-         */
-        public function build(): string {}
-
-        /**
-         * Send the `Cross-Origin-Resource-Policy` header via PHP `header()`.
-         *
-         * # Exceptions
-         * - Throws `Exception` if the PHP `header()` function cannot be invoked.
-         */
-        public function send(): mixed {}
-
-        /**
-         * Create a new Cross-Origin-Resource-Policy builder.
-         *
-         * By default, the policy is set to `same-origin`, which restricts
-         * resource sharing to the same origin that served the document.
-         *
-         * # Parameters
-         * - `policy`: Optional directive string. If provided, must be one of:
-         *   - `"same-origin"` — only same-origin requests allowed.
-         *   - `"same-site"`   — allow same-site requests (including subdomains).
-         *   - `"cross-origin"` — allow all cross-site requests.
-         *
-         * # Exceptions
-         * - Throws an `Exception` if `policy` cannot be parsed into a valid directive.
-         */
-        public function __construct(?string $policy) {}
-    }
-
-    /**
-     * Builder for `Cross-Origin-Opener-Policy` header.
-     */
-    class OpenerPolicy {
-        /**
-         * Use this if you need to change the policy after construction.
-         * Calling this method will override any previous setting.
-         *
-         * # Parameters
-         * - `policy`: Directive string. Must be one of the tokens listed above for `__construct`.
-         *
-         * # Exceptions
-         * - Throws `Exception` if the given token is invalid.
-         */
-        public function set(string $policy): mixed {}
-
-        /**
-         * Build the header value.
-         *
-         * # Returns
-         * - `string` the configured policy, e.g. `"same-origin"`.
-         */
-        public function build(): string {}
-
-        /**
-         * Send the `Cross-Origin-Opener-Policy` header via PHP `header()`.
-         *
-         * # Exceptions
-         * - Throws `Exception` if the PHP `header()` function cannot be invoked.
-         */
-        public function send(): mixed {}
-
-        /**
-         * Create a new Cross-Origin-Opener-Policy builder.
-         *
-         * By default, this sets the policy to `"unsafe-none"`, which imposes
-         * no special opener isolation. PHP users can call this without arguments
-         * to get the default behavior.
-         *
-         * # Parameters
-         * - `policy`: Optional string directive. If provided, must be one of:
-         *   - `"unsafe-none"` — no isolation; pages can share a browsing context.
-         *   - `"same-origin"` — only pages from the same origin can share.
-         *   - `"same-origin-allow-popups"` — same-origin pages and their popups.
-         *
-         * # Exceptions
-         * - Throws `Exception` if the provided token is not one of the allowed values.
-         */
-        public function __construct(?string $policy) {}
+        public function send(): void {}
     }
 }
