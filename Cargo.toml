@@ -31,9 +31,11 @@ imagesize = { version = "0.14", optional = true }
 argon2 = { version = "0.5", optional = true }
 bcrypt = { version = "0.17", optional = true }
 jsonwebtoken = { version = "9", optional = true }
+unicode-normalization = { version = "0.1.25", optional = true }
+unicode-security = { version = "0.1.2", optional = true }
 
 [features]
-default = ["mimalloc", "shell_command", "html_sanitizer", "svg_sanitizer", "file_sanitizers", "hostname", "path", "rng", "csrf", "headers", "ct", "text", "redirect", "ssrf", "password", "rate_limiter", "jwt"]
+default = ["mimalloc", "shell_command", "html_sanitizer", "svg_sanitizer", "file_sanitizers", "hostname", "path", "rng", "csrf", "headers", "ct", "text", "redirect", "ssrf", "password", "rate_limiter", "jwt", "filename", "cookie", "redact", "request_guard", "unicode"]
 mimalloc = ["dep:mimalloc"]
 shell_command = ["dep:shell-words"]
 html_sanitizer = ["dep:ammonia"]
@@ -51,6 +53,11 @@ ssrf = ["dep:url", "dep:ipnet"]
 password = ["dep:argon2", "dep:bcrypt"]
 rate_limiter = []
 jwt = ["dep:jsonwebtoken", "dep:serde_json"]
+filename = []
+cookie = []
+redact = ["dep:regex"]
+request_guard = ["dep:url"]
+unicode = ["dep:unicode-normalization", "dep:unicode-security"]
 test = ["ext-php-rs/embed"]
 
 [dev-dependencies]

@@ -2,7 +2,11 @@
 #[allow(clippy::used_underscore_items)]
 #[cfg(feature = "ct")]
 pub mod constant_time;
+#[cfg(feature = "cookie")]
+pub mod cookie;
 pub mod csrf;
+#[cfg(feature = "filename")]
+pub mod filename;
 pub mod hostname;
 #[cfg(feature = "jwt")]
 pub mod jwt;
@@ -11,8 +15,12 @@ pub mod password;
 pub mod path;
 #[cfg(feature = "rate_limiter")]
 pub mod rate_limiter;
+#[cfg(feature = "redact")]
+pub mod redact;
 #[cfg(feature = "redirect")]
 pub mod redirect;
+#[cfg(feature = "request_guard")]
+pub mod request_guard;
 pub mod rng;
 pub mod sanitizers;
 pub mod security_headers;
@@ -21,10 +29,16 @@ pub mod shell_command;
 pub mod ssrf;
 #[cfg(feature = "text")]
 pub mod text;
+#[cfg(feature = "unicode")]
+pub mod unicode;
 
 #[cfg(feature = "ct")]
 use crate::constant_time::ConstantTime;
+#[cfg(feature = "cookie")]
+use crate::cookie::Cookie;
 use crate::csrf::Csrf;
+#[cfg(feature = "filename")]
+use crate::filename::Filename;
 pub use crate::hostname::Hostname;
 #[cfg(feature = "jwt")]
 use crate::jwt::JwtVerifier;
@@ -33,8 +47,12 @@ use crate::password::Password;
 use crate::path::PathObj;
 #[cfg(feature = "rate_limiter")]
 use crate::rate_limiter::{RateLimiter, ThrottleDecision};
+#[cfg(feature = "redact")]
+use crate::redact::SecretRedactor;
 #[cfg(feature = "redirect")]
 use crate::redirect::Redirect;
+#[cfg(feature = "request_guard")]
+use crate::request_guard::RequestGuard;
 use crate::rng::Rng;
 use crate::security_headers::cross_origin::embedder_policy::{
     EmbedderPolicy, Policy as EmbedderPolicyValue,
@@ -55,6 +73,8 @@ use crate::security_headers::whatnot::{
 use crate::ssrf::SsrfGuard;
 #[cfg(feature = "text")]
 use crate::text::Text;
+#[cfg(feature = "unicode")]
+use crate::unicode::Unicode;
 use ext_php_rs::prelude::*;
 use ext_php_rs::types::Zval;
 use thiserror::Error;
@@ -152,6 +172,26 @@ fn get_module(mut module: ModuleBuilder) -> ModuleBuilder {
     #[cfg(feature = "jwt")]
     {
         module = module.class::<JwtVerifier>();
+    }
+    #[cfg(feature = "filename")]
+    {
+        module = module.class::<Filename>();
+    }
+    #[cfg(feature = "cookie")]
+    {
+        module = module.class::<Cookie>();
+    }
+    #[cfg(feature = "redact")]
+    {
+        module = module.class::<SecretRedactor>();
+    }
+    #[cfg(feature = "request_guard")]
+    {
+        module = module.class::<RequestGuard>();
+    }
+    #[cfg(feature = "unicode")]
+    {
+        module = module.class::<Unicode>();
     }
     #[cfg(feature = "headers")]
     {

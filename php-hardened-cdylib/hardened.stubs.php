@@ -49,6 +49,118 @@ namespace Hardened {
     }
 
     /**
+     * Hardened `Set-Cookie` builder.
+     *
+     * Secure defaults (`Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`) that you
+     * must explicitly opt out of, RFC 6265 validation of names and values (no
+     * header-splitting bytes can reach the wire), enforced `__Host-`/`__Secure-`
+     * prefix invariants, and `SameSite=None` refusing to build without `Secure`.
+     */
+    class Cookie {
+        /**
+         * Constructs a cookie with hardened defaults: `Secure`, `HttpOnly`,
+         * `SameSite=Lax`, `Path=/`.
+         *
+         * @param string $name
+         * @param string $value
+         */
+        public function __construct(string $name, string $value) {}
+
+        /**
+         * Builds the `Set-Cookie` header value, validating all invariants:
+         * `__Host-` (Secure, no Domain, Path=/), `__Secure-` (Secure),
+         * `SameSite=None` and `Partitioned` (Secure).
+         *
+         * @return string - `string`: e.g. `session=abc; Path=/; Secure; HttpOnly; SameSite=Lax`.
+         */
+        public function build(): string {}
+
+        /**
+         * Builds and sends the cookie via PHP's `header()` (without replacing
+         * previously sent cookies).
+         *
+         * @return void
+         */
+        public function send(): void {}
+
+        /**
+         * Sets the `Domain` attribute. Not allowed on `__Host-` cookies.
+         *
+         * @param string $domain
+         * @return void
+         */
+        public function setDomain(string $domain): void {}
+
+        /**
+         * Sets the `Expires` attribute from a unix timestamp.
+         *
+         * @param int $unix_timestamp
+         * @return void
+         */
+        public function setExpires(int $unix_timestamp): void {}
+
+        /**
+         * Enables or disables the `HttpOnly` attribute (default: enabled).
+         *
+         * @param bool $http_only
+         * @return void
+         */
+        public function setHttpOnly(bool $http_only): void {}
+
+        /**
+         * Sets the `Max-Age` attribute in seconds. `0` (or negative) tells the
+         * browser to delete the cookie.
+         *
+         * @param int $seconds
+         * @return void
+         */
+        public function setMaxAge(int $seconds): void {}
+
+        /**
+         * Enables the `Partitioned` attribute (CHIPS). Requires `Secure`.
+         *
+         * @param bool $partitioned
+         * @return void
+         */
+        public function setPartitioned(bool $partitioned): void {}
+
+        /**
+         * Sets the `Path` attribute (defaults to `/`).
+         *
+         * @param string $path
+         * @return void
+         */
+        public function setPath(string $path): void {}
+
+        /**
+         * Sets the `SameSite` attribute (defaults to `Lax`). `None` requires
+         * `Secure`, which is enforced at build time.
+         *
+         * @param "Strict" $same_site , `"Lax"`, or `"None"` (case-insensitive).
+         * @return void
+         */
+        public function setSameSite(string $same_site): void {}
+
+        /**
+         * Enables or disables the `Secure` attribute (default: enabled).
+         * Disabling it on a `__Host-`/`__Secure-` cookie or with
+         * `SameSite=None` makes `build()` throw.
+         *
+         * @param bool $secure
+         * @return void
+         */
+        public function setSecure(bool $secure): void {}
+
+        /**
+         * Replaces the cookie value.
+         *
+         * @param string $value
+         * @return void
+         */
+        public function setValue(string $value): void {}
+    }
+
+    /**
      * CSRF protection for your application.
      */
     class CsrfProtection {
@@ -115,6 +227,78 @@ namespace Hardened {
          * @return void - `void` on success.
          */
         public function verifyToken(string $token, ?string $cookie = null): void {}
+    }
+
+    /**
+     * Safe filenames for downloads and uploads.
+     *
+     * Client-supplied filenames are attacker input: path separators climb
+     * directories, control bytes and Unicode bidi overrides spoof what the user
+     * sees (`U+202E` makes `…cod.exe` display as `…exe.doc`), reserved Windows
+     * device names (`CON`, `NUL`, `COM1`) break file handling, trailing
+     * dots/spaces round-trip differently on Windows, and double extensions
+     * (`invoice.pdf.php`) turn an upload into code execution.
+     */
+    class Filename {
+        public function __construct() {}
+
+        /**
+         * Builds a safe `Content-Disposition` header value for a download:
+         * the filename is sanitized, an ASCII fallback goes into `filename=`,
+         * and non-ASCII names additionally get an RFC 5987 `filename*=` form.
+         *
+         * ```php
+         * header("Content-Disposition: " . Filename::contentDisposition($name));
+         * ```
+         *
+         * @param string $filename
+         * @param bool|null $inline
+         * @return string - `string`: The header value, e.g. `attachment; filename="report.pdf"`.
+         */
+        public static function contentDisposition(string $filename, ?bool $inline = null): string {}
+
+        /**
+         * Checks whether any extension in the chain (not just the last) is an
+         * executable/server-interpreted type: `invoice.pdf.php`, `shell.php.jpg`
+         * and `run.exe` all return `true`.
+         *
+         * @param string $filename
+         * @return bool - `bool`: `true` if a dangerous extension is present.
+         */
+        public static function hasDangerousExtension(string $filename): bool {}
+
+        /**
+         * Checks whether the filename has more than one extension
+         * (`invoice.pdf.exe`), a common social-engineering pattern.
+         *
+         * @param string $filename
+         * @return bool - `bool`: `true` if multiple extensions are present.
+         */
+        public static function hasDoubleExtension(string $filename): bool {}
+
+        /**
+         * Checks whether a filename is already safe: it survives `sanitize()`
+         * unchanged and carries no dangerous extension anywhere in its chain.
+         *
+         * @param string $filename
+         * @return bool - `bool`: `true` if the filename is safe as-is.
+         */
+        public static function isSafe(string $filename): bool {}
+
+        /**
+         * Sanitizes a client-supplied filename for safe storage and display.
+         *
+         * Keeps only the last path component; removes control bytes and
+         * invisible/bidi-override characters; replaces Windows-forbidden
+         * punctuation; strips leading/trailing dots and spaces; neutralizes
+         * reserved Windows device names; caps the length at 255 bytes. Returns
+         * `"file"` if nothing survives.
+         *
+         * @param string $filename
+         * @param string|null $replacement
+         * @return string - `string`: The sanitized filename.
+         */
+        public static function sanitize(string $filename, ?string $replacement = null): string {}
     }
 
     /**
@@ -812,6 +996,96 @@ namespace Hardened {
         public static function sanitizeUrl(string $url, array $allowed_hosts, ?string $fallback = null, ?bool $allow_subdomains = null): string {}
     }
 
+    /**
+     * Request-level cross-site request forgery guard built on browser-provided
+     * metadata: `Sec-Fetch-Site`, `Origin`, and `Referer`.
+     *
+     * Many real CSRF bypasses come from a hand-rolled Origin check with a hole
+     * in it (a forgotten dev domain, a prefix match, a null-origin pass).
+     * This guard implements the OWASP-recommended order: safe methods pass;
+     * `Sec-Fetch-Site` is honored when the browser sends it; otherwise the
+     * `Origin` (then `Referer`) must match the allowlist exactly — scheme,
+     * host, and port; a request with no usable headers is rejected by default.
+     *
+     * Defense in depth: combine with `Hardened\CsrfProtection` tokens rather
+     * than replacing them.
+     */
+    class RequestGuard {
+        /**
+         * Constructs a request guard.
+         *
+         * @param array $allowed_origins
+         */
+        public function __construct(array $allowed_origins) {}
+
+        /**
+         * Accepts state-changing requests that carry none of the checked
+         * headers. Off by default (strict); enable only if you must support
+         * non-browser clients on cookie-authenticated endpoints — better, give
+         * those clients token auth and keep this strict.
+         *
+         * @param bool $allow
+         * @return void
+         */
+        public function allowMissingHeaders(bool $allow): void {}
+
+        /**
+         * Accepts `Sec-Fetch-Site: same-site` requests (subdomains of your
+         * registrable domain). Off by default: a compromised or
+         * attacker-registered subdomain is a classic CSRF hole.
+         *
+         * @param bool $allow
+         * @return void
+         */
+        public function allowSameSite(bool $allow): void {}
+
+        /**
+         * Like `check()`, but throws a descriptive exception on rejection.
+         *
+         * @param string $method
+         * @param string|null $origin
+         * @param string|null $referer
+         * @param string|null $sec_fetch_site
+         * @return void
+         */
+        public function assert(string $method, ?string $origin = null, ?string $referer = null, ?string $sec_fetch_site = null): void {}
+
+        /**
+         * Like `checkServer()`, but throws a descriptive exception on rejection.
+         *
+         * @return void
+         */
+        public function assertServer(): void {}
+
+        /**
+         * Checks a request described by explicit values.
+         *
+         * @param string $method
+         * @param string|null $origin
+         * @param string|null $referer
+         * @param string|null $sec_fetch_site
+         * @return bool - `bool`: `true` if the request passes the policy.
+         */
+        public function check(string $method, ?string $origin = null, ?string $referer = null, ?string $sec_fetch_site = null): bool {}
+
+        /**
+         * Checks the current request using `$_SERVER` (`REQUEST_METHOD`,
+         * `HTTP_ORIGIN`, `HTTP_REFERER`, `HTTP_SEC_FETCH_SITE`).
+         *
+         * @return bool - `bool`: `true` if the request passes the policy.
+         */
+        public function checkServer(): bool {}
+
+        /**
+         * Replaces the set of methods that always pass (defaults to
+         * `GET`/`HEAD`/`OPTIONS`). Keep your safe methods side-effect free.
+         *
+         * @param array $methods
+         * @return void
+         */
+        public function setSafeMethods(array $methods): void {}
+    }
+
     class Rng {
         public function __construct() {}
 
@@ -918,6 +1192,49 @@ namespace Hardened {
          * @return array - `array[int; n]` — array of random values within bounds
          */
         public static function ints(int $n, int $low, int $high): array {}
+    }
+
+    /**
+     * Secret redactor for logs, error reports, and support dumps.
+     *
+     * Masks `Authorization`/`Cookie` header values, PEM private keys, JWTs,
+     * well-known provider tokens (AWS, GitHub, Slack, Stripe, Google), generic
+     * `password=`/`"api_key":` assignments, and Luhn-valid payment card numbers
+     * (PCI) — keeping the last four digits for correlation. Patterns are
+     * pluggable via `addPattern()`.
+     */
+    class SecretRedactor {
+        /**
+         * Constructs a redactor.
+         *
+         * @param bool|null $defaults
+         */
+        public function __construct(?bool $defaults = null) {}
+
+        /**
+         * Adds a custom redaction pattern, applied after the existing ones.
+         *
+         * @param string $pattern
+         * @param string|null $replacement
+         * @return void
+         */
+        public function addPattern(string $pattern, ?string $replacement = null): void {}
+
+        /**
+         * Redacts secrets from the given text.
+         *
+         * @param string $input
+         * @return string - `string`: The text with secrets masked.
+         */
+        public function redact(string $input): string {}
+
+        /**
+         * Enables or disables Luhn-aware card number masking (default: enabled).
+         *
+         * @param bool $redact
+         * @return void
+         */
+        public function setRedactCardNumbers(bool $redact): void {}
     }
 
     /**
@@ -1363,6 +1680,114 @@ namespace Hardened {
         public readonly int $retryAfterSec;
 
         public function __construct() {}
+    }
+
+    /**
+     * Unicode hardening for identifiers people read: usernames, display names,
+     * email local-parts, organization names.
+     *
+     * Homoglyph attacks register `pаypal` (Cyrillic `а`) next to `paypal`;
+     * zero-width characters make two distinct usernames render identically;
+     * mixed-script strings smuggle look-alikes past exact-match checks. These
+     * helpers implement UTS #39 (confusable skeletons, restriction levels,
+     * identifier profile) and NFKC/NFC normalization.
+     */
+    class Unicode {
+        public function __construct() {}
+
+        /**
+         * Checks whether two strings are visually confusable per UTS #39
+         * (equal skeletons). Case matters; lowercase both first for
+         * case-insensitive identifier checks.
+         *
+         * @param string $a
+         * @param string $b
+         * @return bool - `bool`: `true` if the strings look alike.
+         */
+        public static function confusable(string $a, string $b): bool {}
+
+        /**
+         * Checks whether the string contains invisible or reordering
+         * characters: zero-widths (U+200B–U+200F), bidi embedding/override
+         * (U+202A–U+202E) and isolate (U+2066–U+2069) controls, word joiner,
+         * BOM.
+         *
+         * @param string $input
+         * @return bool - `bool`: `true` if invisible characters are present.
+         */
+        public static function hasInvisibleCharacters(string $input): bool {}
+
+        /**
+         * Checks whether every character is allowed in identifiers by the
+         * UTS #39 General Security Profile (excludes deprecated, private-use,
+         * and purely-decorative characters).
+         *
+         * @param string $input
+         * @return bool - `bool`: `true` if all characters are identifier-safe.
+         */
+        public static function isIdentifierSafe(string $input): bool {}
+
+        /**
+         * Checks whether the string is written in a single Unicode script.
+         * Mixed-script identifiers (`раyраl` mixing Cyrillic and Latin) are the
+         * classic homoglyph-attack shape.
+         *
+         * @param string $input
+         * @return bool - `bool`: `true` if all characters resolve to one script.
+         */
+        public static function isSingleScript(string $input): bool {}
+
+        /**
+         * Applies NFC (canonical) normalization — the form to use for general
+         * text where compatibility folding would lose meaning.
+         *
+         * @param string $input
+         * @return string - `string`: The NFC-normalized string.
+         */
+        public static function nfc(string $input): string {}
+
+        /**
+         * Applies NFKC (compatibility) normalization. This is the right
+         * normalization before storing or comparing identifiers: it folds
+         * full-width letters, ligatures and font variants into their plain
+         * forms (`ｐａｙｐａｌ` → `paypal`, `ﬁ` → `fi`).
+         *
+         * @param string $input
+         * @return string - `string`: The NFKC-normalized string.
+         */
+        public static function nfkc(string $input): string {}
+
+        /**
+         * Returns the UTS #39 restriction level of the string, from strictest
+         * to loosest: `ascii-only`, `single-script`, `highly-restrictive`,
+         * `moderately-restrictive`, `minimally-restrictive`, `unrestricted`.
+         * A sane policy for usernames is to require at least
+         * `highly-restrictive`.
+         *
+         * @param string $input
+         * @return string - `string`: The restriction level name.
+         */
+        public static function restrictionLevel(string $input): string {}
+
+        /**
+         * Computes the UTS #39 confusable skeleton. Two strings whose skeletons
+         * are equal look alike to a human (`pаypal` with a Cyrillic `а` has the
+         * skeleton `paypal`). Store the skeleton of each username and enforce
+         * uniqueness on it, not on the raw string.
+         *
+         * @param string $input
+         * @return string - `string`: The confusable skeleton.
+         */
+        public static function skeleton(string $input): string {}
+
+        /**
+         * Removes invisible and reordering characters (see
+         * `hasInvisibleCharacters()`).
+         *
+         * @param string $input
+         * @return string - `string`: The string without invisible characters.
+         */
+        public static function stripInvisibleCharacters(string $input): string {}
     }
 
     /**

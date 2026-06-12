@@ -35,6 +35,16 @@ essential security utilities for PHP applications. It features the following cor
 - **Hardened\JwtVerifier** — hardened JWT verification: `alg: none` impossible, key type bound to the
   algorithm family (no HS/RS confusion), mandatory `exp`, `nbf`/`iat` validation. Using
   [jsonwebtoken](https://crates.io/crates/jsonwebtoken) crate.
+- **Hardened\Filename** — safe download/upload filenames: traversal, control bytes, Unicode bidi
+  spoofing (RLO), reserved Windows names, double extensions; `Content-Disposition` builder.
+- **Hardened\Cookie** — hardened `Set-Cookie` builder: `Secure`/`HttpOnly`/`SameSite=Lax` defaults,
+  RFC 6265 validation, `__Host-`/`__Secure-` prefix invariants enforced.
+- **Hardened\SecretRedactor** — masks tokens, `Authorization`/`Cookie` headers, private keys, JWTs,
+  and Luhn-valid card numbers in logs and error output; pluggable patterns.
+- **Hardened\RequestGuard** — request-level CSRF guard: `Sec-Fetch-Site` + exact-origin
+  `Origin`/`Referer` allowlist checks with strict defaults.
+- **Hardened\Unicode** — UTS #39 homoglyph/confusable detection, mixed-script and restriction-level
+  checks, NFKC/NFC normalization, invisible-character handling.
 
 As well as blazingly fast sanitizers:
 
@@ -102,7 +112,7 @@ For example, `cargo php install --release --yes --features rng, `
 
 | Feature              | Enables                                                                                                                                                                            |
 |----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **default**          | `mimalloc`, `shell_command`, `html_sanitizer`, `hostname` `path`, `rng`, `csrf`, `headers`, `ct`, `text`, `redirect`, `ssrf`, `password`, `rate_limiter`, `jwt`                                                       |
+| **default**          | `mimalloc`, `shell_command`, `html_sanitizer`, `hostname` `path`, `rng`, `csrf`, `headers`, `ct`, `text`, `redirect`, `ssrf`, `password`, `rate_limiter`, `jwt`, `filename`, `cookie`, `redact`, `request_guard`, `unicode`                                                       |
 | **mimalloc**         | Use [mimalloc](https://docs.rs/mimalloc/latest/mimalloc/index.html) allocator.                                                                                                     |
 | **shell\_command**   | Safe subprocess API & `Hardened\ShellCommand`                                                                                                                                      |
 | **html\_sanitizer**  | The `Hardened\Sanitizers\HtmlSanitizer` wrapper around [Ammonia](https://github.com/rust-ammonia/ammonia)                                                                          |
@@ -119,6 +129,11 @@ For example, `cargo php install --release --yes --features rng, `
 | **password**         | The `Hardened\Password` hashing utility (requires [`argon2`](https://docs.rs/argon2), [`bcrypt`](https://docs.rs/bcrypt))                                                          |
 | **rate\_limiter**    | The `Hardened\RateLimiter` token-bucket limiter                                                                                                                                    |
 | **jwt**              | The `Hardened\JwtVerifier` hardened JWT verification (requires [`jsonwebtoken`](https://docs.rs/jsonwebtoken), `serde_json`)                                                       |
+| **filename**         | The `Hardened\Filename` safe-filename utility                                                                                                                                      |
+| **cookie**           | The `Hardened\Cookie` hardened Set-Cookie builder                                                                                                                                  |
+| **redact**           | The `Hardened\SecretRedactor` log/error redactor (requires [`regex`](https://docs.rs/regex))                                                                                       |
+| **request\_guard**   | The `Hardened\RequestGuard` Origin/Sec-Fetch CSRF guard (requires `url`)                                                                                                           |
+| **unicode**          | The `Hardened\Unicode` UTS #39 homoglyph hardening (requires [`unicode-security`](https://docs.rs/unicode-security), [`unicode-normalization`](https://docs.rs/unicode-normalization)) |
 
 > On **macOS**, you may need to set the deployment target and link flags first:
 > ```bash
@@ -1132,6 +1147,154 @@ try {
 | `requireMaxAge(int $seconds): void`                                    | Reject tokens older than this; makes `iat` mandatory.        |
 | `setLeeway(int $seconds): void`                                        | Clock-skew tolerance for `exp`/`nbf`/`iat` (default 60).     |
 | `verify(string $token): array`                                         | Verify and return claims, or throw.                          |
+
+</details>
+
+### `Hardened\Filename`
+
+- Safe filenames for downloads and uploads: keeps only the last path component, removes control
+  bytes and invisible/bidi-override characters (U+202E RLO makes `…cod.exe` display as
+  `…exe.doc`), replaces Windows-forbidden punctuation, strips leading/trailing dots and spaces,
+  neutralizes reserved device names (`CON`, `NUL`, `COM1`…), caps length at 255 bytes.
+- Flags dangerous (`invoice.pdf.php`) and double (`invoice.pdf.exe`) extensions.
+- Builds safe `Content-Disposition` header values with an RFC 5987 `filename*` form for
+  non-ASCII names.
+- API Highlights:
+    - `Filename::sanitize(string $filename, ?string $replacement = "_"): string`.
+    - `Filename::isSafe(string $filename): bool` — survives sanitize unchanged, no dangerous extension.
+    - `Filename::hasDangerousExtension(string $filename): bool` — any extension in the chain.
+    - `Filename::hasDoubleExtension(string $filename): bool`.
+    - `Filename::contentDisposition(string $filename, ?bool $inline = false): string`.
+
+<details><summary>Example</summary>
+
+```php
+use Hardened\Filename;
+
+$name = Filename::sanitize($_FILES['doc']['name']);
+if (Filename::hasDangerousExtension($name)) {
+    http_response_code(415);
+    exit;
+}
+move_uploaded_file($_FILES['doc']['tmp_name'], "$dir/$name");
+
+header("Content-Disposition: " . Filename::contentDisposition($name));
+```
+
+</details>
+
+### `Hardened\Cookie`
+
+- `Set-Cookie` builder with hardened defaults you must explicitly opt out of: `Secure`,
+  `HttpOnly`, `SameSite=Lax`, `Path=/`.
+- RFC 6265 validation of names and values: header-splitting bytes are unrepresentable.
+- Enforced invariants at build time: `__Host-` (Secure, no Domain, `Path=/`), `__Secure-`
+  (Secure), `SameSite=None` and `Partitioned` require `Secure`.
+- API Highlights:
+    - `new Cookie(string $name, string $value)` — hardened defaults.
+    - `$cookie->setPath()`, `setDomain()`, `setMaxAge()`, `setExpires()`, `setSameSite()`,
+      `setSecure()`, `setHttpOnly()`, `setPartitioned()`, `setValue()`.
+    - `$cookie->build(): string` — validated header value.
+    - `$cookie->send(): void` — emits `Set-Cookie` without replacing other cookies.
+
+<details><summary>Example</summary>
+
+```php
+use Hardened\Cookie;
+
+$session = new Cookie("__Host-session", $sessionId);
+$session->setMaxAge(3600);
+$session->send();
+// Set-Cookie: __Host-session=...; Path=/; Max-Age=3600; Secure; HttpOnly; SameSite=Lax
+
+$broken = new Cookie("__Host-session", $sessionId);
+$broken->setDomain("example.com");
+$broken->build(); // throws: __Host- cookies must not set Domain
+```
+
+</details>
+
+### `Hardened\SecretRedactor`
+
+- Masks secrets in logs, exception traces and support dumps: `Authorization`/`Cookie` header
+  values, PEM private keys, JWTs, provider tokens (AWS, GitHub, Slack, Stripe, Google), generic
+  `password=`/`"api_key":` assignments.
+- Luhn-aware payment card masking (PCI): `4111 1111 1111 1111` → `**** **** **** 1111`;
+  Luhn-invalid digit runs are left alone.
+- Pluggable: add your own patterns with `addPattern()`.
+- API Highlights:
+    - `new SecretRedactor(?bool $defaults = true)`.
+    - `$redactor->redact(string $input): string`.
+    - `$redactor->addPattern(string $regex, ?string $replacement = "[REDACTED]"): void`.
+    - `$redactor->setRedactCardNumbers(bool $redact): void`.
+
+<details><summary>Example</summary>
+
+```php
+use Hardened\SecretRedactor;
+
+$redactor = new SecretRedactor();
+$redactor->addPattern('\binternal-[a-z0-9]+\b');
+
+error_log($redactor->redact($exception->getMessage()));
+// "Authorization: Bearer [REDACTED]" instead of the live token
+```
+
+</details>
+
+### `Hardened\RequestGuard`
+
+- Request-level CSRF guard from browser metadata, with the holes of hand-rolled checks closed:
+  exact origin matching (scheme + host + port — no prefix/subdomain surprises), the opaque
+  `null` origin never passes, header-less state-changing requests are rejected by default.
+- Check order: safe methods pass → `Sec-Fetch-Site` honored when present (`same-origin`/`none`
+  pass; `same-site` only if opted in) → `Origin` against the allowlist → `Referer` as last
+  resort.
+- Defense in depth: combine with `Hardened\CsrfProtection` tokens.
+- API Highlights:
+    - `new RequestGuard(array $allowedOrigins)` — e.g. `["https://app.example"]`.
+    - `$guard->check(string $method, ?string $origin, ?string $referer, ?string $secFetchSite): bool`.
+    - `$guard->assert(...): void` — throws naming the failed check.
+    - `$guard->checkServer(): bool` / `$guard->assertServer(): void` — read `$_SERVER` directly.
+    - `$guard->allowSameSite(bool)`, `$guard->allowMissingHeaders(bool)`, `$guard->setSafeMethods(array)`.
+
+<details><summary>Example</summary>
+
+```php
+use Hardened\RequestGuard;
+
+$guard = new RequestGuard(["https://app.example"]);
+$guard->assertServer(); // throws on cross-site state-changing requests
+```
+
+</details>
+
+### `Hardened\Unicode`
+
+- UTS #39 homoglyph hardening for identifiers people read: usernames, display names, email
+  local-parts.
+- Confusable skeletons (`pаypal` with Cyrillic `а` ⇒ skeleton `paypal` — enforce uniqueness on
+  skeletons, not raw strings), mixed-script detection, restriction levels, the General Security
+  Profile, NFKC/NFC normalization, and invisible/bidi character handling.
+- API Highlights:
+    - `Unicode::nfkc(string $s): string`, `Unicode::nfc(string $s): string`.
+    - `Unicode::skeleton(string $s): string`, `Unicode::confusable(string $a, string $b): bool`.
+    - `Unicode::isSingleScript(string $s): bool`, `Unicode::restrictionLevel(string $s): string`.
+    - `Unicode::hasInvisibleCharacters(string $s): bool`, `Unicode::stripInvisibleCharacters(string $s): string`.
+    - `Unicode::isIdentifierSafe(string $s): bool`.
+
+<details><summary>Example</summary>
+
+```php
+use Hardened\Unicode;
+
+$username = Unicode::nfkc($_POST['username']);
+if (Unicode::hasInvisibleCharacters($username) || !Unicode::isSingleScript($username)) {
+    throw new InvalidArgumentException("suspicious username");
+}
+// Enforce uniqueness on the skeleton so "pаypal" can't sit next to "paypal"
+$skeleton = Unicode::skeleton(mb_strtolower($username));
+```
 
 </details>
 
