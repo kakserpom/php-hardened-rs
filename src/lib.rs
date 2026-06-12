@@ -32,7 +32,7 @@ use crate::jwt::JwtVerifier;
 use crate::password::Password;
 use crate::path::PathObj;
 #[cfg(feature = "rate_limiter")]
-use crate::rate_limiter::RateLimiter;
+use crate::rate_limiter::{RateLimiter, ThrottleDecision};
 #[cfg(feature = "redirect")]
 use crate::redirect::Redirect;
 use crate::rng::Rng;
@@ -147,6 +147,7 @@ fn get_module(mut module: ModuleBuilder) -> ModuleBuilder {
     #[cfg(feature = "rate_limiter")]
     {
         module = module.class::<RateLimiter>();
+        module = module.class::<ThrottleDecision>();
     }
     #[cfg(feature = "jwt")]
     {

@@ -1027,8 +1027,9 @@ if (Password::verify($_POST['password'], $storedHash)) {
     - `$limiter->retryAfterMs(string $key, ?int $cost = 1): int` — `Retry-After` hint, non-consuming.
     - `$limiter->remaining(string $key): int`, `$limiter->reset(string $key): void`.
     - `$limiter->attemptStateful(?string $state, ?int $cost = 1): array` — `[allowed, newState, retryAfterMs]`.
-    - `$limiter->attemptClThrottle(string $key, callable $rawCommand, ?int $cost = 1): array` — one-call `CL.THROTTLE`.
-    - `$limiter->clThrottleCommand(string $key, ?int $cost = 1): array`, `RateLimiter::clThrottleParse(array $reply): array`.
+    - `$limiter->attemptClThrottle(string $key, callable $rawCommand, ?int $cost = 1): ThrottleDecision` — one-call `CL.THROTTLE`.
+    - `$limiter->clThrottleCommand(string $key, ?int $cost = 1): array`, `RateLimiter::clThrottleParse(array $reply): ThrottleDecision`.
+    - `Hardened\ThrottleDecision` — immutable decision object: `allowed`, `limit`, `remaining`, `retryAfterSec`, `resetAfterSec` properties (getter-backed, no setters).
 
 <details><summary>Example</summary>
 
@@ -1050,8 +1051,8 @@ apcu_store("rl:$ip", $state, 3600);
 
 // Or atomically on DragonflyDB / redis-cell via CL.THROTTLE (best option):
 $result = $limiter->attemptClThrottle("login:$ip", fn (...$cmd) => $redis->rawCommand(...$cmd));
-if (!$result['allowed']) {
-    header("Retry-After: " . $result['retryAfterSec']);
+if (!$result->allowed) {
+    header("Retry-After: " . $result->retryAfterSec);
     http_response_code(429);
     exit;
 }
@@ -1069,9 +1070,9 @@ if (!$result['allowed']) {
 | `remaining(string $key): int`                                       | Whole tokens currently available.                                 |
 | `reset(string $key): void`                                          | Restore the bucket for `$key` to full.                            |
 | `attemptStateful(?string $state, ?int $cost = 1): array`            | Stateless step: returns `[bool $allowed, string $state, int $retryAfterMs]`. |
-| `attemptClThrottle(string $key, callable $rawCommand, ?int $cost = 1): array` | Atomic `CL.THROTTLE` attempt through any Redis client; returns the decision array. |
+| `attemptClThrottle(string $key, callable $rawCommand, ?int $cost = 1): ThrottleDecision` | Atomic `CL.THROTTLE` attempt through any Redis client.   |
 | `clThrottleCommand(string $key, ?int $cost = 1): array`             | Build the `CL.THROTTLE` command for this limiter's config.        |
-| `clThrottleParse(array $reply): array` *(static)*                   | Parse a `CL.THROTTLE` reply into `{allowed, limit, remaining, retryAfterSec, resetAfterSec}`. |
+| `clThrottleParse(array $reply): ThrottleDecision` *(static)*        | Parse a `CL.THROTTLE` reply into a decision object.               |
 
 </details>
 

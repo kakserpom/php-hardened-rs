@@ -723,7 +723,7 @@ dependencies = [
  "cc",
  "cfg-if",
  "ext-php-rs-bindgen",
- "ext-php-rs-build",
+ "ext-php-rs-build 0.1.1 (git+https://github.com/extphprs/ext-php-rs.git?branch=master)",
  "ext-php-rs-derive",
  "inventory",
  "native-tls",
@@ -752,6 +752,15 @@ dependencies = [
  "rustc-hash",
  "shlex",
  "syn",
+]
+
+[[package]]
+name = "ext-php-rs-build"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "561bce8a6312a6182c078cd987d8d9cb6bf9292a35817cfd009ea0bffa794f5f"
+dependencies = [
+ "anyhow",
 ]
 
 [[package]]
@@ -1689,6 +1698,7 @@ dependencies = [
  "csrf",
  "data-encoding",
  "ext-php-rs",
+ "ext-php-rs-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "imagesize",
  "ipnet",
  "jsonwebtoken",

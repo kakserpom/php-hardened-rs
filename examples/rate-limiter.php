@@ -51,10 +51,19 @@ $result = $limiter->attemptClThrottle(
     "login:203.0.113.7",
     fn (...$cmd) => [0, 3, 2, -1, 60], // e.g. fn (...$cmd) => $redis->rawCommand(...$cmd)
 );
-var_dump($result['allowed'], $result['remaining'], $result['retryAfterSec']);
+var_dump($result->allowed, $result->remaining, $result->retryAfterSec);
 // bool(true)
 // int(2)
 // int(0)
-var_dump(RateLimiter::clThrottleParse([1, 3, 0, 42, 180]));
-// array(5) { ["allowed"]=> bool(false), ["limit"]=> int(3), ["remaining"]=> int(0),
-//            ["retryAfterSec"]=> int(42), ["resetAfterSec"]=> int(180) }
+
+$denied = RateLimiter::clThrottleParse([1, 3, 0, 42, 180]);
+var_dump($denied->allowed, $denied->retryAfterSec, $denied->resetAfterSec);
+// bool(false)
+// int(42)
+// int(180)
+try {
+    $denied->allowed = true; // ThrottleDecision is immutable: getters, no setters
+} catch (Exception $e) {
+    var_dump(str_contains($e->getMessage(), 'No setter'));
+    // bool(true)
+}

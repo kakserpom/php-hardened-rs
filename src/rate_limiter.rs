@@ -1,6 +1,6 @@
 use ext_php_rs::convert::{FromZval, IntoZval, IntoZvalDyn};
 use ext_php_rs::exception::PhpException;
-use ext_php_rs::types::{ZendCallable, ZendHashTable, Zval};
+use ext_php_rs::types::{ZendCallable, Zval};
 use ext_php_rs::zend::ce;
 use ext_php_rs::{php_class, php_impl};
 use std::collections::HashMap;
@@ -250,7 +250,12 @@ impl RateLimiter {
     }
 }
 
-struct ThrottleDecision {
+/// The outcome of a `CL.THROTTLE` attempt, as an immutable value object:
+/// the properties are getter-backed and have no setters, so PHP code cannot
+/// alter a decision after the fact.
+#[php_class]
+#[php(name = "Hardened\\ThrottleDecision")]
+pub struct ThrottleDecision {
     allowed: bool,
     limit: i64,
     remaining: i64,
@@ -258,27 +263,40 @@ struct ThrottleDecision {
     reset_after_sec: i64,
 }
 
+#[php_impl]
 impl ThrottleDecision {
-    fn into_zval(self) -> Result<Zval> {
-        let into = |err: ext_php_rs::error::Error| Error::Conversion(err.to_string());
-        let mut table = ZendHashTable::new();
-        let mut insert = |key, value: Zval| {
-            table
-                .insert(key, value)
-                .map_err(|e| Error::Conversion(e.to_string()))
-        };
-        insert("allowed", self.allowed.into_zval(false).map_err(into)?)?;
-        insert("limit", self.limit.into_zval(false).map_err(into)?)?;
-        insert("remaining", self.remaining.into_zval(false).map_err(into)?)?;
-        insert(
-            "retryAfterSec",
-            self.retry_after_sec.into_zval(false).map_err(into)?,
-        )?;
-        insert(
-            "resetAfterSec",
-            self.reset_after_sec.into_zval(false).map_err(into)?,
-        )?;
-        table.into_zval(false).map_err(into)
+    /// Whether the action is allowed.
+    #[php(getter)]
+    fn get_allowed(&self) -> bool {
+        self.allowed
+    }
+
+    /// The total limit of the key (`max_burst` + 1).
+    #[php(getter)]
+    fn get_limit(&self) -> i64 {
+        self.limit
+    }
+
+    /// The remaining limit of the key.
+    #[php(getter)]
+    fn get_remaining(&self) -> i64 {
+        self.remaining
+    }
+
+    /// Seconds until the action could succeed (`0` when allowed).
+    // The getter macro derives the PHP property name verbatim from the
+    // method identifier, so the camelCase lives in the Rust name.
+    #[php(getter)]
+    #[allow(non_snake_case)]
+    fn get_retryAfterSec(&self) -> i64 {
+        self.retry_after_sec
+    }
+
+    /// Seconds until the bucket refills to capacity.
+    #[php(getter)]
+    #[allow(non_snake_case)]
+    fn get_resetAfterSec(&self) -> i64 {
+        self.reset_after_sec
     }
 }
 
@@ -439,32 +457,33 @@ impl RateLimiter {
         self._cl_throttle_command(key, cost.unwrap_or(1))
     }
 
-    /// Parses a `CL.THROTTLE` reply (five integers) into a decision array.
+    /// Parses a `CL.THROTTLE` reply (five integers) into a decision object.
     ///
     /// # Parameters
     /// - `response`: The raw reply array from the server.
     ///
     /// # Returns
-    /// - `array{allowed: bool, limit: int, remaining: int, retryAfterSec: int,
-    ///   resetAfterSec: int}`: `retryAfterSec` is `0` when allowed.
+    /// - `ThrottleDecision`: readonly object with `allowed`, `limit`,
+    ///   `remaining`, `retryAfterSec` (`0` when allowed) and `resetAfterSec`
+    ///   properties.
     ///
     /// # Exceptions
     /// - Throws an exception if the reply is not five integers.
-    fn cl_throttle_parse(response: Vec<i64>) -> Result<Zval> {
-        Self::_cl_throttle_decision(&response)?.into_zval()
+    fn cl_throttle_parse(response: Vec<i64>) -> Result<ThrottleDecision> {
+        Self::_cl_throttle_decision(&response)
     }
 
     /// One-call `CL.THROTTLE` attempt through any PHP Redis client: the
     /// command is passed to `raw_command` as variadic string arguments, and
-    /// the reply is parsed into a decision array.
+    /// the reply is parsed into a decision object.
     ///
     /// ```php
     /// $result = $limiter->attemptClThrottle(
     ///     "login:$ip",
     ///     fn (...$cmd) => $redis->rawCommand(...$cmd), // phpredis
     /// );
-    /// if (!$result['allowed']) {
-    ///     header("Retry-After: " . $result['retryAfterSec']);
+    /// if (!$result->allowed) {
+    ///     header("Retry-After: " . $result->retryAfterSec);
     ///     http_response_code(429);
     /// }
     /// ```
@@ -476,8 +495,8 @@ impl RateLimiter {
     /// - `cost`: Tokens this attempt consumes (defaults to 1).
     ///
     /// # Returns
-    /// - `array{allowed: bool, limit: int, remaining: int, retryAfterSec: int,
-    ///   resetAfterSec: int}`.
+    /// - `ThrottleDecision`: readonly object with `allowed`, `limit`,
+    ///   `remaining`, `retryAfterSec` and `resetAfterSec` properties.
     ///
     /// # Exceptions
     /// - Throws an exception if the callable fails or the reply is not five
@@ -487,7 +506,7 @@ impl RateLimiter {
         key: &str,
         raw_command: ZendCallable,
         cost: Option<u64>,
-    ) -> Result<Zval> {
+    ) -> Result<ThrottleDecision> {
         let command = self._cl_throttle_command(key, cost.unwrap_or(1));
         let params: Vec<&dyn IntoZvalDyn> = command
             .iter()
@@ -499,7 +518,7 @@ impl RateLimiter {
         let response = Vec::<i64>::from_zval(&reply).ok_or_else(|| {
             Error::InvalidThrottleResponse("reply is not an array of integers".to_string())
         })?;
-        Self::_cl_throttle_decision(&response)?.into_zval()
+        Self::_cl_throttle_decision(&response)
     }
 }
 

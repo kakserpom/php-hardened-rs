@@ -658,15 +658,15 @@ namespace Hardened {
         /**
          * One-call `CL.THROTTLE` attempt through any PHP Redis client: the
          * command is passed to `raw_command` as variadic string arguments, and
-         * the reply is parsed into a decision array.
+         * the reply is parsed into a decision object.
          *
          * ```php
          * $result = $limiter->attemptClThrottle(
          *     "login:$ip",
          *     fn (...$cmd) => $redis->rawCommand(...$cmd), // phpredis
          * );
-         * if (!$result['allowed']) {
-         *     header("Retry-After: " . $result['retryAfterSec']);
+         * if (!$result->allowed) {
+         *     header("Retry-After: " . $result->retryAfterSec);
          *     http_response_code(429);
          * }
          * ```
@@ -674,9 +674,9 @@ namespace Hardened {
          * @param string $key
          * @param callable $raw_command
          * @param int|null $cost
-         * @return mixed - `array{allowed: bool, limit: int, remaining: int, retryAfterSec: int, resetAfterSec: int}`.
+         * @return \Hardened\ThrottleDecision - `ThrottleDecision`: readonly object with `allowed`, `limit`, `remaining`, `retryAfterSec` and `resetAfterSec` properties.
          */
-        public function attemptClThrottle(string $key, callable $raw_command, ?int $cost = null): mixed {}
+        public function attemptClThrottle(string $key, callable $raw_command, ?int $cost = null): \Hardened\ThrottleDecision {}
 
         /**
          * Attempts to consume tokens against an externally-stored state string,
@@ -713,12 +713,12 @@ namespace Hardened {
         public function clThrottleCommand(string $key, ?int $cost = null): array {}
 
         /**
-         * Parses a `CL.THROTTLE` reply (five integers) into a decision array.
+         * Parses a `CL.THROTTLE` reply (five integers) into a decision object.
          *
          * @param array $response
-         * @return mixed - `array{allowed: bool, limit: int, remaining: int, retryAfterSec: int, resetAfterSec: int}`: `retryAfterSec` is `0` when allowed.
+         * @return \Hardened\ThrottleDecision - `ThrottleDecision`: readonly object with `allowed`, `limit`, `remaining`, `retryAfterSec` (`0` when allowed) and `resetAfterSec` properties.
          */
-        public static function clThrottleParse(array $response): mixed {}
+        public static function clThrottleParse(array $response): \Hardened\ThrottleDecision {}
 
         /**
          * Returns the number of whole tokens currently available for `key`.
@@ -1319,6 +1319,50 @@ namespace Hardened {
          * @return string - `string`: The sanitized string.
          */
         public static function stripControls(string $input, ?string $keep = null): string {}
+    }
+
+    /**
+     * The outcome of a `CL.THROTTLE` attempt, as an immutable value object:
+     * the properties are getter-backed and have no setters, so PHP code cannot
+     * alter a decision after the fact.
+     */
+    class ThrottleDecision {
+        /**
+         * Whether the action is allowed.
+         *
+         * @var bool
+         */
+        public readonly bool $allowed;
+
+        /**
+         * The total limit of the key (`max_burst` + 1).
+         *
+         * @var int
+         */
+        public readonly int $limit;
+
+        /**
+         * The remaining limit of the key.
+         *
+         * @var int
+         */
+        public readonly int $remaining;
+
+        /**
+         * Seconds until the bucket refills to capacity.
+         *
+         * @var int
+         */
+        public readonly int $resetAfterSec;
+
+        /**
+         * Seconds until the action could succeed (`0` when allowed).
+         *
+         * @var int
+         */
+        public readonly int $retryAfterSec;
+
+        public function __construct() {}
     }
 
     /**
