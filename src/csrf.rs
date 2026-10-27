@@ -175,7 +175,7 @@ impl Csrf {
         if cookie.is_none() {
             cookie = ProcessGlobals::get()
                 .http_cookie_vars()
-                .get(self.cookie_name.as_str())
+                .and_then(|vars| vars.get(self.cookie_name.as_str()))
                 .and_then(Zval::string);
         }
 

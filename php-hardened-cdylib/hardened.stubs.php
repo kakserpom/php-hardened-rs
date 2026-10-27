@@ -1398,7 +1398,7 @@ namespace Hardened {
          * @param ?string $capture_stderr
          * @return int - `int` The process's exit code (`0` on success, `-1` if killed by signal or timed out).
          */
-        public function run(?string $capture_stdout = null, ?string $capture_stderr = null): int {}
+        public function run(string $capture_stdout, string $capture_stderr): int {}
 
         /**
          * @param string $command_line

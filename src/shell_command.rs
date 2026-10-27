@@ -1,7 +1,8 @@
 use crate::shell_command::PipeMode::{Callback, Ignore, Passthrough};
 use ext_php_rs::builders::ModuleBuilder;
+use ext_php_rs::convert::FromZvalMut;
 use ext_php_rs::exception::PhpException;
-use ext_php_rs::types::{ZendCallable, ZendClassObject, Zval};
+use ext_php_rs::types::{PhpRef, ZendCallable, ZendClassObject, Zval};
 use ext_php_rs::zend::ce;
 use ext_php_rs::{php_class, php_function, php_impl, wrap_function};
 use ext_php_rs::{
@@ -131,7 +132,7 @@ fn parse_php_arguments(
     } else {
         for (key, value) in arguments {
             match key {
-                ArrayKey::String(_) | ArrayKey::Str(_) => {
+                ArrayKey::String(_) | ArrayKey::Str(_) | ArrayKey::ZendString(_) => {
                     args.push(format!("--{key}"));
                 }
                 ArrayKey::Long(_) => {}
@@ -540,10 +541,10 @@ impl ShellCommand {
     /// enforces the configured timeout, and optionally captures output into PHP variables.
     ///
     /// # Parameters
-    /// - `capture_stdout`: `?string &$stdout`
-    ///   Optional reference to a PHP variable; if provided, the collected stdout will be written here.
-    /// - `capture_stderr`: `?string &$stderr`
-    ///   Optional reference to a PHP variable; if provided, the collected stderr will be written here.
+    /// - `capture_stdout`: `string &$stdout`
+    ///   Reference to a PHP variable; the collected stdout will be written here.
+    /// - `capture_stderr`: `string &$stderr`
+    ///   Reference to a PHP variable; the collected stderr will be written here.
     ///
     /// # Returns
     /// - `int`
@@ -553,13 +554,9 @@ impl ShellCommand {
     /// - Throws `Exception` if the process cannot be spawned.
     /// Runs the command, streaming both stdout and stderr live, with a timeout and
     /// selected environment variables passed through.
-    pub fn run(
-        &mut self,
-        mut capture_stdout: Option<&mut Zval>,
-        mut capture_stderr: Option<&mut Zval>,
-    ) -> Result<i64> {
-        let mut stdout_buf = capture_stdout.is_some().then(String::new);
-        let mut stderr_buf = capture_stderr.is_some().then(String::new);
+    pub fn run(&mut self, mut capture_stdout: PhpRef, mut capture_stderr: PhpRef) -> Result<i64> {
+        let mut stdout_buf = String::new();
+        let mut stderr_buf = String::new();
         let mut cmd = Command::new(&self.executable);
         cmd.args(&self.args);
         if let Some(inherit_env) = self.inherit_env.as_ref() {
@@ -653,9 +650,7 @@ impl ShellCommand {
                                     .map_err(|err| Error::CallbackError(err.to_string()))?;
                             }
                         }
-                        if let Some(s) = stdout_buf.as_mut() {
-                            s.push_str(&String::from_utf8_lossy(&buf[..n]));
-                        }
+                        stdout_buf.push_str(&String::from_utf8_lossy(&buf[..n]));
                     }
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
                     Err(e) => return Err(Error::IoError(e.to_string())),
@@ -677,9 +672,7 @@ impl ShellCommand {
                                     .map_err(|err| Error::CallbackError(err.to_string()))?;
                             }
                         }
-                        if let Some(s) = stderr_buf.as_mut() {
-                            s.push_str(&String::from_utf8_lossy(&buf[..n]));
-                        }
+                        stderr_buf.push_str(&String::from_utf8_lossy(&buf[..n]));
                     }
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
                     Err(e) => return Err(Error::IoError(e.to_string())),
@@ -697,17 +690,8 @@ impl ShellCommand {
 
         let status = child.wait().map_err(|e| Error::IoError(e.to_string()))?;
 
-        if let Some(zval) = capture_stderr.as_mut()
-            && let Some(buf) = stderr_buf
-        {
-            zval.set_string(buf.as_str(), false).unwrap();
-        }
-
-        if let Some(zval) = capture_stdout.as_mut()
-            && let Some(buf) = stdout_buf
-        {
-            zval.set_string(buf.as_str(), false).unwrap();
-        }
+        capture_stderr.set_string(&stderr_buf, false).unwrap();
+        capture_stdout.set_string(&stdout_buf, false).unwrap();
         Ok(status.code().unwrap_or(-1) as i64)
     }
 }
@@ -751,7 +735,10 @@ pub fn shell_exec(command: &str, expected_commands: Option<Vec<String>>) -> Resu
         }
     }
     let mut out = Zval::new();
-    let code = self_.run(Some(&mut out), None)?;
+    let mut err_unused = Zval::new();
+    let stdout_ref = PhpRef::from_zval_mut(&mut out).expect("PhpRef from owned zval");
+    let stderr_ref = PhpRef::from_zval_mut(&mut err_unused).expect("PhpRef from owned zval");
+    let code = self_.run(stdout_ref, stderr_ref)?;
     if code != 0 {
         out.set_string(code.to_string().as_str(), false).unwrap();
     }
@@ -801,7 +788,10 @@ pub fn safe_exec(executable: &str, arguments: Option<&ZendHashTable>) -> Result<
         parse_php_arguments(arguments, &mut command.args)?;
     }
     let mut out = Zval::new();
-    let code = command.run(Some(&mut out), None)?;
+    let mut err_unused = Zval::new();
+    let stdout_ref = PhpRef::from_zval_mut(&mut out).expect("PhpRef from owned zval");
+    let stderr_ref = PhpRef::from_zval_mut(&mut err_unused).expect("PhpRef from owned zval");
+    let code = command.run(stdout_ref, stderr_ref)?;
     if code != 0 {
         out.set_string(code.to_string().as_str(), false).unwrap();
     }

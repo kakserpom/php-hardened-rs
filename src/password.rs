@@ -1,5 +1,4 @@
-use argon2::password_hash::rand_core::OsRng;
-use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
+use argon2::password_hash::{PasswordHasher, PasswordVerifier, phc::PasswordHash};
 use argon2::{Algorithm, Argon2, Params, Version};
 use ext_php_rs::binary_slice::BinarySlice;
 use ext_php_rs::exception::PhpException;
@@ -84,9 +83,8 @@ impl Password {
         iterations: u32,
         parallelism: u32,
     ) -> Result<String> {
-        let salt = SaltString::generate(&mut OsRng);
         Ok(Self::_argon2(memory_kib, iterations, parallelism)?
-            .hash_password(password, &salt)
+            .hash_password(password)
             .map_err(|e| Error::HashFailed(e.to_string()))?
             .to_string())
     }
