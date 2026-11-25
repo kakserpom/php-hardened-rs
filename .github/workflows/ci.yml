@@ -8,7 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  BINDGEN_EXTRA_CLANG_ARGS: -march=x86-64
+  BINDGEN_EXTRA_CLANG_ARGS: -msse2
 
 jobs:
   check:
